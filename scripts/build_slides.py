@@ -378,33 +378,36 @@ class Deck:
 
         self.title_slide()
 
-        # 1) 2027 vs 2026 & 2025 planned
+        # 1) 2027 vs 2026 & 2025 planned  (lead with the H1 like-for-like)
+        h1 = ctx["h1_planned"]; h1_26 = float(h1.get(2026, 0)); h1_27 = float(h1.get(2027, 0))
         self.charts_bullets_slide(
             "2027 vs 2026 & 2025 - Planned Offline",
-            "US planned capacity offline (kbd); only planned is comparable vs 2027",
+            "US planned capacity offline (kbd); 2027 book complete through H1 only",
             [a["planned_xyear"]],
-            [f"2027 planned ~{kbd(pl27)} kbd: {pl27/pl26-1:+.0%} vs 2026 (~{kbd(pl26)}) but "
-             f"{pl27/pl25-1:+.0%} vs 2025 (~{kbd(pl25)}) - a step up from a light 2026.",
+            [f"H1 is the clean read: 2027 H1 planned ~{kbd(h1_27)} kbd vs 2026 H1 ~{kbd(h1_26)} "
+             f"({h1_27/h1_26-1:+.0%}) - a real, like-for-like step up.",
+             f"Full-year looks larger ({pl27/pl26-1:+.0%} vs 2026) only because 2026 H2 is light/incomplete; "
+             "don't over-read it - 2027 H2 is still being scheduled.",
              f"Gulf Coast leads the build: PADD 3 planned {ppct('PADD 3'):+.0%} y/y; "
-             f"PADD 1 {ppct('PADD 1'):+.0%} and PADD 4 {ppct('PADD 4'):+.0%} off small bases.",
-             f"PADD 2 is the only region lighter y/y ({ppct('PADD 2'):+.0%}); "
-             f"PADD 5 roughly flat ({ppct('PADD 5'):+.0%}).",
+             f"PADD 2 is the only region lighter ({ppct('PADD 2'):+.0%}).",
              "Work concentrates in spring (Mar-May) and autumn (Sep-Oct) - the usual turnaround windows.",
-             "Only planned is comparable vs 2027 (no actual unplanned-2027 exists); the unplanned outlook is next."])
+             "Only planned is comparable vs 2027 (no actual unplanned-2027 exists); the unplanned outlook is next."],
+            foot="2027 planned data is incomplete past H1 - compare H1-vs-H1; the full-year bar fills in as operators book H2.")
 
-        # 2) 2027 potential unplanned - forecast & scenario
+        # 2) 2027 potential unplanned - Conservative / Average / Active fan
+        fan = ctx["scenario_fan"]
+        cons = float(fan["Conservative"].sum()); avg = float(fan["Average"].sum()); act = float(fan["Active"].sum())
         self.charts_bullets_slide(
-            "2027 Potential Unplanned - Forecast & Scenario",
-            "Driver-based forecast built off the historical monthly shape",
-            [a["scenario"]],
-            [f"Baseline scenario (2022-25 window, neutral dials): ~{kbd(sc['annual_unplanned'])} kbd "
-             f"unplanned on top of {kbd(sc['planned_2027'])} planned -> ~{kbd(sc['implied_total'])} kbd implied total.",
-             f"Historical range over the window: P25 ~{kbd(sb['p25'])} / P50 ~{kbd(sb['p50'])} / "
-             f"P90 ~{kbd(sb['p90'])} kbd unplanned.",
-             f"The unplanned-rate multiplier is the dominant swing; +/-30% moves the forecast by "
-             f"~+/-{kbd(sc['annual_unplanned']*0.3)} kbd.",
+            "2027 Potential Unplanned - Scenario Fan",
+            "Conservative / Average / Active paths off the 2022-25 seasonal baseline",
+            [a["fan"]],
+            [f"Average case ~{kbd(avg)} kbd unplanned; Conservative ~{kbd(cons)} (calm year, x0.8), "
+             f"Active ~{kbd(act)} (heavy year, x1.3).",
+             f"On top of {kbd(sc['planned_2027'])} kbd booked planned, that's an implied total of "
+             f"~{kbd(cons+sc['planned_2027'])} / ~{kbd(avg+sc['planned_2027'])} / ~{kbd(act+sc['planned_2027'])} kbd.",
+             f"Active vs Conservative spans ~{kbd(act-cons)} kbd ({act/cons-1:+.0%}) - the unplanned risk range to hedge.",
              "Risk peaks in Feb (winter freeze) and Sep-Oct (turnaround overlap), with a summer trough.",
-             "Fully tunable in the Excel Model sheet - window, growth, multiplier, one-off and stress month."])
+             "Fully tunable in the Excel Scenario Analysis sheet - window, growth, multiplier, one-off and stress month."])
 
         # 3) back-to-back-to-back FCC
         self.charts_bullets_slide(

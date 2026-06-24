@@ -434,7 +434,8 @@ def mogas_annual_chart(ctx, path):
 
 
 def planned_cross_year(ctx, path):
-    """US planned offline by month: 2027 (bars) vs 2026 & 2025 (lines)."""
+    """US planned offline by month: 2027 (bars) vs 2026 & 2025 (lines), with an
+    H1 | H2 divider because the 2027 book is only complete (booked) through H1."""
     mp = ctx["monthly_planned"]
     fig, ax = plt.subplots(figsize=(10, 4.7))
     x = np.arange(12)
@@ -444,12 +445,20 @@ def planned_cross_year(ctx, path):
         if yr in mp.index:
             ax.plot(x, [mp.loc[yr, m] for m in MONTHS], color=c, lw=2.4, marker="o", ms=3.5,
                     label=f"{yr} Planned" + ("*" if yr in engine.PARTIAL_YEARS else ""))
+    # mark the H1 / H2 boundary: 2027 H2 is still filling in -> read H1 for like-for-like
+    ax.axvline(5.5, color=GRAY, ls=":", lw=1.4, zorder=2)
+    ymax = ax.get_ylim()[1]
+    ax.text(2.5, ymax * 0.97, "H1 (complete)", ha="center", va="top", fontsize=9, color=GRAY)
+    ax.text(8.5, ymax * 0.97, "H2 2027 incomplete*", ha="center", va="top", fontsize=9,
+            color=RED, style="italic")
     ax.set_xticks(x, MONTHS)
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd")
     ax.set_title("US Planned Offline by Month - 2027 vs 2026 & 2025 (kbd)")
-    ax.legend(frameon=False, ncol=3, loc="upper right")
+    ax.legend(frameon=False, ncol=3, loc="upper left")
     _clean(ax)
+    fig.text(0.5, 0.005, "*2027 planned book is complete through H1; H2 still being scheduled - "
+             "compare H1-vs-H1 for a like-for-like read.", ha="center", fontsize=8, color=GRAY)
     return _save(fig, path)
 
 
