@@ -168,29 +168,41 @@ class Deck:
             y += Inches(spacing if not sub else spacing - 0.06)
         return y
 
+    def _dotgrid(self, s, x0, y0, cols, rows, step, color, d=Pt(5)):
+        for r in range(rows):
+            for c in range(cols):
+                shp = s.shapes.add_shape(MSO_SHAPE.OVAL, int(x0 + c * step), int(y0 + r * step), d, d)
+                shp.fill.solid(); shp.fill.fore_color.rgb = color
+                shp.line.fill.background(); shp.shadow.inherit = False
+
     # ----------------------------------------------------------------- slides
     def title_slide(self):
         s = self._slide()
         self._rect(s, 0, 0, SW, SH, NAVY)
-        self._rect(s, 0, Inches(1.05), SW, Inches(0.02), NAVY2)
-        self._rect(s, 0, Inches(3.05), SW, Pt(2.5), GOLD)
-        self._text(s, Inches(0.7), Inches(0.45), Inches(8), Inches(0.4),
-                   [(self.asof, 13, False, LT_BLUE)])
+        # textured right panel + halftone dots (evokes the reference cover)
+        self._rect(s, Inches(8.3), 0, SW - Inches(8.3), SH, RGBColor(0x24, 0x40, 0x70))
+        self._dotgrid(s, Inches(8.65), Inches(0.5), 10, 14, Inches(0.45), RGBColor(0x3C, 0x5A, 0x90))
+        # date + thin rule (top-left)
+        self._text(s, Inches(0.7), Inches(0.5), Inches(6), Inches(0.4), [(self.asof, 14, False, LT_BLUE)])
+        self._rect(s, Inches(0.72), Inches(1.04), Inches(6.6), Pt(1.2), RGBColor(0x4A, 0x66, 0x99))
         # brand top-right
         if BRAND_LOGO and os.path.exists(BRAND_LOGO):
-            s.shapes.add_picture(BRAND_LOGO, Inches(10.3), Inches(0.4), height=Inches(0.5))
+            s.shapes.add_picture(BRAND_LOGO, Inches(10.5), Inches(0.45), height=Inches(0.5))
         else:
-            self._text(s, Inches(9.3), Inches(0.4), Inches(3.5), Inches(0.5),
-                       [(BRAND_TEXT, 18, True, WHITE)], align=PP_ALIGN.RIGHT,
-                       anchor=MSO_ANCHOR.MIDDLE)
-        self._text(s, Inches(0.7), Inches(3.35), Inches(11.8), Inches(1.6),
-                   [("Refinery Outage Analytics", 40, False, WHITE),
-                    ("Weekly Gasoline / Mogas Meeting", 26, False, LT_BLUE)], sa=8)
+            self._text(s, Inches(9.0), Inches(0.45), Inches(3.8), Inches(0.5),
+                       [(BRAND_TEXT, 18, True, WHITE)], align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+        # title block (lower-left, two lines like the reference)
+        self._text(s, Inches(0.7), Inches(3.0), Inches(7.6), Inches(0.4),
+                   [("Products Trading", 20, False, LT_BLUE)])
+        self._text(s, Inches(0.68), Inches(3.5), Inches(8.0), Inches(1.7),
+                   [("Refinery Outage &", 38, True, WHITE),
+                    ("2027 Turnaround Outlook", 38, True, WHITE)], sa=2)
+        self._rect(s, Inches(0.72), Inches(5.45), Inches(2.8), Pt(2.5), GOLD)
         d = self.ctx["diag"]
-        self._text(s, Inches(0.72), Inches(5.5), Inches(11), Inches(0.4),
+        self._text(s, Inches(0.72), Inches(5.65), Inches(7.4), Inches(0.4),
                    [(f"Capacity offline (kbd) - planned & unplanned - 2027 scenario   |   "
-                     f"{d['rows']:,} rows, {d['years'][0]}-{d['years'][1]}", 12, False, LT_BLUE)])
-        self._text(s, Inches(11.4), Inches(7.0), Inches(1.7), Inches(0.3),
+                     f"{d['rows']:,} rows, {d['years'][0]}-{d['years'][1]}", 11.5, False, LT_BLUE)])
+        self._text(s, Inches(11.3), Inches(7.0), Inches(1.85), Inches(0.3),
                    [("PROPRIETARY", 9, False, LT_BLUE)], align=PP_ALIGN.RIGHT)
 
     def exec_summary(self):
@@ -320,109 +332,115 @@ class Deck:
         self._bullets(s, Inches(0.5), Inches(1.5), Inches(12.3), notes, size=12.5, spacing=0.66,
                       head=None)
 
+    def _padd_highlight(self, p, pct):
+        ta = self.ctx["ta_2027"][p]
+        if len(ta):
+            big = ta.sort_values("kbd", ascending=False).iloc[0]
+            mon = engine.MONTHS[int(big["start"].month) - 1]
+            dirn = "up" if (pct or 0) > 0.05 else ("down" if (pct or 0) < -0.05 else "roughly flat")
+            return (f"Highlight: {str(big['plant']).replace(' Refinery','')} "
+                    f"({str(big['unit_cat']).title()}, {mon}) is the largest single 2027 turnaround "
+                    f"at ~{kbd(big['kbd'])} kbd; the region's planned book is {dirn} y/y.")
+        return "Highlight: a light planned year for the region."
+
+    def _padd_slide(self, p):
+        pp = self.ctx["padd_planned"]
+        v26 = float(pp.loc[p, 2026]); v27 = float(pp.loc[p, 2027])
+        pct = (v27 / v26 - 1) if v26 else None
+        ta = self.ctx["ta_2027"][p]
+        bullets = [f"2027 planned offline ~{kbd(v27)} kbd vs ~{kbd(v26)} in 2026"
+                   + (f"  ({pct:+.0%} y/y)." if pct is not None else ".")]
+        bullets.append("Main 2027 turnarounds (largest by offline kbd):")
+        for _, r in ta.sort_values("kbd", ascending=False).head(3).iterrows():
+            mon = engine.MONTHS[int(r["start"].month) - 1]
+            bullets.append(f"- {str(r['plant']).replace(' Refinery','')} - "
+                           f"{str(r['unit_cat']).title()} (~{kbd(r['kbd'])} kbd, {mon})")
+        bullets.append(self._padd_highlight(p, pct))
+        self.charts_bullets_slide(
+            f"{p} - 2027 Planned Outlook",
+            "Planned offline 2027 vs 2026, and the main turnarounds for next year",
+            [self.a["padd_pl"][p]], bullets)
+
     def build(self):
         a = self.a
         ctx = self.ctx
         sm = ctx["summary"]
-        ly = max(y for y in sm.index if y not in engine.PARTIAL_YEARS and sm.loc[y, "Unplanned"] > 0)
-        share = ctx["padd_share"]
+        pp = ctx["padd_planned"]
         sc = ctx["scenario"]
-        sp = ctx["scenario_padd"]
-        _, yoy = ctx["padd_unpl_yoy"]
-        un25 = ctx["unit_share"][2025].sort_values(ascending=False)
+        sb = ctx["scenario_bands"]
         fcc = ctx["fcc_exxon"]
-        peak_yr = max((y for y in sm.index if 2014 <= y <= 2025), key=lambda y: sm.loc[y, "Total"])
+        ex = ctx["exxon_2027"]
+        pl27 = float(sm.loc[2027, "Planned"]); pl26 = float(sm.loc[2026, "Planned"]); pl25 = float(sm.loc[2025, "Planned"])
+
+        def ppct(p):
+            v26 = float(pp.loc[p, 2026]); v27 = float(pp.loc[p, 2027])
+            return (v27 / v26 - 1) if v26 else 0.0
 
         self.title_slide()
-        self.exec_summary()
 
-        self.grid4_slide(
-            "US Overview", "Capacity offline - levels, mix and momentum",
-            [a["annual"], a["padd_clustered"], a["padd_donut"], a["yoy_month"]],
-            [f"Offline peaked in {peak_yr} (2020-21 outliers excluded from baselines); "
-             f"FY{ly} ran ~50/50 planned/unplanned.",
-             f"PADD 3 ~{share['PADD 3']:.0%} of unplanned; PADD 5 the most volatile "
-             f"({yoy.loc['PADD 5',2025]:+.0%} in 2025 on California events)."])
-
+        # 1) 2027 vs 2026 & 2025 planned
         self.charts_bullets_slide(
-            "Seasonality & Monthly Change",
-            "Unplanned offline - range band, recent years and YoY% by month",
-            [a["season_band"], a["yoy_month"]],
-            ["Unplanned offline clusters in Feb (freeze) and the Sep-Oct turnaround window, "
-             "with a clear summer trough.",
-             "The grey band is the 2022-25 monthly range; recent years ride near the top of "
-             "the band in Q1.",
-             "YoY% by month (lower chart) shows where each year diverged - e.g. a heavier Feb "
-             "in some years, lighter spring in others.",
-             "This monthly shape - not a flat annual number - is what drives the 2027 scenario."],
-            foot="Range band = monthly min-max across 2022-2025. Partial years (2026/27) flagged.")
+            "2027 vs 2026 & 2025 - Planned Offline",
+            "US planned capacity offline (kbd); only planned is comparable vs 2027",
+            [a["planned_xyear"]],
+            [f"2027 planned ~{kbd(pl27)} kbd: {pl27/pl26-1:+.0%} vs 2026 (~{kbd(pl26)}) but "
+             f"{pl27/pl25-1:+.0%} vs 2025 (~{kbd(pl25)}) - a step up from a light 2026.",
+             f"Gulf Coast leads the build: PADD 3 planned {ppct('PADD 3'):+.0%} y/y; "
+             f"PADD 1 {ppct('PADD 1'):+.0%} and PADD 4 {ppct('PADD 4'):+.0%} off small bases.",
+             f"PADD 2 is the only region lighter y/y ({ppct('PADD 2'):+.0%}); "
+             f"PADD 5 roughly flat ({ppct('PADD 5'):+.0%}).",
+             "Work concentrates in spring (Mar-May) and autumn (Sep-Oct) - the usual turnaround windows.",
+             "Only planned is comparable vs 2027 (no actual unplanned-2027 exists); the unplanned outlook is next."])
 
+        # 2) 2027 potential unplanned - forecast & scenario
         self.charts_bullets_slide(
-            "PADD 3 - Planned & Unplanned Offline",
-            "2026 plan + unplanned (bars) vs 2023-25 totals and 2027 plan (lines)",
-            [a["padd3"]],
-            ["PADD 3 (Gulf Coast) is the single largest source of offline capacity and unplanned "
-             "risk in the US.",
-             "Gold/orange bars = 2026 booked plan and unplanned; lines = prior-year totals; dashed "
-             "green = 2027 plan.",
-             f"Carries ~{share['PADD 3']:.0%} of US unplanned offline over the baseline window.",
-             "Heavy Q1-Q2 activity, consistent with Gulf Coast spring turnaround timing.",
-             "Magnitudes share one axis with the other PADDs - honest scale."])
+            "2027 Potential Unplanned - Forecast & Scenario",
+            "Driver-based forecast built off the historical monthly shape",
+            [a["scenario"]],
+            [f"Baseline scenario (2022-25 window, neutral dials): ~{kbd(sc['annual_unplanned'])} kbd "
+             f"unplanned on top of {kbd(sc['planned_2027'])} planned -> ~{kbd(sc['implied_total'])} kbd implied total.",
+             f"Historical range over the window: P25 ~{kbd(sb['p25'])} / P50 ~{kbd(sb['p50'])} / "
+             f"P90 ~{kbd(sb['p90'])} kbd unplanned.",
+             f"The unplanned-rate multiplier is the dominant swing; +/-30% moves the forecast by "
+             f"~+/-{kbd(sc['annual_unplanned']*0.3)} kbd.",
+             "Risk peaks in Feb (winter freeze) and Sep-Oct (turnaround overlap), with a summer trough.",
+             "Fully tunable in the Excel Model sheet - window, growth, multiplier, one-off and stress month."])
 
+        # 3) back-to-back-to-back FCC
         self.charts_bullets_slide(
-            "PADD 2 & PADD 5 - Planned & Unplanned Offline",
-            "The next two watch regions", [a["padd2"], a["padd5"]],
-            [f"PADD 2 (Midwest) ~{share['PADD 2']:.0%} of unplanned offline; swings with refinery "
-             "turnaround cycles.",
-             f"PADD 5 (West Coast) ~{share['PADD 5']:.0%}, but the most volatile - the 2025 "
-             "California spike is clear in the red total line.",
-             "- Joliet (PADD 2) shows the recurring Q1-Q2 FCC clustering covered next.",
-             "- PADD 5 tightness leaves little slack when an unplanned event hits.",
-             "2027 plan (dashed green) is the only forward-booked series."])
+            "Back-to-Back-to-Back FCC Outages - ExxonMobil",
+            "Consecutive-month FCC (cat cracker) runs external trackers miss", [a["fcc"]],
+            ["This granular book captures repeated FCC outages in adjacent months at the same Exxon "
+             "plant - genuine back-to-back-to-back runs.",
+             "Baton Rouge ran Jan-Jun 2022 (6 months); Joliet Feb-Jun 2026 (5); Baytown Jan-Mar 2023; "
+             "Joliet Feb-May 2025.",
+             "Month-aggregated external trackers smooth these into one figure and lose the consecutive-run signal.",
+             f"{len(fcc)} such Exxon FCC runs (>=3 consecutive months) since 2011 - a recurring, model-able pattern.",
+             "FCC is the most gasoline-relevant unit loss (0.65 mogas yield) - octane/blending risk stacks."],
+            foot="Runs outlined are >=3 consecutive calendar months of FCC outage at one plant; 2020 excluded.")
 
-        # FCC back-to-back
+        # 4) Exxon 2027 breakdown
+        by_ref = ex["by_ref"]; by_unit = ex["by_unit"]; tot = ex["total"] or 1.0
+        jol = float(by_ref.get("Joliet Refinery", 0))
+        crude = float(by_unit.get("ATMOS DISTILLATION", 0) + by_unit.get("VACUUM DISTILLATION", 0))
+        others = [(str(r).replace(" Refinery", ""), float(v)) for r, v in by_ref.items()
+                  if r != "Joliet Refinery"][:3]
+        others_txt = ", ".join(f"{r} ~{kbd(v)}" for r, v in others)
         self.charts_bullets_slide(
-            "Back-to-Back FCC Outages - ExxonMobil",
-            "Consecutive-month FCC runs external trackers miss", [a["fcc"]],
-            ["This granular export captures repeated FCC (cat cracker) outages in adjacent months "
-             "at the same Exxon plant.",
-             "Baton Rouge ran Jan-Jun 2022; Baytown Jan-Mar 2023; Joliet Feb-May 2025 and Feb-Jun "
-             "2026 - classic Q1-Q2 turnaround clustering.",
-             "Month-aggregated external data smooths these into one figure and loses the back-to-back "
-             "signal.",
-             f"{len(fcc)} such Exxon FCC runs (>=3 months) since 2011 - a recurring, model-able "
-             "pattern.",
-             "FCC offline is the most gasoline-relevant unit loss (0.65 mogas yield)."],
-            foot="Back-to-back = consecutive calendar months of FCC outage at one plant within a year; 2020 excluded.")
+            "ExxonMobil - 2027 Outages Breakdown",
+            "2027 is planned-only; this is Exxon's booked turnaround slate", [a["exxon27"]],
+            [f"ExxonMobil has ~{kbd(tot)} kbd of planned offline booked for 2027 across "
+             f"{len(by_ref)} refineries.",
+             f"Joliet (PADD 2) dominates at ~{kbd(jol)} kbd (~{jol/tot:.0%}) - a major spring "
+             "(Apr-May) turnaround including the FCC.",
+             f"{others_txt} kbd round out the slate.",
+             f"By unit: crude trains ~{kbd(crude)} (atmos+vac), FCC ~{kbd(by_unit.get('FLUID CAT CRACKING',0))}, "
+             f"hydrotreating ~{kbd(by_unit.get('HYDROTREATING',0))} kbd.",
+             "Calendar: heaviest in April with a second wave in Sep-Oct - watch the Joliet spring event."])
 
-        # TA schedule tables per PADD
-        for padd, label in [("PADD 3", "PADD 3"), ("PADD 2", "PADD 2"), ("PADD 5", "PADD 5")]:
-            df = ctx["ta_schedule"][padd]
-            if len(df):
-                self.ta_table_slide(
-                    f"{label} 2026 Planned TAs", df,
-                    note="One row per outage/unit. % of PADD = offline kbd / PADD total planned offline. "
-                         "Source: Snowflake export.")
-
-        self.grid4_slide(
-            "Units & Mogas", "Where the offline capacity sits, and the gasoline read-through",
-            [a["units"], a["mogas"], a["scenario"], a["scenario_padd"]],
-            [f"Crude trains (~{(un25.get('ATMOS DISTILLATION',0)+un25.get('VACUUM DISTILLATION',0)):.0%}), "
-             f"hydrotreating (~{un25.get('HYDROTREATING',0):.0%}) and FCC (~{un25.get('FLUID CAT CRACKING',0):.0%}) "
-             "lead; FCC/reforming drive mogas exposure.",
-             f"2027 scenario ~{kbd(sc['annual_unplanned'])} kbd unplanned (PADD 3 ~{kbd(sp['PADD 3']['annual'])}, "
-             f"PADD 2 ~{kbd(sp['PADD 2']['annual'])}, PADD 5 ~{kbd(sp['PADD 5']['annual'])})."])
-
-        # Sensitivity
-        torn_top = ctx["tornado"][0]["driver"].split(" (")[0]
-        s = self._section("Sensitivity & Risk", "How the 2027 unplanned forecast flexes")
-        self._pic_fit(s, a["heatmap"], Inches(0.4), Inches(1.35), Inches(6.5), Inches(4.2), center="both")
-        self._pic_fit(s, a["tornado"], Inches(7.05), Inches(1.55), Inches(5.9), Inches(3.6), center="both")
-        self._bullets(s, Inches(0.5), Inches(5.75), Inches(12.3), [
-            f"Base case {kbd(sc['annual_unplanned'])} kbd outlined; grid spans -10%..+15% growth x "
-            f"0.7..1.5x rate -> ~{kbd(sc['annual_unplanned']*0.7)}-{kbd(sc['annual_unplanned']*1.5*1.15)} kbd.",
-            f"The unplanned-rate multiplier is the dominant driver ({torn_top}); baseline-window "
-            "choice is second."], size=11, spacing=0.32, head=None)
+        # 5) per-PADD planned 2027 vs 2026 + highlights
+        for p in engine.PADD_ORDER:
+            self._padd_slide(p)
 
         self.method_slide()
 

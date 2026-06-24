@@ -425,6 +425,65 @@ def mogas_annual_chart(ctx, path):
     return _save(fig, path)
 
 
+def planned_cross_year(ctx, path):
+    """US planned offline by month: 2027 (bars) vs 2026 & 2025 (lines)."""
+    mp = ctx["monthly_planned"]
+    fig, ax = plt.subplots(figsize=(10, 4.7))
+    x = np.arange(12)
+    v27 = [mp.loc[2027, m] if 2027 in mp.index else 0.0 for m in MONTHS]
+    ax.bar(x, v27, color=GOLD, label="2027 Planned", zorder=3, width=0.62)
+    for yr, c in [(2026, BLUE), (2025, RED)]:
+        if yr in mp.index:
+            ax.plot(x, [mp.loc[yr, m] for m in MONTHS], color=c, lw=2.4, marker="o", ms=3.5,
+                    label=f"{yr} Planned" + ("*" if yr in engine.PARTIAL_YEARS else ""))
+    ax.set_xticks(x, MONTHS)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title("US Planned Offline by Month - 2027 vs 2026 & 2025 (kbd)")
+    ax.legend(frameon=False, ncol=3, loc="upper right")
+    _clean(ax)
+    return _save(fig, path)
+
+
+def exxon_2027_chart(ctx, path):
+    """ExxonMobil 2027 planned offline by month, stacked by refinery."""
+    ex = ctx["exxon_2027"]
+    fig, ax = plt.subplots(figsize=(9.6, 4.6))
+    x = np.arange(12)
+    bottom = np.zeros(12)
+    cols = [NAVY, BLUE, GOLD, GREEN, ORANGE, GRAY]
+    for i, ref in enumerate(ex["refs"][:6]):
+        vals = np.array(ex["month_ref"][ref])
+        ax.bar(x, vals, bottom=bottom, color=cols[i % len(cols)],
+               label=ref.replace(" Refinery", ""), zorder=3)
+        bottom += vals
+    ax.set_xticks(x, MONTHS)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title("ExxonMobil 2027 Planned Offline by Month & Refinery (kbd)")
+    ax.legend(frameon=False, ncol=4, loc="upper center", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def padd_planned_27v26(ctx, padd, path):
+    """One PADD: planned offline by month, 2027 (bars) vs 2026 (line)."""
+    pm = ctx["padd_month"][padd]["planned"]
+    fig, ax = plt.subplots(figsize=(7.0, 4.0))
+    x = np.arange(12)
+    v27 = [pm.loc[2027, m] if 2027 in pm.index else 0.0 for m in MONTHS]
+    v26 = [pm.loc[2026, m] if 2026 in pm.index else 0.0 for m in MONTHS]
+    ax.bar(x, v27, color=GOLD, label="2027 Planned", zorder=3, width=0.62)
+    ax.plot(x, v26, color=BLUE, lw=2.4, marker="o", ms=3.5, label="2026 Planned")
+    ax.set_xticks(x, [m[0] for m in MONTHS])
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title(f"{padd} Planned Offline - 2027 vs 2026 (kbd)")
+    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -450,6 +509,9 @@ def render_all(ctx, outdir):
         "padd1": padd_combo(ctx, "PADD 1", p("padd1.png")),
         "padd2": padd_combo(ctx, "PADD 2", p("padd2.png")),
         "padd5": padd_combo(ctx, "PADD 5", p("padd5.png")),
+        "planned_xyear": planned_cross_year(ctx, p("planned_xyear.png")),
+        "exxon27": exxon_2027_chart(ctx, p("exxon27.png")),
+        "padd_pl": {pd: padd_planned_27v26(ctx, pd, p(f"padd_pl_{pd[-1]}.png")) for pd in PADDS},
     }
     return out
 

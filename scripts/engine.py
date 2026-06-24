@@ -685,6 +685,21 @@ def scenario_bands(df, window_key=DEFAULT_WINDOW):
             "p90": float(np.percentile(annuals, 90)), "mean": float(np.mean(annuals))}
 
 
+def exxon_2027_breakdown(df, operator_contains="EXXON", year=2027):
+    """Breakdown of a single operator's planned outages for one year (default
+    ExxonMobil 2027): offline kbd by refinery, by unit, and a refinery x month
+    matrix for a stacked chart. 2027 is planned-only, so this is the booked book."""
+    sub = df[df["operator"].astype(str).str.upper().str.contains(operator_contains.upper(), na=False)
+             & df["year"].eq(year) & df["type"].eq("PLANNED")]
+    by_ref = sub.groupby("plant")["cap_kbd"].sum().sort_values(ascending=False)
+    by_unit = sub.groupby("unit_cat")["cap_kbd"].sum().sort_values(ascending=False)
+    refs = by_ref.index.tolist()
+    month_ref = {str(r): [float(sub[(sub["plant"].eq(r)) & (sub["month"].eq(m))]["cap_kbd"].sum())
+                          for m in range(1, 13)] for r in refs}
+    return {"by_ref": by_ref, "by_unit": by_unit, "month_ref": month_ref,
+            "refs": [str(r) for r in refs], "total": float(sub["cap_kbd"].sum())}
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -733,6 +748,8 @@ def build_context(path):
         "naphtha": naphtha_analysis(df),
         "top_movers": top_movers(df),
         "scenario_bands": scenario_bands(df),
+        "exxon_2027": exxon_2027_breakdown(df),
+        "ta_2027": {p: turnaround_schedule(df, 2027, padd=p, top=8) for p in PADD_ORDER},
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),
