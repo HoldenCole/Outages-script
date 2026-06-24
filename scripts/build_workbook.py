@@ -161,7 +161,24 @@ class Build:
             ws.set_landscape()
             ws.set_paper(1)
             ws.fit_to_pages(1, 0)
-        ws.set_margins(0.3, 0.3, 0.35, 0.35)
+            ws.repeat_rows(0, 2)            # title block repeats on every printed page
+        ws.set_margins(0.3, 0.3, 0.4, 0.45)
+        ws.center_horizontally()
+        ws.set_footer('&L&8Refinery Outage Model  -  &A&C&8&D&R&8Page &P of &N')
+
+    _TIP_FMT = {"visible": False, "width": 200, "height": 90, "author": "Model",
+                "color": "#FFF8E6", "font_size": 9}
+
+    def _tip(self, ws, r, c, text):
+        """Hover-tooltip (Excel comment) - the 'what is this?' helper."""
+        ws.write_comment(r, c, text, self._TIP_FMT)
+
+    def _yoy_icons(self, ws, r0, c0, r1, c1):
+        """Grey up/flat/down arrows on a YoY% grid - direction at a glance."""
+        ws.conditional_format(r0, c0, r1, c1, {
+            "type": "icon_set", "icon_style": "3_arrows_gray", "icons": [
+                {"criteria": ">=", "type": "number", "value": 0.02},
+                {"criteria": ">=", "type": "number", "value": -0.02}]})
 
     def _band(self, ws, r, c0, c1, text, fmt="h_navy"):
         ws.merge_range(r, c0, r, c1, text, self.f[fmt])
@@ -304,6 +321,7 @@ class Build:
             ws.conditional_format(grid_first, 2, r - 1, 13,
                                   {"type": "3_color_scale", "min_color": "#63BE7B",
                                    "mid_color": WHITE, "max_color": "#F8696B"})
+            self._yoy_icons(ws, grid_first, 2, r - 1, 13)
             r += 1
         return r
 
@@ -341,21 +359,39 @@ class Build:
         keys = D["keys"]
         SHEET = "Explorer"
         r = self._band(ws, r, 1, 14, title, band)
-        # control row: Select | Type | Measure (all dropdowns)
+        # control row: Select | Type | Measure (dropdowns with hover tips + click prompts)
         ws.write(r, 1, "Select", self.f["in_lab"])
+        self._tip(ws, r, 1, "Choose a PADD (or 'Total US' for the whole country) or a unit "
+                            "category (or 'All Units'). Everything below updates instantly.")
         ws.merge_range(r, 2, r, 3, default_key, self.f["in_val"])
-        ws.data_validation(r, 2, r, 2, {"validate": "list", "source": keys})
+        ws.data_validation(r, 2, r, 2, {"validate": "list", "source": keys,
+                           "input_title": "Pick what to view",
+                           "input_message": "The monthly grid, the YoY% and the chart all recompute."})
         ws.write(r, 4, "Type", self.f["in_lab"])
         ws.merge_range(r, 5, r, 6, "Unplanned", self.f["in_val"])
-        ws.data_validation(r, 5, r, 5, {"validate": "list", "source": ["All", "Planned", "Unplanned"]})
+        ws.data_validation(r, 5, r, 5, {"validate": "list", "source": ["All", "Planned", "Unplanned"],
+                           "input_title": "Outage type",
+                           "input_message": "All = planned + unplanned. Unplanned = the surprise/risk piece."})
         ws.write(r, 7, "Measure", self.f["in_lab"])
+        self._tip(ws, r, 7, "Capacity = total barrels/day offline. Mogas-eq = the gasoline-equivalent "
+                            "(capacity x each unit's mogas yield).")
         ws.merge_range(r, 8, r, 10, "Capacity (kbd)", self.f["in_val"])
-        ws.data_validation(r, 8, r, 8, {"validate": "list", "source": ["Capacity (kbd)", "Mogas-eq (kbd)"]})
+        ws.data_validation(r, 8, r, 8, {"validate": "list", "source": ["Capacity (kbd)", "Mogas-eq (kbd)"],
+                           "input_title": "Measure",
+                           "input_message": "Switch between total capacity offline and gasoline-equivalent."})
         ws.write(r, 12, "Sel. 2025 total:", self.f["note_b"])
         key_cell = A1(r, 2, row_abs=True, col_abs=True)
         type_cell = A1(r, 5, row_abs=True, col_abs=True)
         meas_cell = A1(r, 8, row_abs=True, col_abs=True)
         kpi_row = r
+        r += 1
+        # live "Showing:" echo so you always know the active slice
+        echo = self.wb.add_format({"font_name": "Arial", "bold": True, "font_color": NAVY,
+                                   "bg_color": LT_BLUE, "align": "left", "indent": 1})
+        ws.merge_range(r, 1, r, 14, "", echo)
+        ws.write_formula(r, 1,
+                         f'="▶  Showing:   "&{key_cell}&"   ·   "&{type_cell}&"   ·   "&{meas_cell}'
+                         f'&"      (monthly kbd by year - hover a yellow cell for tips)"', echo)
         r += 1
 
         def sumifs(year_cell, j):
@@ -398,6 +434,7 @@ class Build:
         ws.conditional_format(yoy_first, 2, r - 1, 13,
                               {"type": "3_color_scale", "min_color": "#63BE7B",
                                "mid_color": WHITE, "max_color": "#F8696B"})
+        self._yoy_icons(ws, yoy_first, 2, r - 1, 13)
         # KPI formula now that grid exists (selected 2025 total)
         row2025 = lvl_first + DISP_YEARS.index(2025)
         ws.write_formula(kpi_row, 13, f"={A1(row2025,14)}", self.f["calc_b"])
@@ -433,6 +470,14 @@ class Build:
         ws.merge_range("B3:O3",
                        "Pick a PADD or unit and a type from the yellow dropdowns - the grids, the "
                        "month-by-month YoY% and the chart all recompute live.", self.f["subtitle"])
+        # Quick-Start callout
+        qs = self.wb.add_format({"font_name": "Arial", "font_size": 9.5, "bold": True,
+                                 "font_color": "#7F6000", "bg_color": YELLOW, "align": "left",
+                                 "indent": 1, "border": 1, "border_color": "#BF8F00"})
+        ws.merge_range(3, 1, 3, 14,
+                       "Quick start:  1) pick a Select  2) pick a Type  3) pick a Measure "
+                       "(Capacity or Mogas)  ->  the grid, the YoY% arrows and the chart update. "
+                       "Hover any yellow cell for a tip.", qs)
         r = 5
         r = self._explorer_panel(ws, r, "padd", "View by PADD", "h_green", "Total US")
         r += 1
@@ -513,22 +558,38 @@ class Build:
                        self.f["subtitle"])
         padd_un = self.ctx["padd_unplanned"]
         top_padd = padd_un[ly].idxmax()
-        tiles = [("Total Offline", float(s.loc[ly, "Total"]), "kbd", f"FY{ly}"),
-                 ("Unplanned", float(s.loc[ly, "Unplanned"]), "kbd", f"FY{ly}"),
-                 ("Unplanned %", float(s.loc[ly, "Unpl%"]), "pct", "of total"),
-                 ("Distinct Outages", int(s.loc[ly, "Events"]), "kbd", f"FY{ly}"),
-                 ("Top PADD", top_padd, "txt", "by unplanned")]
+        tiles = [("Total Offline", float(s.loc[ly, "Total"]), "kbd", f"FY{ly}",
+                  "Total capacity offline (planned + unplanned), thousand bbl/day, all units."),
+                 ("Unplanned", float(s.loc[ly, "Unplanned"]), "kbd", f"FY{ly}",
+                  "Unplanned (incl. UNKNOWN) capacity offline - the surprise/risk piece."),
+                 ("Unplanned %", float(s.loc[ly, "Unpl%"]), "pct", "of total",
+                  "Unplanned as a share of total offline. ~50% in recent years."),
+                 ("Distinct Outages", int(s.loc[ly, "Events"]), "kbd", f"FY{ly}",
+                  "Count of distinct OUTAGE_IDs (one event can span many unit-months)."),
+                 ("Top PADD", top_padd, "txt", "by unplanned",
+                  "PADD with the most unplanned offline this year. Click 'Jump to PADD' below.")]
         col = 1
-        for lab, val, kind, sub in tiles:
+        for lab, val, kind, sub, tip in tiles:
             ws.merge_range(4, col, 4, col + 2, lab, self.f["kpi_lab"])
+            self._tip(ws, 4, col, tip)
             fmt = {"pct": "kpi_pct", "txt": "kpi_txt"}.get(kind, "kpi_num")
             ws.merge_range(5, col, 6, col + 2, val, self.f[fmt])
             ws.merge_range(7, col, 7, col + 2, sub, self.f["kpi_sub"])
             col += 3
         ws.set_row(5, 22); ws.set_row(6, 10)
+        # one-click cross-navigation
+        ws.write(8, 1, "Jump to:", self.f["note_b"])
+        jl = self.wb.add_format({"font_name": "Arial", "font_color": BLUE, "underline": 1,
+                                 "bold": True, "align": "center", "bg_color": LT_BLUE,
+                                 "border": 1, "border_color": "#9DC3E6"})
+        for k, name in enumerate(["Explorer", "Trends", "PADD", "Units & Refineries",
+                                  "Events & TAs", "Model"]):
+            ws.merge_range(8, 2 + k * 2, 8, 3 + k * 2, name, jl)
+            ws.write_url(8, 2 + k * 2, f"internal:'{name}'!A1", jl, name)
+        ws.set_row(8, 18)
 
         # data block (compact, just below the charts area)
-        d0 = 26
+        d0 = 28
         ws.write(d0 - 1, 1, "Chart data (kbd)", self.f["note_b"])
         years = [y for y in s.index if 2016 <= y <= 2027]
         ws.write(d0, 1, "Year", self.f["colhdr_l"])
@@ -547,7 +608,7 @@ class Build:
         stack.set_title({"name": "Capacity Offline by Year (Planned + Unplanned)"})
         stack.set_y_axis({"name": "kbd"}); stack.set_legend({"position": "bottom"})
         stack.set_size({"width": 520, "height": 290}); stack.set_chartarea({"border": {"none": True}})
-        ws.insert_chart("B9", stack)
+        ws.insert_chart("B11", stack)
 
         rec = [y for y in [2022, 2023, 2024, 2025] if y in padd_un.columns]
         p0 = d0 + n + 2
@@ -567,7 +628,7 @@ class Build:
         clu.set_title({"name": "Unplanned Offline by PADD"})
         clu.set_y_axis({"name": "kbd"}); clu.set_legend({"position": "bottom"})
         clu.set_size({"width": 520, "height": 290}); clu.set_chartarea({"border": {"none": True}})
-        ws.insert_chart("J9", clu)
+        ws.insert_chart("J11", clu)
 
         sh0 = p0 + 8
         for i, p in enumerate(PADDS):
@@ -582,7 +643,7 @@ class Build:
         donut.set_title({"name": f"Unplanned Share by PADD ({ly})"})
         donut.set_legend({"position": "right"}); donut.set_hole_size(55)
         donut.set_size({"width": 430, "height": 290}); donut.set_chartarea({"border": {"none": True}})
-        ws.insert_chart("B25", donut)
+        ws.insert_chart("B27", donut)
         # seasonality band-ish: unplanned by month recent years
         mu = self.ctx["monthly_unplanned"]
         m0 = sh0
@@ -602,8 +663,8 @@ class Build:
         ln.set_title({"name": "Unplanned Seasonality (kbd by month)"})
         ln.set_legend({"position": "bottom"})
         ln.set_size({"width": 430, "height": 290}); ln.set_chartarea({"border": {"none": True}})
-        ws.insert_chart("J25", ln)
-        ws.freeze_panes(8, 0)
+        ws.insert_chart("J27", ln)
+        ws.freeze_panes(10, 0)
 
     # ===================================================================== TRENDS
     def trends(self):
@@ -996,12 +1057,25 @@ class Build:
         r = self._band(ws, r, 1, 4, "Scenario Inputs", "h_orange")
         inrow = {}
         ws.write(r, 1, "Baseline window", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, engine.DEFAULT_WINDOW, self.f["in_val"])
-        ws.data_validation(r, 2, r, 2, {"validate": "list", "source": windows}); inrow["window"] = r; r += 1
-        ws.write(r, 1, "Production growth %", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, 0.0, self.f["in_pct"]); inrow["growth"] = r; r += 1
-        ws.write(r, 1, "Unplanned multiplier", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, 1.0, self.f["in_mult"]); inrow["mult"] = r; r += 1
-        ws.write(r, 1, "One-off event (kbd)", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, 0, self.f["in_kbd"]); inrow["oneoff"] = r; r += 1
+        ws.data_validation(r, 2, r, 2, {"validate": "list", "source": windows,
+                           "input_title": "Baseline window",
+                           "input_message": "History that sets the seasonal baseline (2020-21 excluded)."})
+        self._tip(ws, r, 1, "The years used to build the 2027 seasonal baseline - drives the whole cascade.")
+        inrow["window"] = r; r += 1
+        ws.write(r, 1, "Production growth %", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, 0.0, self.f["in_pct"])
+        self._tip(ws, r, 1, "Scales the baseline up/down for runs growth. Enter e.g. 5% as 0.05.")
+        inrow["growth"] = r; r += 1
+        ws.write(r, 1, "Unplanned multiplier", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, 1.0, self.f["in_mult"])
+        self._tip(ws, r, 1, "The risk dial: 1.0 = normal, 1.3 = a heavier unplanned year, 0.7 = calmer.")
+        inrow["mult"] = r; r += 1
+        ws.write(r, 1, "One-off event (kbd)", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, 0, self.f["in_kbd"])
+        self._tip(ws, r, 1, "Add a discrete shock (kbd) to the stress month below - e.g. a hurricane.")
+        inrow["oneoff"] = r; r += 1
         ws.write(r, 1, "Stress month", self.f["in_lab"]); ws.merge_range(r, 2, r, 4, "Sep", self.f["in_val"])
-        ws.data_validation(r, 2, r, 2, {"validate": "list", "source": MONTHS}); inrow["stress"] = r; r += 1
+        ws.data_validation(r, 2, r, 2, {"validate": "list", "source": MONTHS,
+                           "input_title": "Stress month",
+                           "input_message": "Which month the one-off shock above lands in."})
+        inrow["stress"] = r; r += 1
         c_w = A1(inrow["window"], 2, row_abs=True, col_abs=True)
         c_g = A1(inrow["growth"], 2, row_abs=True, col_abs=True)
         c_m = A1(inrow["mult"], 2, row_abs=True, col_abs=True)

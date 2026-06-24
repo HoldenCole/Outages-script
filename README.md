@@ -104,6 +104,12 @@ Events & TAs · Model`
 Every sheet has a **Home** link and a data-vintage stamp. The build is
 re-runnable and idempotent.
 
+**Quality-of-life touches:** hover tooltips on metric headers and inputs;
+helper prompts when you click a dropdown; ▲▼ direction arrows on the YoY%
+grids; a live "Showing: …" echo of the active Explorer slice; one-click
+"Jump to" cross-navigation on the Dashboard; a Quick-Start callout; and
+print-ready setup (repeating title rows, page/date footers, fit-to-width).
+
 ### Deck (`outage_deck.pptx`)
 
 Styled to a sell-side "weekly meeting" template: a navy title slide, white
