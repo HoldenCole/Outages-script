@@ -24,7 +24,7 @@ import build_slides
 import build_dashboard
 
 _ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
-DEFAULT_INPUT = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
 DEFAULT_OUTDIR = str(_ROOT / "output")
 
 

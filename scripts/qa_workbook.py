@@ -18,7 +18,7 @@ from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries, get_column_letter
 
 WB = str(_ROOT / "output" / "outage_workbook.xlsx")
-ctx = engine.build_context(str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx"))
+ctx = engine.build_context(str(_ROOT / "data" / "Refinery_Outages_Data.xlsx"))
 wb = load_workbook(WB)
 MONTHS = engine.MONTHS
 PADDS = engine.PADD_ORDER

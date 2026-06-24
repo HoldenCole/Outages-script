@@ -2,7 +2,7 @@
 engine.py
 Reusable aggregation core for the refinery-outage analysis suite.
 
-Turns the raw Snowflake export (rEFINERY oUTAGES.xlsx / Query1) into clean,
+Turns the raw Snowflake export (Refinery_Outages_Data.xlsx / Query1) into clean,
 analysis-ready frames, pivots and a single `build_context()` bundle. Every
 downstream deliverable -- the Excel workbook, the PowerPoint deck and the HTML
 dashboard -- is built on top of what this module returns, so a data refresh
@@ -859,6 +859,6 @@ if __name__ == "__main__":
     import json
     import sys
     from pathlib import Path
-    default = str(Path(__file__).resolve().parent.parent / "data" / "rEFINERY oUTAGES.xlsx")
+    default = str(Path(__file__).resolve().parent.parent / "data" / "Refinery_Outages_Data.xlsx")
     df = load(sys.argv[1] if len(sys.argv) > 1 else default)
     print(json.dumps(diagnostics(df), indent=2, default=str))

@@ -29,7 +29,7 @@ pip install -r requirements.txt
 python scripts/build_all.py
 ```
 
-That reads `data/rEFINERY oUTAGES.xlsx` and writes the three deliverables to
+That reads `data/Refinery_Outages_Data.xlsx` and writes the three deliverables to
 `output/`. Paths resolve relative to the repo root, so it works from any
 directory. Point at a different export or output folder with
 `python scripts/build_all.py path/to/export.xlsx --outdir somewhere/`.
@@ -43,7 +43,7 @@ python scripts/build_dashboard.py           # -> output/outage_dashboard.html
 ```
 
 Each takes an optional input path and `--out`; with no args it uses
-`data/rEFINERY oUTAGES.xlsx`. Leading/trailing whitespace in the path and sheet
+`data/Refinery_Outages_Data.xlsx`. Leading/trailing whitespace in the path and sheet
 name is stripped automatically.
 
 ---
@@ -59,7 +59,7 @@ name is stripped automatically.
 │   ├── build_slides.py      PowerPoint deck (python-pptx)
 │   ├── build_dashboard.py   self-contained HTML dashboard (Chart.js inlined)
 │   └── build_all.py         orchestrator — loads once, builds all three
-├── data/         live input: rEFINERY oUTAGES.xlsx
+├── data/         live input: Refinery_Outages_Data.xlsx
 ├── output/       generated deliverables (.xlsx / .pptx / .html)
 ├── reference/    example workbook, gasoline-weekly PDF, Yields.txt
 ├── docs/         CLAUDE_CODE_BUILD_SPEC.md, "What good output looks like"

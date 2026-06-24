@@ -25,7 +25,7 @@ from pathlib import Path
 import engine
 
 _ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
-INPUT_PATH = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_dashboard.html")
 CHARTJS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
 

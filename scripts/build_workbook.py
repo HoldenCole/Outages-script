@@ -28,7 +28,7 @@ from xlsxwriter.utility import (xl_rowcol_to_cell as A1, xl_range_abs, xl_range,
 import engine
 
 _ROOT = Path(__file__).resolve().parent.parent
-INPUT_PATH = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_workbook.xlsx")
 
 # --------------------------------------------------------------------------- palette
