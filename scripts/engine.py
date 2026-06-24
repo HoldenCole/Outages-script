@@ -757,24 +757,33 @@ def scenario_fan(df, window_key=DEFAULT_WINDOW, lo=0.8, hi=1.3):
 
 def completed_unplanned(df, years=(2024, 2025, 2026, 2027)):
     """Monthly unplanned per year for charts, with the forecast filled in where
-    actuals don't exist: 2027 is all scenario forecast (was zero), and 2026's
-    tail (after the last real month) is forecast. Returns
+    the actuals are clearly incomplete (data still trickling in for the current
+    partial year) instead of left at zero. A planned-only year (2027) is all
+    forecast; a complete year keeps all 12 actuals. Returns
     {year: {'vals':[12], 'fc_from': first_forecast_month_idx}}."""
     mu = monthly_by_year(df, type_filter="UNPLANNED")
     fc = scenario_forecast(df)["monthly_unplanned"]
     out = {}
     for y in years:
-        if y not in mu.index or y == 2027:
+        if y not in mu.index or y in PLANNED_ONLY_YEARS:
             out[y] = {"vals": [float(fc[m]) for m in MONTHS], "fc_from": 0}
             continue
         row = [float(mu.loc[y, m]) for m in MONTHS]
-        if y == 2026:
-            last = max([i for i, v in enumerate(row) if v > 10], default=11)
-            for i in range(last + 1, 12):
-                row[i] = float(fc[MONTHS[i]])
-            out[y] = {"vals": row, "fc_from": last + 1}
-        else:
-            out[y] = {"vals": row, "fc_from": 12}
+        cut = 11   # default: every month is a real actual (complete year)
+        pos = sorted(v for v in row if v > 0)
+        if y in PARTIAL_YEARS and pos:
+            # walk back from December; the incomplete tail is the trailing run of
+            # months sitting well below this year's own typical month (40% of the
+            # median positive month). The last month at/above that line is real.
+            thresh = 0.4 * pos[len(pos) // 2]
+            cut = -1
+            for i in range(11, -1, -1):
+                if row[i] >= thresh:
+                    cut = i
+                    break
+        for i in range(cut + 1, 12):
+            row[i] = float(fc[MONTHS[i]])
+        out[y] = {"vals": row, "fc_from": cut + 1}
     return out
 
 

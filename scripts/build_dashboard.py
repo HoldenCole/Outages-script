@@ -100,6 +100,19 @@ def build_data(ctx):
     actuals = {str(yr): [float(mu.loc[yr, m]) if yr in mu.index else 0.0 for m in engine.MONTHS]
                for yr in (2024, 2025)}
 
+    # forward-looking series: H1 like-for-like, the scenario fan, and the
+    # forecast-filled unplanned paths (so 2026/27 carry the forecast, not zero)
+    h1 = {int(y): float(v) for y, v in ctx["h1_planned"].items() if 2024 <= int(y) <= 2027}
+    fan = ctx["scenario_fan"]
+    fan_out = {"conservative": float(fan["Conservative"].sum()),
+               "average": float(fan["Average"].sum()),
+               "active": float(fan["Active"].sum()),
+               "monthly": {k.lower(): [float(fan[k][m]) for m in engine.MONTHS]
+                           for k in ("Conservative", "Average", "Active")}}
+    cu = ctx["completed_unplanned"]
+    completed = {str(y): {"vals": [float(v) for v in cu[y]["vals"]], "fc_from": int(cu[y]["fc_from"])}
+                 for y in (2024, 2025, 2026, 2027) if y in cu}
+
     fcc = [{"plant": c["plant"].replace(" Refinery", ""), "padd": c["padd"],
             "year": c["year"], "span": c["span"], "n": c["n"],
             "kbd": round(c["kbd"]), "unpl": c["unpl_share"]}
@@ -151,6 +164,9 @@ def build_data(ctx):
         "ta": ta,
         "monthly": monthly,
         "padd_monthly": padd_monthly,
+        "h1_planned": h1,
+        "fan": fan_out,
+        "completed_unplanned": completed,
         "scenario": {
             "windows": list(engine.BASELINE_WINDOWS.keys()),
             "default_window": engine.DEFAULT_WINDOW,
@@ -184,6 +200,16 @@ header .sub{color:var(--ltblue);font-size:12.5px;margin-top:3px}
 .kpi .lab{background:var(--blue);color:#fff;font-size:11.5px;font-weight:bold;text-align:center;padding:6px 4px}
 .kpi .val{background:var(--ltblue);color:var(--navy);font-size:26px;font-weight:bold;text-align:center;padding:12px 4px}
 .kpi .sub{color:var(--gray);font-size:10.5px;font-style:italic;text-align:center;padding:4px;background:var(--ltblue)}
+.kpi .sub.up{color:#1d6f33;font-style:normal;font-weight:bold}
+.kpi .sub.down{color:#b3261e;font-style:normal;font-weight:bold}
+.outlook{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.ocard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:8px;padding:11px 15px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.ocard .ot{font-size:11.5px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.3px}
+.ocard .ov{font-size:21px;font-weight:bold;color:var(--navy);margin-top:3px}
+.ocard .od{font-size:12px;margin-top:2px}
+.ocard .od.up{color:#1d6f33;font-weight:bold}.ocard .od.down{color:#b3261e;font-weight:bold}
+.ocard .on{font-size:10.5px;color:var(--gray);font-style:italic;margin-top:4px}
+@media(max-width:980px){.outlook{grid-template-columns:1fr}}
 .controls{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;gap:22px;flex-wrap:wrap;align-items:center}
 .controls label{font-size:12px;font-weight:bold;color:var(--navy);margin-right:6px}
 .controls select{font-size:13px;padding:5px 8px;border:1px solid #c8d0dc;border-radius:5px;background:#fff}
@@ -224,7 +250,14 @@ table.alloc td:first-child{text-align:left}
   <div class="sub" id="subline"></div>
 </header>
 <div class="wrap">
+  <div class="controls" style="margin-bottom:12px">
+    <div><label>Focus year (KPIs vs prior year)</label>
+      <select id="focusYear"></select></div>
+    <div style="color:var(--gray);font-size:11.5px;font-style:italic">KPI tiles below show the focus year and its change vs the previous year - pick any year.</div>
+  </div>
   <div class="kpis" id="kpis"></div>
+
+  <div class="outlook" id="outlook"></div>
 
   <div class="controls">
     <div><label>Metric</label>
@@ -240,7 +273,7 @@ table.alloc td:first-child{text-align:left}
     <div class="card"><h3 id="paddTitle">Unplanned by PADD</h3><p class="note">Selected metric across recent years, kbd.</p><div class="chartbox"><canvas id="cPadd"></canvas></div></div>
     <div class="card"><h3 id="seasTitle">Seasonality</h3><p class="note">Selected metric by month, one line per year.</p><div class="chartbox"><canvas id="cSeason"></canvas></div></div>
     <div class="card"><h3>Top Unit Categories</h3><p class="note">Capacity offline, all years, kbd.</p><div class="chartbox"><canvas id="cUnits"></canvas></div></div>
-    <div class="card"><h3>Unplanned Seasonality &amp; Range Band</h3><p class="note">Grey band = 2022-25 monthly min-max; lines = recent years.</p><div class="chartbox"><canvas id="cBand"></canvas></div></div>
+    <div class="card"><h3>Unplanned Seasonality &amp; Range Band</h3><p class="note">Grey band = 2022-25 monthly min-max; 2026 dashed = actual + forecast tail; 2027 dotted = Average scenario (not zero).</p><div class="chartbox"><canvas id="cBand"></canvas></div></div>
     <div class="card"><h3>Unplanned &mdash; YoY % Change by Month</h3><p class="note">Percent difference in each month vs the prior year.</p><div class="chartbox"><canvas id="cYoyMonth"></canvas></div></div>
     <div class="card full"><h3>Year-over-Year Change in Total Offline</h3><p class="note">YoY % change, total capacity offline.</p><div class="chartbox"><canvas id="cYoy"></canvas></div></div>
     <div class="card full"><h3>2026 Planned Turnaround Schedule
@@ -299,18 +332,66 @@ const M = DATA.meta;
 document.getElementById('vintageTag').textContent = M.years[0]+'-'+M.years[1]+' | '+M.rows.toLocaleString()+' rows';
 document.getElementById('subline').textContent =
   'Capacity offline (kbd), all units. '+M.events.toLocaleString()+' distinct outages. Latest full year '+M.latest_full_year+'. 2026/27 partial; 2027 planned-only.';
-const ly = M.latest_full_year, sly = DATA.summary[ly];
-let topPadd='-',topVal=-1;
-DATA.padd_order.forEach(p=>{const v=DATA.padd[p].unplanned[ly]||0; if(v>topVal){topVal=v;topPadd=p;}});
-const kpis = [
-  ['Total Offline ('+ly+')', fmt(sly.total), 'kbd'],
-  ['Unplanned ('+ly+')', fmt(sly.unplanned), 'kbd'],
-  ['Unplanned %', pct(sly.unpl), 'of total'],
-  ['Distinct Outages', fmt(sly.events), 'FY'+ly],
-  ['Top PADD', topPadd, 'by unplanned'],
-];
-document.getElementById('kpis').innerHTML = kpis.map(k=>
-  `<div class="kpi"><div class="lab">${k[0]}</div><div class="val">${k[1]}</div><div class="sub">${k[2]}</div></div>`).join('');
+// ---- dynamic focus-year KPIs (selected year vs the prior year) ----
+const ly = M.latest_full_year;
+const PARTIAL = {2026:1, 2027:1};
+const fySel = document.getElementById('focusYear');
+// default focus = 2026 (forward-looking) when present, else latest full year
+DATA.year_list.filter(y=>y>=2018).forEach(y=>{
+  const o=document.createElement('option');o.value=y;o.textContent=y+(PARTIAL[y]?'  (partial)':'');
+  if(y===(DATA.summary[2026]?2026:ly))o.selected=true;fySel.appendChild(o);});
+
+function deltaSub(cur, prev){
+  if(prev==null||prev===0||cur==null) return ['','',''];
+  const d=cur/prev-1, cls=d>=0?'up':'down', arrowless=(d>=0?'+':'')+(d*100).toFixed(0)+'%';
+  return [arrowless+' vs prior yr', cls, ''];
+}
+function renderKPIs(){
+  const fy=+fySel.value, py=fy-1, S=DATA.summary[fy], P=DATA.summary[py];
+  let topPadd='-',topVal=-1;
+  DATA.padd_order.forEach(p=>{const v=(DATA.padd[p].unplanned[fy]||0); if(v>topVal){topVal=v;topPadd=p;}});
+  // for the planned-only future year, unplanned isn't an actual -> label the forecast
+  const unplVal = (fy===2027) ? ('~'+fmt(DATA.fan.average)) : fmt(S.unplanned);
+  const unplSub = (fy===2027) ? ['Average scenario','',''] : deltaSub(S.unplanned, P&&P.unplanned);
+  const cards = [
+    ['Total Offline ('+fy+')', (fy===2027?'~':'')+fmt(S.total), deltaSub(S.total, P&&P.total)],
+    ['Unplanned ('+fy+')', unplVal, unplSub],
+    ['Planned ('+fy+')', fmt(S.planned), deltaSub(S.planned, P&&P.planned)],
+    ['Distinct Outages', fmt(S.events), deltaSub(S.events, P&&P.events)],
+    ['Top PADD (unpl)', topPadd, ['vs '+py+' prior yr','','']],
+  ];
+  document.getElementById('kpis').innerHTML = cards.map(k=>{
+    const [txt,cls]=k[2];
+    return `<div class="kpi"><div class="lab">${k[0]}</div><div class="val">${k[1]}</div>`+
+           `<div class="sub ${cls}">${txt||'kbd'}</div></div>`;}).join('');
+}
+fySel.addEventListener('change',renderKPIs); renderKPIs();
+
+// ---- outlook strip: 2026 vs 2025, H1'27 vs H1'26 planned, 2027 forecast ----
+(function(){
+  const s26=DATA.summary[2026], s25=DATA.summary[2025];
+  const h1=DATA.h1_planned, fan=DATA.fan, plan27=DATA.summary[2027]?DATA.summary[2027].planned:0;
+  function card(t,v,d,dcls,note){
+    return `<div class="ocard"><div class="ot">${t}</div><div class="ov">${v}</div>`+
+           (d?`<div class="od ${dcls}">${d}</div>`:'')+`<div class="on">${note}</div></div>`;}
+  const cards=[];
+  if(s26&&s25){
+    const dt=s26.total/s25.total-1, du=s26.unplanned/s25.unplanned-1;
+    cards.push(card('2026 vs 2025 - total offline', fmt(s26.total)+' kbd',
+      (dt>=0?'+':'')+(dt*100).toFixed(0)+'% vs 2025', dt>=0?'up':'down',
+      'Unplanned '+(du>=0?'+':'')+(du*100).toFixed(0)+'% ('+fmt(s26.unplanned)+' kbd). 2026 partial.'));
+  }
+  if(h1[2026]&&h1[2027]){
+    const dh=h1[2027]/h1[2026]-1;
+    cards.push(card('H1 2027 vs H1 2026 - planned', fmt(h1[2027])+' kbd',
+      (dh>=0?'+':'')+(dh*100).toFixed(0)+'% vs H1 2026', dh>=0?'up':'down',
+      'Like-for-like (Jan-Jun); H1 2026 = '+fmt(h1[2026])+' kbd. The clean 2027 read.'));
+  }
+  cards.push(card('2027 unplanned - forecast', '~'+fmt(fan.average)+' kbd',
+    'range ~'+fmt(fan.conservative)+' - '+fmt(fan.active), 'up',
+    'Conservative/Average/Active. Implied total ~'+fmt(fan.average+plan27)+' kbd with booked planned.'));
+  document.getElementById('outlook').innerHTML=cards.join('');
+})();
 
 // ---- controls ----
 const yearsAll = DATA.year_list;
@@ -352,6 +433,12 @@ function renderSeason(){
   const yrs=[2022,2023,2024,2025,2026].filter(y=>src[y]);
   const ds=yrs.map(y=>({label:y>=2026?y+'*':''+y,borderColor:YRCOL[y]||C.navy,backgroundColor:YRCOL[y]||C.navy,
     borderWidth:y===2025?3:2,borderDash:y===2026?[6,4]:[],pointRadius:2,tension:.25,data:src[y],fill:false}));
+  // for All-US unplanned, carry 2026's forecast tail and add the 2027 Average scenario (not zero)
+  if(metric==='unplanned' && padd==='ALL'){
+    const d26=ds.find(d=>d.label==='2026*'); if(d26)d26.data=DATA.completed_unplanned['2026'].vals;
+    ds.push({label:'2027 (Avg scenario)',borderColor:'#7030A0',backgroundColor:'#7030A0',
+      borderWidth:2.2,borderDash:[2,3],pointRadius:0,tension:.25,data:DATA.fan.monthly.average,fill:false});
+  }
   const cfg={type:'line',data:{labels:DATA.months,datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false}},
       y:{ticks:{callback:v=>v.toLocaleString()}}},plugins:{legend:{position:'bottom'}}}};
@@ -382,6 +469,8 @@ new Chart(document.getElementById('cBand'),{type:'line',
     {label:'5-yr avg',data:RB.avg,borderColor:C.gray,borderDash:[3,3],borderWidth:1.4,pointRadius:0,tension:.3},
     {label:'2024',data:DATA.monthly.unplanned[2024],borderColor:C.blue,borderWidth:1.8,pointRadius:2,tension:.25},
     {label:'2025',data:DATA.monthly.unplanned[2025],borderColor:C.red,borderWidth:2.6,pointRadius:2,tension:.25},
+    {label:'2026 (+forecast tail)',data:DATA.completed_unplanned['2026'].vals,borderColor:C.gold,borderWidth:2.2,borderDash:[6,4],pointRadius:2,tension:.25},
+    {label:'2027 (Avg scenario)',data:DATA.fan.monthly.average,borderColor:'#7030A0',borderWidth:2.2,borderDash:[2,3],pointRadius:0,tension:.25},
   ]},
   options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false}},
     y:{ticks:{callback:v=>v.toLocaleString()}}},
