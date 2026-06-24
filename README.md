@@ -77,15 +77,27 @@ input cells in Excel without rebuilding.
 ## Workbook sheets
 
 `Cover · Dashboard · Summary · Monthly · PADD Charts · PADD Detail · Units ·
-Refinery Detail · Scenario 2027 · Sensitivity · Mogas Overlay · Notes`
+Refinery Detail · Clusters · Scenario 2027 · Sensitivity · Mogas Overlay · Notes`
 
 - **PADD Charts** — one native combo chart per PADD: 2026 plan+unplanned stacked
   columns with prior-year total lines and the 2027 plan line.
+- **Summary / PADD Detail / Units** — percentage detail throughout: annual YoY%,
+  unplanned-by-PADD level + YoY%, and per-unit share-of-total + YoY% (all live
+  formulas).
+- **Clusters** — back-to-back (consecutive-month) outage detection. A plant×month
+  heat-strip and tables surface the recurring **Q1 FCC turnarounds at the
+  ExxonMobil plants** (Baton Rouge, Baytown, Beaumont, Joliet) — the clustered
+  signal that month-aggregated external trackers wash out.
 - **Scenario 2027** — yellow input cells + dropdowns (baseline window, growth,
   unplanned multiplier, one-off, stress month). The forecast cascade, the line
-  chart, and the PADD allocation are all live formulas.
+  chart, and a **live per-PADD breakdown** (each PADD on its own seasonality)
+  are all formulas.
 - **Sensitivity** — a 6×6 growth × multiplier heatmap (3-colour scale, base case
   outlined) wired to the scenario baseline, plus a tornado of the drivers.
+
+The deck mirrors these as chart+bullet slides, including a dedicated
+back-to-back FCC slide and a 2027-scenario-by-PADD slide. The dashboard adds an
+FCC-clusters table and shares the exact same palette and numbers.
 
 ---
 

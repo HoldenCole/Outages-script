@@ -100,6 +100,13 @@ def build_data(ctx):
     actuals = {str(yr): [float(mu.loc[yr, m]) if yr in mu.index else 0.0 for m in engine.MONTHS]
                for yr in (2024, 2025)}
 
+    fcc = [{"plant": c["plant"].replace(" Refinery", ""), "padd": c["padd"],
+            "year": c["year"], "span": c["span"], "n": c["n"],
+            "kbd": round(c["kbd"]), "unpl": c["unpl_share"]}
+           for c in ctx["fcc_exxon"][:14]]
+    unit_pct = {str(u).title(): float(ctx["unit_share"].loc[u, 2025])
+                for u in ctx["unit_share"].index[:8]}
+
     d = ctx["diag"]
     return {
         "meta": {"rows": d["rows"], "years": list(d["years"]),
@@ -110,6 +117,8 @@ def build_data(ctx):
         "summary": summary,
         "padd": padd,
         "units": units,
+        "unit_pct": unit_pct,
+        "fcc": fcc,
         "monthly": monthly,
         "padd_monthly": padd_monthly,
         "scenario": {
@@ -202,6 +211,10 @@ table.alloc td:first-child{text-align:left}
     <div class="card"><h3 id="seasTitle">Seasonality</h3><p class="note">Selected metric by month, one line per year.</p><div class="chartbox"><canvas id="cSeason"></canvas></div></div>
     <div class="card"><h3>Top Unit Categories</h3><p class="note">Capacity offline, all years, kbd.</p><div class="chartbox"><canvas id="cUnits"></canvas></div></div>
     <div class="card full"><h3>Year-over-Year Change in Total Offline</h3><p class="note">YoY % change, total capacity offline.</p><div class="chartbox"><canvas id="cYoy"></canvas></div></div>
+    <div class="card full"><h3>Back-to-Back FCC Outages &mdash; ExxonMobil <span class="tag" id="fccTag"></span></h3>
+      <p class="note">Consecutive-month FCC (cat cracker) runs at the same plant &mdash; the clustered signal month-level external trackers miss (2020 excluded).</p>
+      <table class="alloc" id="fccTbl"><thead><tr><th>Refinery</th><th>PADD</th><th>Year</th><th>Span</th><th>Months</th><th>kbd</th><th>Unpl %</th></tr></thead><tbody></tbody></table>
+    </div>
   </div>
 
   <div class="scenario">
@@ -322,6 +335,12 @@ new Chart(document.getElementById('cYoy'),{type:'bar',
       backgroundColor:yearsAll.map(y=>{const v=DATA.summary[y].yoy_pct;return v==null?'#ccc':(v>=0?C.green:C.red);})}]},
   options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false}},
     y:{ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+
+// ---- back-to-back FCC clusters (ExxonMobil) ----
+document.getElementById('fccTag').textContent = DATA.fcc.length + ' runs';
+document.querySelector('#fccTbl tbody').innerHTML = DATA.fcc.map(c=>
+  `<tr><td>${c.plant}</td><td>${c.padd}</td><td>${c.year}</td><td>${c.span}</td>`+
+  `<td>${c.n}</td><td>${fmt(c.kbd)}</td><td>${pct(c.unpl)}</td></tr>`).join('');
 
 // ---- scenario (live) ----
 const S = DATA.scenario;

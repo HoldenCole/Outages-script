@@ -217,6 +217,7 @@ class Build:
             ("PADD Detail", "PADD x year matrices and unplanned-by-PADD"),
             ("Units", "Unit-category x year matrix + magnitude bars"),
             ("Refinery Detail", "Top refineries, operators and event scatter"),
+            ("Clusters", "Back-to-back outage runs incl. ExxonMobil FCC turnarounds"),
             ("Scenario 2027", "Live driver-based 2027 unplanned forecast (dropdowns)"),
             ("Sensitivity", "Two-way heatmap and tornado of the scenario drivers"),
             ("Mogas Overlay", "Secondary mogas-equivalent view"),
@@ -343,6 +344,7 @@ class Build:
             "categories": ["Dashboard", sh0, 1, sh0 + 4, 1],
             "values": ["Dashboard", sh0, 2, sh0 + 4, 2],
             "points": [{"fill": {"color": c}} for c in [NAVY, BLUE, GOLD, GREEN, ORANGE]],
+            "data_labels": {"percentage": True, "font": {"color": WHITE, "bold": True, "size": 9}},
         })
         donut.set_title({"name": f"Unplanned Share by PADD ({ly})"})
         donut.set_legend({"position": "right"})
@@ -428,6 +430,41 @@ class Build:
                 r += 1
             r += 1
         ws.write(r, 1, "Guardrail: only Planned is comparable vs 2027 (no actual unplanned-2027 exists).",
+                 self.f["subtitle"])
+
+        # --- unplanned by PADD: levels (kbd) then YoY % (live formulas) ---
+        lvl, _ = self.ctx["padd_unpl_yoy"]
+        pyears = [y for y in lvl.columns if 2019 <= y <= 2026]
+        r += 3
+        self._band(ws, r, 1, 1 + len(pyears), "Unplanned Offline by PADD - Level (kbd)"); r += 1
+        ws.write(r, 1, "PADD", self.f["colhdr_l"])
+        for j, y in enumerate(pyears):
+            ws.write_number(r, 2 + j, y, self._yr_fmt(y))
+        r += 1
+        lvl_first = r
+        for p in PADDS:
+            ws.write(r, 1, p, self.f["rowlab"])
+            for j, y in enumerate(pyears):
+                ws.write_number(r, 2 + j, float(lvl.loc[p, y]),
+                                self.f["kbd_p"] if y in PARTIAL else self.f["kbd"])
+            r += 1
+        r += 1
+        self._band(ws, r, 1, 1 + len(pyears), "Unplanned Offline by PADD - YoY %"); r += 1
+        ws.write(r, 1, "PADD", self.f["colhdr_l"])
+        for j, y in enumerate(pyears):
+            ws.write_number(r, 2 + j, y, self._yr_fmt(y))
+        r += 1
+        for i, p in enumerate(PADDS):
+            ws.write(r, 1, p, self.f["rowlab"])
+            for j, y in enumerate(pyears):
+                if j == 0:
+                    ws.write(r, 2 + j, "-", self.f["na"])
+                else:
+                    cur, prev = A1(lvl_first + i, 2 + j), A1(lvl_first + i, 1 + j)
+                    ws.write_formula(r, 2 + j, f"=IF({prev}=0,\"n/a\",({cur}-{prev})/{prev})",
+                                     self.f["pct_p"] if y in PARTIAL else self.f["pct"])
+            r += 1
+        ws.write(r, 1, "PADD 5 swings hardest (California events); PADD 3 is the largest base.",
                  self.f["subtitle"])
 
     # =================================================================== MONTHLY
@@ -622,21 +659,27 @@ class Build:
         ws.set_column("A:A", 2)
         ws.set_column("B:B", 24)
         ws.set_column("C:K", 9)
-        ws.set_column("L:L", 11)
-        ws.merge_range("B2:L2", "Unit-Category Detail", self.f["title"])
-        ws.merge_range("B3:L3", "Capacity offline (kbd) by unit category x year, sorted by total.",
+        ws.set_column("L:N", 10)
+        ws.merge_range("B2:N2", "Unit-Category Detail", self.f["title"])
+        ws.merge_range("B3:N3",
+                       "Capacity offline (kbd) by unit category x year, with share of total and YoY%.",
                        self.f["subtitle"])
         mat = self.ctx["unit_total"]
         years = [y for y in mat.columns if 2020 <= y <= 2027]
+        i25 = years.index(2025) if 2025 in years else len(years) - 1
+        i24 = years.index(2024) if 2024 in years else i25 - 1
         r = 5
-        self._band(ws, r, 1, 2 + len(years), "Capacity Offline by Unit Category (kbd)"); r += 1
+        tot_col = 2 + len(years)
+        share_col, yoy_col = tot_col + 1, tot_col + 2
+        self._band(ws, r, 1, yoy_col, "Capacity Offline by Unit Category (kbd)"); r += 1
         ws.write(r, 1, "Unit Category", self.f["colhdr_l"])
         for j, y in enumerate(years):
             ws.write_number(r, 2 + j, y, self._yr_fmt(y))
-        ws.write(r, 2 + len(years), "Total", self.f["colhdr"])
+        ws.write(r, tot_col, "Total", self.f["colhdr"])
+        ws.write(r, share_col, "% of '25", self.f["colhdr"])
+        ws.write(r, yoy_col, "YoY %", self.f["colhdr"])
         r += 1
         first = r
-        tot_col = 2 + len(years)
         for i, u in enumerate(mat.index):
             shade = i % 2 == 1
             ws.write(r, 1, str(u).title(), self.f["rowlab"])
@@ -645,6 +688,15 @@ class Build:
                                 self._kbd_fmt(y, shade))
             ws.write_formula(r, tot_col, f"=SUM({A1(r,2)}:{A1(r,1+len(years))})",
                              self.f["kbd_b"])
+            # share of latest-full-year total, and YoY% (2024->2025), live formulas
+            c25 = A1(r, 2 + i25)
+            ws.write_formula(r, share_col,
+                             f"=IF(SUM({A1(first,2+i25)}:{A1(first+len(mat.index)-1,2+i25)})=0,0,"
+                             f"{c25}/SUM({A1(first,2+i25)}:{A1(first+len(mat.index)-1,2+i25)}))",
+                             self.f["pct"])
+            ws.write_formula(r, yoy_col,
+                             f"=IF({A1(r,2+i24)}=0,\"n/a\",({c25}-{A1(r,2+i24)})/{A1(r,2+i24)})",
+                             self.f["pct"])
             r += 1
         last = r - 1
         # data bars on the Total column
@@ -906,20 +958,31 @@ class Build:
         chart.set_chartarea({"border": {"none": True}})
         ws.insert_chart(r + 1, 1, chart)
 
-        # PADD allocation mini-table (scenario annual x historical share)
-        share = self.ctx["padd_share"]
+        # --- 2027 scenario BY PADD: each PADD carries its own seasonality (live) ---
+        sp = self.ctx["scenario_padd"]
         ar = r + 18
-        self._band(ws, ar, 1, 3, "2027 Scenario - PADD Allocation (by historical unplanned share)", "h_green")
+        self._band(ws, ar, 1, 4, "2027 Scenario by PADD - each PADD's own seasonality (live)", "h_green")
         ar += 1
-        ws.write(ar, 1, "PADD", self.f["colhdr_l"])
-        ws.write(ar, 2, "Share", self.f["colhdr"])
-        ws.write(ar, 3, "Scenario kbd", self.f["colhdr"])
+        for j, h in enumerate(["PADD", "Baseline (kbd)", "Scenario (kbd)", "Share"]):
+            ws.write(ar, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
         ar += 1
+        pf = ar
         for p in PADDS:
             ws.write(ar, 1, p, self.f["rowlab"])
-            ws.write_number(ar, 2, float(share[p]), self.f["pct_g"])
-            ws.write_formula(ar, 3, f"={fc_annual_cell}*{A1(ar,2)}", self.f["calc_grn"])
+            ws.write_number(ar, 2, float(sp[p]["baseline_annual"]), self.f["calc"])
+            ws.write_formula(ar, 3, f"={A1(ar,2)}*(1+{c_growth})*{c_mult}", self.f["calc_b"])
             ar += 1
+        pl = ar - 1
+        ws.write(ar, 1, "Total US", self.f["rowlab_b"])
+        ws.write_formula(ar, 2, f"=SUM({A1(pf,2)}:{A1(pl,2)})", self.f["calc_b"])
+        ws.write_formula(ar, 3, f"=SUM({A1(pf,3)}:{A1(pl,3)})", self.f["calc_b"])
+        tot_scn = A1(ar, 3, row_abs=True, col_abs=True)
+        for i in range(len(PADDS)):
+            ws.write_formula(pf + i, 4, f"=IF({tot_scn}=0,0,{A1(pf+i,3)}/{tot_scn})", self.f["pct_g"])
+        ws.write_formula(ar, 4, f"=IF({tot_scn}=0,0,SUM({A1(pf,4)}:{A1(pl,4)}))", self.f["pct_g"])
+        ar += 1
+        ws.write(ar, 1, "Sums to the national unplanned forecast above; growth & multiplier apply per PADD.",
+                 self.f["subtitle"])
 
         # stash references for the sensitivity sheet
         self.sc_refs = {
@@ -1104,6 +1167,9 @@ class Build:
                                     "from the scenario window). Tornado ranks driver swings."),
             ("Mogas method", "Mogas-eq = capacity x bucket yield (CDU .175, FCC .65, Ref .85, HDC .05, "
                              "Coker .20, else 0). Additive overlay; capacity never discarded."),
+            ("Cluster method", "Back-to-back = consecutive calendar months of outage at one plant/unit "
+                               "within a year (2020 excluded). Surfaces clustered FCC turnarounds that "
+                               "month-level external trackers miss."),
             ("Refresh", "Set INPUT_PATH (or pass a path arg) and re-run build_workbook.py. Idempotent."),
         ]
         r = 4
@@ -1127,6 +1193,91 @@ class Build:
             ws.merge_range(r, 2, r, 7, desc, self.f["note"])
             r += 1
 
+    # ================================================================== CLUSTERS
+    def clusters(self):
+        """Back-to-back (consecutive-month) outage clusters - the granular signal
+        that month-aggregated external trackers miss, e.g. the recurring Q1 FCC
+        turnarounds at the ExxonMobil plants."""
+        ws = self.wb.add_worksheet("Clusters")
+        self._setup(ws, "#843C0C")
+        ws.set_column("A:A", 2)
+        ws.set_column("B:B", 22)
+        ws.set_column("C:N", 7.5)
+        ws.set_column("O:O", 9)
+        ws.merge_range("B2:O2", "Back-to-Back Outage Clusters", self.f["title"])
+        ws.merge_range("B3:O3",
+                       "Consecutive-month outages at one plant/unit - the clustered risk that "
+                       "month-level external trackers wash out.", self.f["subtitle"])
+
+        # --- ExxonMobil FCC month grid (heat-strip): consecutive cells = a run ---
+        grid = self.ctx["fcc_grid"]
+        r = 5
+        self._band(ws, r, 1, 14, "ExxonMobil FCC Capacity Offline (kbd) - Plant x Month, 2022-2026",
+                   "h_orange"); r += 1
+        ws.write(r, 1, "Plant (Year)", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        r += 1
+        grid_first = r
+        for (plant, year), row in sorted(grid.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+            label = f"{plant.replace(' Refinery','')} {year}"
+            ws.write(r, 1, label, self.f["rowlab"])
+            for j in range(12):
+                v = row[j]
+                ws.write_number(r, 2 + j, v,
+                                self.wb.add_format({"font_name": "Arial", "num_format": '#,##0;;""',
+                                                    "align": "center", "border": 1,
+                                                    "border_color": "#E0E0E0"}))
+            r += 1
+        grid_last = r - 1
+        ws.conditional_format(grid_first, 2, grid_last, 13,
+                              {"type": "2_color_scale", "min_type": "num", "min_value": 0,
+                               "min_color": WHITE, "max_color": "#ED7D31"})
+        ws.write(r, 1, "Shaded runs of adjacent months = back-to-back FCC outages (e.g. Joliet Feb-Jun).",
+                 self.f["subtitle"])
+        r += 2
+
+        # --- table: ExxonMobil FCC clusters ---
+        self._band(ws, r, 1, 8, "ExxonMobil FCC Back-to-Back Runs (>=3 consecutive months, ex-2020)",
+                   "h_orange"); r += 1
+        heads = ["Refinery", "PADD", "Year", "Span", "Months", "kbd", "Unpl %"]
+        for j, h in enumerate(heads):
+            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j in (0,) else self.f["colhdr"])
+        r += 1
+        ex_first = r
+        for c in self.ctx["fcc_exxon"]:
+            ws.write(r, 1, c["plant"], self.f["rowlab"])
+            ws.write(r, 2, c["padd"], self.f["rowlab"])
+            ws.write_number(r, 3, c["year"], self._yr_fmt(c["year"]))
+            ws.write(r, 4, c["span"], self.f["rowlab"])
+            ws.write_number(r, 5, c["n"], self.f["kbd"])
+            ws.write_number(r, 6, c["kbd"], self.f["kbd"])
+            ws.write_number(r, 7, c["unpl_share"], self.f["pct"])
+            r += 1
+        ws.conditional_format(ex_first, 6, r - 1, 6,
+                              {"type": "data_bar", "bar_color": "#ED7D31", "bar_solid": True})
+        r += 2
+
+        # --- table: notable clusters across ALL operators (>=4 months) ---
+        self._band(ws, r, 1, 8, "Notable Multi-Month Clusters - All Operators (>=4 months, ex-2020)",
+                   "h_navy"); r += 1
+        for j, h in enumerate(["Refinery", "Operator", "PADD", "Year", "Span", "Mo", "kbd"]):
+            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j in (0, 1) else self.f["colhdr"])
+        r += 1
+        cl_first = r
+        for c in self.ctx["clusters"][:20]:
+            ws.write(r, 1, c["plant"], self.f["rowlab"])
+            ws.write(r, 2, str(c["operator"]).title(), self.f["rowlab"])
+            ws.write(r, 3, c["padd"], self.f["rowlab"])
+            ws.write_number(r, 4, c["year"], self._yr_fmt(c["year"]))
+            ws.write(r, 5, c["span"], self.f["rowlab"])
+            ws.write_number(r, 6, c["n"], self.f["kbd"])
+            ws.write_number(r, 7, c["kbd"], self.f["kbd"])
+            r += 1
+        ws.conditional_format(cl_first, 7, r - 1, 7,
+                              {"type": "data_bar", "bar_color": NAVY, "bar_solid": True})
+        ws.freeze_panes(grid_first, 2)
+
     # ===================================================================== run
     def run(self):
         self.cover()
@@ -1137,6 +1288,7 @@ class Build:
         self.padd_detail()
         self.units()
         self.refinery_detail()
+        self.clusters()
         self.scenario()
         self.sensitivity()      # depends on scenario refs
         self.mogas()

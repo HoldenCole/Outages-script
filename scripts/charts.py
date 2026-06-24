@@ -296,6 +296,72 @@ def tornado(ctx, path):
     return _save(fig, path)
 
 
+def _runs_in(vec, min_len=3):
+    """Index ranges of consecutive non-zero months in a 12-vector."""
+    runs, start = [], None
+    for i, v in enumerate(vec):
+        if v > 0 and start is None:
+            start = i
+        elif v <= 0 and start is not None:
+            if i - start >= min_len:
+                runs.append((start, i - 1))
+            start = None
+    if start is not None and 12 - start >= min_len:
+        runs.append((start, 11))
+    return runs
+
+
+def fcc_cluster_strip(ctx, path):
+    """Heat-strip of ExxonMobil FCC capacity offline by plant x month, with
+    back-to-back runs (>=3 consecutive months) outlined. The clustered signal
+    external trackers miss."""
+    grid = ctx["fcc_grid"]
+    items = [(f"{pl.replace(' Refinery','')}  {yr}", vec)
+             for (pl, yr), vec in sorted(grid.items(), key=lambda kv: (kv[0][0], kv[0][1]))
+             if _runs_in(vec, 3)]
+    if not items:
+        items = [(f"{pl.replace(' Refinery','')}  {yr}", vec)
+                 for (pl, yr), vec in sorted(grid.items())]
+    labels = [a for a, _ in items]
+    mat = np.array([b for _, b in items])
+    fig, ax = plt.subplots(figsize=(10.5, max(3.2, 0.55 * len(items) + 1.4)))
+    im = ax.imshow(mat, cmap="Oranges", aspect="auto", vmin=0)
+    ax.set_xticks(range(12), MONTHS)
+    ax.set_yticks(range(len(labels)), labels, fontsize=9)
+    for i, (_, vec) in enumerate(items):
+        for j in range(12):
+            if vec[j] > 0:
+                ax.text(j, i, f"{vec[j]:.0f}", ha="center", va="center", fontsize=7,
+                        color="#23272e")
+        for (s, e) in _runs_in(vec, 3):                       # outline the run
+            ax.add_patch(plt.Rectangle((s - 0.5, i - 0.5), e - s + 1, 1, fill=False,
+                                       edgecolor=RED, lw=2.4))
+    ax.set_title("ExxonMobil FCC Offline by Month - back-to-back runs outlined (kbd)")
+    ax.grid(False)
+    ax.tick_params(length=0)
+    return _save(fig, path)
+
+
+def scenario_by_padd(ctx, path):
+    """Stacked columns: 2027 scenario unplanned by month, decomposed by PADD."""
+    sp = ctx["scenario_padd"]
+    fig, ax = plt.subplots(figsize=(10, 4.6))
+    x = np.arange(12)
+    bottom = np.zeros(12)
+    cols = {"PADD 1": "#9DB0CE", "PADD 2": BLUE, "PADD 3": NAVY, "PADD 4": GREEN, "PADD 5": GOLD}
+    for p in PADDS:
+        vals = sp[p]["monthly"].values
+        ax.bar(x, vals, bottom=bottom, color=cols[p], label=p, zorder=3)
+        bottom += vals
+    ax.set_xticks(x, MONTHS)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title("2027 Unplanned Scenario by PADD (each PADD's own seasonality)")
+    ax.legend(frameon=False, ncol=5, loc="upper right")
+    _clean(ax)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -310,7 +376,9 @@ def render_all(ctx, outdir):
         "padd_sm": padd_small_multiples(ctx, ["PADD 1", "PADD 2", "PADD 4", "PADD 5"],
                                         p("padd_sm.png")),
         "units": units_bar(ctx, p("units.png")),
+        "fcc": fcc_cluster_strip(ctx, p("fcc.png")),
         "scenario": scenario_lines(ctx, p("scenario.png")),
+        "scenario_padd": scenario_by_padd(ctx, p("scenario_padd.png")),
         "heatmap": sensitivity_heatmap(ctx, p("heatmap.png")),
         "tornado": tornado(ctx, p("tornado.png")),
     }

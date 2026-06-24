@@ -427,6 +427,120 @@ def tornado(df, window_key=DEFAULT_WINDOW):
     return rows
 
 
+# ----------------------------------------------------------------------------- back-to-back clusters
+def _span(months):
+    return f"{MONTHS[months[0] - 1]}-{MONTHS[months[-1] - 1]}" if len(months) > 1 \
+        else MONTHS[months[0] - 1]
+
+
+def consecutive_runs(df, operator_contains=None, unit_cat=None, min_len=3,
+                     years=None, exclude_years=None):
+    """Detect back-to-back (consecutive calendar-month) outage runs at the same
+    plant within a year.
+
+    This is the granular signal that month-aggregated external trackers wash
+    out: e.g. the recurring Q1 FCC turnaround clusters at the ExxonMobil plants
+    (Baton Rouge, Baytown, Beaumont, Joliet). Returns a list of dicts sorted by
+    run length then capacity:
+        plant, operator, padd, year, months[list], span, n, kbd, unplanned_kbd,
+        planned_kbd, unpl_share.
+    """
+    sub = df.copy()
+    if unit_cat:
+        sub = sub[sub["unit_cat"].eq(unit_cat)]
+    if operator_contains:
+        sub = sub[sub["operator"].astype(str).str.upper()
+                  .str.contains(operator_contains.upper(), na=False)]
+    if years is not None:
+        sub = sub[sub["year"].isin(years)]
+    if exclude_years:
+        sub = sub[~sub["year"].isin(exclude_years)]
+
+    out = []
+    for (plant, year), g in sub.groupby(["plant", "year"]):
+        months = sorted(int(x) for x in g["month"].dropna().unique())
+        if not months:
+            continue
+        runs, run = [], [months[0]]
+        for m in months[1:]:
+            if m == run[-1] + 1:
+                run.append(m)
+            else:
+                runs.append(run)
+                run = [m]
+        runs.append(run)
+        for r in runs:
+            if len(r) < min_len:
+                continue
+            gg = g[g["month"].isin(r)]
+            kbd = float(gg["cap_kbd"].sum())
+            unpl = float(gg[gg["type"].eq("UNPLANNED")]["cap_kbd"].sum())
+            out.append({
+                "plant": str(plant), "operator": str(g["operator"].iloc[0]),
+                "padd": str(g["padd"].iloc[0]), "year": int(year),
+                "months": r, "span": _span(r), "n": len(r),
+                "kbd": kbd, "unplanned_kbd": unpl, "planned_kbd": kbd - unpl,
+                "unpl_share": (unpl / kbd if kbd else 0.0),
+            })
+    out.sort(key=lambda d: (-d["n"], -d["kbd"]))
+    return out
+
+
+def fcc_exxon_clusters(df, min_len=3):
+    """The headline finding: ExxonMobil FCC back-to-back runs, COVID year excluded."""
+    return consecutive_runs(df, operator_contains="EXXON", unit_cat="FLUID CAT CRACKING",
+                            min_len=min_len, exclude_years=OUTLIER_YEARS)
+
+
+def exxon_fcc_month_grid(df, years):
+    """plant x month FCC capacity (kbd) for ExxonMobil, for the given years.
+
+    Backs the back-to-back FCC heat-strip: consecutive shaded cells are runs.
+    Returns {(plant, year): [12 kbd]} for plants with any FCC outage in `years`.
+    """
+    m = (df["operator"].astype(str).str.upper().str.contains("EXXON", na=False)
+         & df["unit_cat"].eq("FLUID CAT CRACKING") & df["year"].isin(years))
+    sub = df[m]
+    grid = {}
+    for (plant, year), g in sub.groupby(["plant", "year"]):
+        row = [0.0] * 12
+        for _, r in g.iterrows():
+            if pd.notna(r["month"]):
+                row[int(r["month"]) - 1] += float(r["cap_kbd"])
+        grid[(str(plant), int(year))] = row
+    return grid
+
+
+# ----------------------------------------------------------------------------- percentage views
+def padd_yoy(df, type_filter="UNPLANNED"):
+    """(levels matrix, YoY% matrix) for capacity offline by PADD x year."""
+    m = padd_year_matrix(df, type_filter=type_filter)
+    yoy = m.pct_change(axis=1)
+    return m, yoy
+
+
+def unit_share(df, type_filter=None):
+    """Unit-category share of total capacity offline per year (prod-by-unit %)."""
+    m = unit_year_matrix(df, type_filter=type_filter)
+    col_tot = m.sum(axis=0).replace(0, np.nan)
+    return m.div(col_tot, axis=1).fillna(0.0)
+
+
+def scenario_by_padd(df, window_key=DEFAULT_WINDOW, growth=0.0, multiplier=1.0):
+    """Per-PADD 2027 unplanned scenario: each PADD carries its own seasonality.
+
+    More honest than splitting one national number by a flat share - PADD 3 and
+    PADD 5 have different monthly shapes.
+    """
+    res = {}
+    for p in PADD_ORDER:
+        prof = seasonality(df, BASELINE_WINDOWS[window_key], "UNPLANNED", padd=p)
+        scaled = prof * (1.0 + growth) * multiplier
+        res[p] = {"baseline_annual": float(prof.sum()),
+                  "monthly": scaled, "annual": float(scaled.sum())}
+    return res
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -457,8 +571,14 @@ def build_context(path):
         "mogas_annual": mogas_annual(df),
         "mogas_yield_map": mogas_yield_map(),
         "scenario": scenario_forecast(df),
+        "scenario_padd": scenario_by_padd(df),
         "padd_share": padd_unplanned_share(df),
         "tornado": tornado(df),
+        "clusters": consecutive_runs(df, min_len=4, exclude_years=OUTLIER_YEARS),
+        "fcc_exxon": fcc_exxon_clusters(df),
+        "fcc_grid": exxon_fcc_month_grid(df, [2022, 2023, 2024, 2025, 2026]),
+        "padd_unpl_yoy": padd_yoy(df, "UNPLANNED"),
+        "unit_share": unit_share(df),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),
