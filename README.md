@@ -61,7 +61,7 @@ you can also just edit the yellow input cells in Excel without rebuilding.
 | `build_dashboard.py` | Self-contained HTML dashboard (Chart.js vendored inline). |
 | `build_all.py` | Orchestrator — loads once, builds all three. |
 | `CLAUDE_CODE_BUILD_SPEC.md` | The original build specification. |
-| `outage_workbook.py`, `outage_monthly.py`, `outage_analyzer.py` | Legacy openpyxl prototype, kept for reference. Superseded by the scripts above. |
+| `outage_workbook.py`, `outage_monthly.py`, `outage_analyzer.py` | Legacy openpyxl prototype, moved to `legacy/` for reference. Superseded by the scripts above. |
 
 ---
 
