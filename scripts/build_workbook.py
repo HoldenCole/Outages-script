@@ -10,7 +10,7 @@ Consolidated into eight findable sheets plus a hidden backing-data sheet:
 
 Explorer is fully interactive: dropdowns (PADD / Unit / type) drive SUMIFS over
 the hidden Data sheet, so the monthly grid, the month-by-month YoY% grid and the
-charts all recompute live. Scenario & Sensitivity (the "Model" sheet) are live
+charts all recompute live. Scenario & Sensitivity (the "Scenario Analysis" sheet) are live
 formulas wired to data-validation inputs.
 
 Usage:
@@ -173,13 +173,6 @@ class Build:
         """Hover-tooltip (Excel comment) - the 'what is this?' helper."""
         ws.write_comment(r, c, text, self._TIP_FMT)
 
-    def _yoy_icons(self, ws, r0, c0, r1, c1):
-        """Grey up/flat/down arrows on a YoY% grid - direction at a glance."""
-        ws.conditional_format(r0, c0, r1, c1, {
-            "type": "icon_set", "icon_style": "3_arrows_gray", "icons": [
-                {"criteria": ">=", "type": "number", "value": 0.02},
-                {"criteria": ">=", "type": "number", "value": -0.02}]})
-
     def _band(self, ws, r, c0, c1, text, fmt="h_navy"):
         ws.merge_range(r, c0, r, c1, text, self.f[fmt])
         ws.set_row(r, 19)
@@ -220,9 +213,11 @@ class Build:
     # ============================================================= block writers
     def _annual_block(self, ws, r):
         s = self.ctx["summary"]
+        disp, onote = self.ctx["display_annual"]      # 2020/21 unplanned flattened for the chart
         r = self._band(ws, r, 1, 8, "Annual Capacity Offline (kbd)")
         for j, h in enumerate(["Year", "Planned", "Unplanned", "Total", "Events", "Unpl %", "YoY Δ", "YoY %"]):
             ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
+        chart_top = r                                  # chart sits to the right, top-aligned with the table
         r += 1
         first = r
         for i, y in enumerate(DISP_YEARS):
@@ -240,34 +235,66 @@ class Build:
                 ws.write_formula(r, 7, f"={A1(r,4)}-{A1(r-1,4)}", kf)
                 ws.write_formula(r, 8, f"=IF({A1(r-1,4)}=0,0,{A1(r,7)}/{A1(r-1,4)})",
                                  self.f["pcts"] if y not in PARTIAL else self.f["pct_p"])
+            # flattened chart-helper columns (far right, off the printed table)
+            ws.write_number(r, 16, float(disp.loc[y, "Planned"]), kf)
+            ws.write_number(r, 17, float(disp.loc[y, "UnplDisp"]), kf)
             r += 1
+        last = r - 1
+        if onote:
+            ws.merge_range(r, 1, r, 8, "Note: " + onote + ".  Charts flatten these to keep the trend readable; "
+                           "the table above shows the real actuals.", self.f["red_note"]); ws.set_row(r, 26); r += 1
+        # side-by-side stacked column (planned + flattened unplanned), 2020/21 capped
+        ch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
+        ch.add_series({"name": "Planned", "categories": ["Trends", first, 1, last, 1],
+                       "values": ["Trends", first, 16, last, 16], "fill": {"color": BLUE}})
+        ch.add_series({"name": "Unplanned (2020-21 flattened)", "categories": ["Trends", first, 1, last, 1],
+                       "values": ["Trends", first, 17, last, 17], "fill": {"color": RED}})
+        ch.set_title({"name": "Annual Offline - Planned + Unplanned (kbd)"})
+        ch.set_y_axis({"name": "kbd"}); ch.set_legend({"position": "bottom"})
+        ch.set_size({"width": 470, "height": 250}); ch.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(chart_top, 10, ch)
+        ws.set_column("Q:R", 8, None, {"hidden": True})   # hide the chart-helper columns
+        self._tip(ws, chart_top, 1, "2020 (COVID demand collapse) and 2021 (Winter Storm Uri) unplanned spikes "
+                  "are capped to the next-highest year in the chart so the structural trend is visible.")
         return r + 1
 
     def _compare_block(self, ws, r):
         cmp = self.ctx["compare"]
-        r = self._band(ws, r, 1, 5, "Targeted Year Comparisons (Δ% vs base year; n/a vs 2027 unplanned)")
-        for key, (ya, yb) in [("2025v2026", (2025, 2026)), ("2025v2027", (2025, 2027)),
-                              ("2026v2027", (2026, 2027))]:
-            ws.write(r, 1, f"{ya} → {yb}", self.f["rowlab_b"])
+        r = self._band(ws, r, 1, 5, "Targeted Year Comparisons (Δ% vs base year)")
+        # 2025v2026 is a full like-for-like; the 2027 pair-ups are Planned-only
+        # (unplanned-2027 is unbooked), so we DON'T print the n/a Plan+Unplanned /
+        # Unplanned rows that just clutter - only the valid Planned comparison.
+        plans = [("2025v2026", (2025, 2026), ["Plan + Unplanned", "Planned", "Unplanned"]),
+                 ("2025v2027", (2025, 2027), ["Planned"]),
+                 ("2026v2027", (2026, 2027), ["Planned"])]
+        for key, (ya, yb), metrics in plans:
+            tag = "" if len(metrics) > 1 else "  (Planned only - 2027 unplanned is unbooked)"
+            ws.write(r, 1, f"{ya} → {yb}{tag}", self.f["rowlab_b"])
             for j, h in enumerate([str(ya), str(yb), "Δ kbd", "Δ %"]):
                 ws.write(r, 2 + j, h, self.f["colhdr"])
             r += 1
-            for metric in ["Plan + Unplanned", "Planned", "Unplanned"]:
+            for metric in metrics:
                 blk = cmp[key][metric]
                 ws.write(r, 1, metric, self.f["rowlab"])
-                if blk["a"] is None or blk["b"] is None:
-                    if blk["a"] is not None:
-                        ws.write_number(r, 2, blk["a"], self.f["kbd"])
-                    else:
-                        ws.write(r, 2, "n/a", self.f["na"])
-                    for c in (3, 4, 5):
-                        ws.write(r, c, "n/a", self.f["na"])
-                else:
-                    ws.write_number(r, 2, blk["a"], self.f["kbd"])
-                    ws.write_number(r, 3, blk["b"], self.f["kbd"])
-                    ws.write_formula(r, 4, f"={A1(r,3)}-{A1(r,2)}", self.f["kbd"])
-                    ws.write_formula(r, 5, f"=IF({A1(r,2)}=0,0,{A1(r,4)}/{A1(r,2)})", self.f["pcts"])
+                ws.write_number(r, 2, blk["a"], self.f["kbd"])
+                ws.write_number(r, 3, blk["b"], self.f["kbd"])
+                ws.write_formula(r, 4, f"={A1(r,3)}-{A1(r,2)}", self.f["kbd"])
+                ws.write_formula(r, 5, f"=IF({A1(r,2)}=0,0,{A1(r,4)}/{A1(r,2)})", self.f["pcts"])
                 r += 1
+        # H1-only like-for-like (the honest 2027 read while H2 is incomplete)
+        h1 = self.ctx["h1_planned"]
+        ws.write(r, 1, "H1 Planned (Jan-Jun, like-for-like)", self.f["rowlab_b"])
+        for j, h in enumerate(["2026", "2027", "Δ kbd", "Δ %"]):
+            ws.write(r, 2 + j, h, self.f["colhdr"])
+        r += 1
+        ws.write(r, 1, "Planned H1", self.f["rowlab"])
+        ws.write_number(r, 2, float(h1.get(2026, 0)), self.f["kbd"])
+        ws.write_number(r, 3, float(h1.get(2027, 0)), self.f["kbd"])
+        ws.write_formula(r, 4, f"={A1(r,3)}-{A1(r,2)}", self.f["kbd"])
+        ws.write_formula(r, 5, f"=IF({A1(r,2)}=0,0,{A1(r,4)}/{A1(r,2)})", self.f["pcts"])
+        self._tip(ws, r, 1, "Full-year 2027 looks inflated only because 2026 H2 is light/incomplete; "
+                  "H1-vs-H1 is the clean comparison: +13% planned (9,211 vs 8,162 kbd).")
+        r += 1
         return r + 1
 
     def _monthly_levels(self, ws, r):
@@ -301,9 +328,17 @@ class Build:
         ws.set_column("P:P", 8)
         return r, firsts
 
+    def _yoy_formula(self, cur, prev, min_base=30):
+        """Guarded YoY%: 'n/m' (not meaningful) when the prior-year base is tiny
+        or the result is absurd - kills the +1000%/+2000% small-base blow-ups."""
+        return (f'=IF(OR({prev}=0,{prev}<{min_base}),"n/m",'
+                f'IF(ABS(({cur}-{prev})/{prev})>5,"n/m",({cur}-{prev})/{prev}))')
+
     def _monthly_yoy(self, ws, r, firsts):
-        """Month-by-month YoY% matrices (live formulas) for Unplanned & Total."""
-        for title, band in [("Unplanned", "h_red"), ("Total Offline", "h_navy")]:
+        """Month-by-month YoY% matrices (live formulas). Planned shows 2027 (a
+        valid planned-vs-planned read); Unplanned & Total show n/a for 2027
+        (no unplanned actuals -> not like-for-like)."""
+        for title, band in [("Planned", "h_blue"), ("Unplanned", "h_red"), ("Total Offline", "h_navy")]:
             lvl = firsts[title]
             r = self._band(ws, r, 1, 13, f"{title} - YoY % Change by Month (this month vs same month, prior year)", band)
             r = self._month_header(ws, r, total=False)
@@ -314,14 +349,28 @@ class Build:
                 for j in range(12):
                     if i == 0:
                         ws.write(r, 2 + j, "-", self.f["na"])
+                    elif y == 2027 and title != "Planned":
+                        # 2027 has no unplanned actuals, so neither Unplanned nor
+                        # Total is a like-for-like comparison -> n/a (use Planned grid).
+                        ws.write(r, 2 + j, "n/a", self.f["na"])
                     else:
                         cur, prev = A1(lvl + i, 2 + j), A1(lvl + i - 1, 2 + j)
-                        ws.write_formula(r, 2 + j, f"=IF({prev}=0,\"n/a\",({cur}-{prev})/{prev})", pf)
+                        ws.write_formula(r, 2 + j, self._yoy_formula(cur, prev, 30), pf)
                 r += 1
             ws.conditional_format(grid_first, 2, r - 1, 13,
                                   {"type": "3_color_scale", "min_color": "#63BE7B",
                                    "mid_color": WHITE, "max_color": "#F8696B"})
-            self._yoy_icons(ws, grid_first, 2, r - 1, 13)
+            if title == "Planned":
+                ws.write(r, 1, "Planned-vs-planned is the only valid 2027 comparison while unplanned-2027 "
+                         "is unbooked. Focus on H1 (Jan-Jun): 2027 H1 planned = 9,211 kbd vs 2026 H1 = 8,162 (+13%).",
+                         self.f["subtitle"])
+                self._tip(ws, grid_first - 2, 1, "2027 planned data is incomplete (booked turnarounds only), so "
+                          "trust H1 columns; H2 will keep filling in as operators schedule.")
+            if title == "Unplanned":
+                ws.write(r, 1, "n/m = not meaningful (prior-year base < 30 kbd); 2027 unplanned is "
+                         "planned-only -> n/a. See Scenario Analysis for the 2027 forecast.", self.f["subtitle"])
+                self._tip(ws, grid_first - 2, 1, "YoY% is suppressed to 'n/m' when the prior-year "
+                          "month is tiny (<30 kbd), so a jump from ~2 to ~40 kbd doesn't read as +1900%.")
             r += 1
         return r
 
@@ -434,13 +483,12 @@ class Build:
                     ws.write(r, 2 + j, "-", self.f["na"])
                 else:
                     cur, prev = A1(lvl_first + i, 2 + j), A1(lvl_first + i - 1, 2 + j)
-                    ws.write_formula(r, 2 + j, f"=IF({prev}=0,\"n/a\",({cur}-{prev})/{prev})",
+                    ws.write_formula(r, 2 + j, self._yoy_formula(cur, prev, 30),
                                      self.f["pct_p"] if y in PARTIAL else self.f["pcts"])
             r += 1
         ws.conditional_format(yoy_first, 2, r - 1, 13,
                               {"type": "3_color_scale", "min_color": "#63BE7B",
                                "mid_color": WHITE, "max_color": "#F8696B"})
-        self._yoy_icons(ws, yoy_first, 2, r - 1, 13)
         # KPI formula now that grid exists (selected 2025 total)
         row2025 = lvl_first + DISP_YEARS.index(2025)
         ws.write_formula(kpi_row, 13, f"={A1(row2025,14)}", self.f["calc_b"])
@@ -507,7 +555,7 @@ class Build:
             ("Primary metric", "CAP_OFFLINE_ADJUSTED_KBD - capacity offline, thousand bbl/day, all units."),
             ("Data vintage", f"{d['rows']:,} rows | {y0}-{y1} | {d['events_distinct']:,} distinct outages | PADD 100% resolved."),
             ("Outage type", "Binary {PLANNED, UNPLANNED}; UNKNOWN folded into UNPLANNED (desk rule)."),
-            ("Mogas overlay", "Mogas-equivalent = capacity x unit yield (secondary; on Units & Refineries)."),
+            ("Mogas / Naphtha", "Dedicated sheets: Mogas (gasoline-yield-weighted) and Naphtha (octane complex)."),
         ]
         r = 4
         for lab, val in rows:
@@ -519,10 +567,11 @@ class Build:
             ws.merge_range(r, 1, r, 7, "•  " + line, self.f["note"]); ws.set_row(r, 22); r += 1
         r += 1
         r = self._band(ws, r, 1, 7, "Read-Before-Use Caveats", "h_red")
-        for c in ["2026 & 2027 are PARTIAL / special - shown grey italic and never presented as final.",
-                  "2027 is PLANNED-ONLY; unplanned-2027 is a MODELED scenario, not an actual.",
+        for c in ["2027 planned data is INCOMPLETE (booked turnarounds only) - focus comparisons on H1 2027.",
+                  "2027 is PLANNED-ONLY; unplanned-2027 is a MODELED scenario (conservative/average/active), not an actual.",
                   "Guardrail: any Plan+Unplanned / Unplanned comparison vs 2027 shows n/a; only Planned is valid.",
-                  "2020-2021 (COVID / Winter Storm Uri) are excluded from forecast baselines by default."]:
+                  "2020 = COVID-19 demand collapse; 2021 = Winter Storm Uri freeze. Both shown flattened on charts and excluded from baselines (raw actuals in footnotes).",
+                  "2026 is partial - shown grey italic and never presented as a final full-year number."]:
             ws.merge_range(r, 1, r, 7, "•  " + c, self.f["red_note"]); ws.set_row(r, 24); r += 1
         r += 1
         r = self._band(ws, r, 1, 7, "Contents", "h_navy")
@@ -531,9 +580,11 @@ class Build:
             ("Explorer", "Interactive: dropdown PADD/unit/type -> live monthly grid + YoY% + chart"),
             ("Trends", "Annual table, comparisons, monthly matrices + month-by-month YoY%"),
             ("PADD", "Per-PADD combo charts and PADD x year detail"),
-            ("Units & Refineries", "Unit categories (share/YoY%), top refineries, operators, scatter, mogas"),
-            ("Events & TAs", "Back-to-back FCC clusters and the 2026 turnaround schedule"),
-            ("Model", "Live 2027 scenario (dropdowns) + sensitivity heatmap & tornado"),
+            ("Units & Refineries", "Unit categories (share/YoY%), top refineries, operators, scatter"),
+            ("Mogas", "Gasoline-yield-weighted outages: annual, YoY%, by-PADD, stacked"),
+            ("Naphtha", "Octane complex (reforming / isomerization / aromatics / BTX): annual, YoY%, by-PADD/unit"),
+            ("Events & TAs", "Back-to-back FCC clusters, Exxon 2027 breakdown and turnaround schedule"),
+            ("Scenario Analysis", "Live 2027 forecast & scenario/stress test - conservative / average / active"),
         ]
         for name, desc in toc:
             ws.write_url(r, 1, f"internal:'{name}'!A1", self.f["link"], name)
@@ -589,7 +640,7 @@ class Build:
                                  "bold": True, "align": "center", "bg_color": LT_BLUE,
                                  "border": 1, "border_color": "#9DC3E6"})
         for k, name in enumerate(["Explorer", "Trends", "PADD", "Units & Refineries",
-                                  "Events & TAs", "Model"]):
+                                  "Mogas", "Naphtha", "Events & TAs", "Scenario Analysis"]):
             ws.merge_range(8, 2 + k * 2, 8, 3 + k * 2, name, jl)
             ws.write_url(8, 2 + k * 2, f"internal:'{name}'!A1", jl, name)
         ws.set_row(8, 18)
@@ -690,21 +741,43 @@ class Build:
         r = self._compare_block(ws, r)
         r, firsts = self._monthly_levels(ws, r)
         r = self._monthly_yoy(ws, r, firsts)
-        # seasonality chart from the unplanned monthly block
+        # seasonality chart: actual years + forecast-filled 2026 tail + 2027 Average scenario
         uf = firsts["Unplanned"]
+        cu = self.ctx["completed_unplanned"]; fan = self.ctx["scenario_fan"]
+        r = self._band(ws, r, 1, 13, "Unplanned Offline Seasonality - with forecast (kbd by month)", "h_red")
+        ws.write(r, 1, "Series", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        shdr = r; r += 1
+        ws.write(r, 1, "2026 (actual + forecast tail)", self.f["rowlab"]); row26 = r
+        for j in range(12):
+            ws.write_number(r, 2 + j, cu[2026]["vals"][j], self.f["kbd"])
+        r += 1
+        ws.write(r, 1, "2027 (Average scenario)", self.f["rowlab"]); row27 = r
+        for j, m in enumerate(MONTHS):
+            ws.write_number(r, 2 + j, float(fan["Average"][m]), self.f["kbd"])
+        r += 1
         line = self.wb.add_chart({"type": "line"})
-        cmap = {2022: GRAY, 2023: GREEN, 2024: BLUE, 2025: RED, 2026: GOLD}
-        for y in (2022, 2023, 2024, 2025, 2026):
+        cmap = {2023: GRAY, 2024: GREEN, 2025: BLUE}
+        for y in (2023, 2024, 2025):
             rr = uf + DISP_YEARS.index(y)
             line.add_series({"name": str(y),
                              "categories": ["Trends", uf - 1, 2, uf - 1, 13],
                              "values": ["Trends", rr, 2, rr, 13],
-                             "line": {"color": cmap[y], "width": 2.0,
-                                      "dash_type": "dash" if y == 2026 else "solid"}})
+                             "line": {"color": cmap[y], "width": 1.75}})
+        line.add_series({"name": "2026 (+ forecast tail)", "categories": ["Trends", shdr, 2, shdr, 13],
+                         "values": ["Trends", row26, 2, row26, 13],
+                         "line": {"color": GOLD, "width": 2.5, "dash_type": "dash"}})
+        line.add_series({"name": "2027 (Average scenario)", "categories": ["Trends", shdr, 2, shdr, 13],
+                         "values": ["Trends", row27, 2, row27, 13],
+                         "line": {"color": RED, "width": 2.5, "dash_type": "round_dot"}})
         line.set_title({"name": "Unplanned Offline Seasonality (kbd by month)"})
         line.set_y_axis({"name": "kbd"}); line.set_legend({"position": "bottom"})
         line.set_size({"width": 820, "height": 300}); line.set_chartarea({"border": {"none": True}})
+        self._tip(ws, shdr, 1, "2026's tail (after the last actual month) and all of 2027 are model "
+                  "forecasts (Average scenario), shown dashed/dotted so they're never mistaken for actuals.")
         ws.insert_chart(r + 1, 1, line)
+        r += 17
         ws.freeze_panes(6, 2)
 
     # ===================================================================== PADD
@@ -721,9 +794,14 @@ class Build:
                        "and PADD x year matrices.", self.f["subtitle"])
         pm = self.ctx["padd_month"]
         CUR = 2026
+        # per-PADD share of the national unplanned forecast, to fill 2026's tail
+        sp = self.ctx["scenario_padd"]
+        nat_fc = self.ctx["scenario"]["monthly_unplanned"]
+        fc_from = self.ctx["completed_unplanned"][2026]["fc_from"]
+        tot_base = sum(float(sp[q]["baseline_annual"]) for q in PADDS) or 1.0
         r = 5
         for p in PADDS:
-            r = self._band(ws, r, 1, 13, f"{p} - {CUR} plan+unplanned vs 2023-25 totals & 2027 plan", "h_green")
+            r = self._band(ws, r, 1, 13, f"{p} - {CUR} plan + unplanned (incl. forecast tail) vs 2023-25 totals & 2027 plan", "h_green")
             hdr = r
             ws.write(r, 1, "Series", self.f["colhdr_l"])
             for j, m in enumerate(MONTHS):
@@ -732,8 +810,13 @@ class Build:
 
             def row_of(mat, yr):
                 return [float(mat.loc[yr, m]) if yr in mat.index else 0.0 for m in MONTHS]
+            # 2026 unplanned: actuals, then forecast tail = national forecast x PADD share
+            share = float(sp[p]["baseline_annual"]) / tot_base
+            unpl26 = row_of(pm[p]["unplanned"], CUR)
+            for j in range(fc_from, 12):
+                unpl26[j] = float(nat_fc[MONTHS[j]]) * share
             series = [(f"{CUR} Planned", row_of(pm[p]["planned"], CUR)),
-                      (f"{CUR} Unplanned", row_of(pm[p]["unplanned"], CUR)),
+                      (f"{CUR} Unplanned (+fcst)", unpl26),
                       ("2025 Total", row_of(pm[p]["total"], 2025)),
                       ("2024 Total", row_of(pm[p]["total"], 2024)),
                       ("2023 Total", row_of(pm[p]["total"], 2023)),
@@ -753,11 +836,17 @@ class Build:
             for k, (yr, c) in enumerate([(2025, RED), (2024, BLUE), (2023, GRAY), (2027, GREEN)]):
                 rr = data_first + 2 + k
                 ln.add_series({"name": ["PADD", rr, 1], "categories": ["PADD", hdr, 2, hdr, 13],
-                               "values": ["PADD", rr, 2, rr, 13], "line": {"color": c, "width": 2.25}})
+                               "values": ["PADD", rr, 2, rr, 13],
+                               "line": {"color": c, "width": 2.25}, "y2_axis": True})  # lines on 2nd axis
             col.combine(ln)
             col.set_title({"name": f"{p} Planned & Unplanned Offline (kbd)"})
-            col.set_y_axis({"name": "kbd"}); col.set_legend({"position": "top"})
+            col.set_y_axis({"name": "2026 plan/unplanned (kbd)"})
+            col.set_y2_axis({"name": "Prior-yr total / 2027 plan (kbd)"})
+            col.set_legend({"position": "top"})
             col.set_size({"width": 840, "height": 320}); col.set_chartarea({"border": {"none": True}})
+            self._tip(ws, hdr, 1, f"Bars on the left axis (2026 plan + unplanned, with the post-actual tail "
+                      f"filled by this PADD's {share:.0%} share of the national unplanned forecast); prior-year "
+                      "totals & 2027 plan on the right axis so the small bars stay readable.")
             ws.insert_chart(r, 1, col)
             r += 17
 
@@ -788,18 +877,14 @@ class Build:
     # ====================================================== UNITS & REFINERIES
     def units_refineries(self):
         ws = self.wb.add_worksheet("Units & Refineries")
-        self._setup(ws, GOLD)
-        self._chrome(ws, 13)
-        ws.set_column("A:A", 2)
-        ws.set_column("B:B", 24)
-        ws.set_column("C:C", 26)
-        ws.set_column("D:D", 18)
-        ws.set_column("E:N", 9)
+        self._setup(ws, GOLD); self._chrome(ws, 13)
+        ws.set_column("A:A", 2); ws.set_column("B:B", 24); ws.set_column("C:C", 26)
+        ws.set_column("D:D", 18); ws.set_column("E:P", 9)
         ws.merge_range("B2:N2", "Units & Refineries", self.f["title"])
         ws.merge_range("B3:N3",
-                       "Unit-category mix (share & YoY%), top refineries and operators, event scatter, "
-                       "and the mogas overlay.", self.f["subtitle"])
-        # unit matrix with share + YoY columns
+                       "Unit-category mix (share & YoY%), top refineries and operators, and the "
+                       "unplanned event scatter. Mogas and Naphtha now have their own sheets.",
+                       self.f["subtitle"])
         mat = self.ctx["unit_total"]
         years = [y for y in mat.columns if 2020 <= y <= 2027]
         i25 = years.index(2025) if 2025 in years else len(years) - 1
@@ -811,11 +896,10 @@ class Build:
         for j, y in enumerate(years):
             ws.write_number(r, 2 + j, y, self._yr(y))
         ws.write(r, tot_col, "Total", self.f["colhdr"])
-        ws.write(r, share_col, "% '25", self.f["colhdr"])
-        ws.write(r, yoy_col, "YoY%", self.f["colhdr"])
+        ws.write(r, share_col, "% '25", self.f["colhdr"]); self._tip(ws, r, share_col, "Unit's share of 2025 total offline.")
+        ws.write(r, yoy_col, "YoY%", self.f["colhdr"]); self._tip(ws, r, yoy_col, "2025 vs 2024; 'n/m' when 2024 base < 50 kbd.")
         r += 1
-        first = r
-        nU = len(mat.index)
+        first = r; nU = len(mat.index)
         for i, u in enumerate(mat.index):
             sh = i % 2 == 1
             ws.write(r, 1, str(u).title(), self.f["rowlab"])
@@ -825,8 +909,7 @@ class Build:
             c25 = A1(r, 2 + i25)
             colsum = f"SUM({A1(first,2+i25)}:{A1(first+nU-1,2+i25)})"
             ws.write_formula(r, share_col, f"=IF({colsum}=0,0,{c25}/{colsum})", self.f["pct"])
-            ws.write_formula(r, yoy_col, f"=IF({A1(r,2+i24)}=0,\"n/a\",({c25}-{A1(r,2+i24)})/{A1(r,2+i24)})",
-                             self.f["pcts"])
+            ws.write_formula(r, yoy_col, self._yoy_formula(c25, A1(r, 2 + i24), 50), self.f["pcts"])
             r += 1
         last = r - 1
         ws.conditional_format(first, tot_col, last, tot_col, {"type": "data_bar", "bar_color": GOLD, "bar_solid": True})
@@ -842,48 +925,10 @@ class Build:
         ws.insert_chart(first, yoy_col + 2, bar)
         r = max(r + 1, first + topn + 1)
 
-        # --- Naphtha / octane complex (reforming + isomerization + aromatics/BTX) ---
-        nap = self.ctx["naphtha"]
-        na = nap["annual"]
-        nyears = [y for y in na.index if 2018 <= y <= 2027]
-        r = self._band(ws, r, 1, 8, "Naphtha / Octane Complex Offline (kbd) - reforming + isomerization + aromatics/BTX", "h_purple")
-        ws.merge_range(r, 1, r, 8,
-                       "These naphtha-fed units set gasoline octane; offline here squeezes octane/blending "
-                       "even if crude runs hold - a read CDU-only trackers miss.", self.f["subtitle"])
-        r += 1
-        for j, h in enumerate(["Year", "Planned", "Unplanned", "Total"]):
-            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
-        # by-PADD mini header
-        ws.write(r, 6, "PADD (2025)", self.f["colhdr_l"]); ws.write(r, 7, "kbd", self.f["colhdr"])
-        r += 1
-        nf = r
-        for y in nyears:
-            kf = self.f["kbd_p"] if y in PARTIAL else self.f["kbd"]
-            ws.write_number(r, 1, y, self._yr(y))
-            ws.write_number(r, 2, float(na.loc[y, "Planned"]), kf)
-            ws.write_number(r, 3, float(na.loc[y, "Unplanned"]), kf)
-            ws.write_formula(r, 4, f"={A1(r,2)}+{A1(r,3)}", self.f["kbd_p"] if y in PARTIAL else self.f["kbd_b"])
-            r += 1
-        # by-PADD list alongside
-        bp = nap["by_padd"]
-        for k, p in enumerate(PADDS):
-            rr = nf + k
-            if rr < r:
-                ws.write(rr, 6, p, self.f["rowlab"])
-                ws.write_number(rr, 7, float(bp.loc[p, 2025]) if (p in bp.index and 2025 in bp.columns) else 0.0, self.f["kbd"])
-        nch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
-        for ci, (nm, c) in enumerate([("Planned", NAVY), ("Unplanned", PURPLE)]):
-            nch.add_series({"name": nm, "categories": ["Units & Refineries", nf, 1, r - 1, 1],
-                            "values": ["Units & Refineries", nf, 2 + ci, r - 1, 2 + ci], "fill": {"color": c}})
-        nch.set_title({"name": "Naphtha/Octane Complex Offline (kbd)"}); nch.set_legend({"position": "bottom"})
-        nch.set_size({"width": 470, "height": 270}); nch.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(nf, 9, nch)
-        r = max(r + 1, nf + 13)
-
-        # top refineries
+        # top refineries (+ unplanned-% column)
         pl = self.ctx["plants"]
-        r = self._band(ws, r, 1, 7, "Top 15 Refineries by Capacity Offline (kbd)")
-        for j, h in enumerate(["Refinery", "Operator", "PADD", "Total", "Planned", "Unplanned", "Events"]):
+        r = self._band(ws, r, 1, 8, "Top 15 Refineries by Capacity Offline (kbd)")
+        for j, h in enumerate(["Refinery", "Operator", "PADD", "Total", "Planned", "Unplanned", "Unpl %", "Events"]):
             ws.write(r, 1 + j, h, self.f["colhdr_l"] if j in (0, 1) else self.f["colhdr"])
         r += 1
         rf = r
@@ -894,36 +939,36 @@ class Build:
             ws.write_number(r, 4, float(row["total"]), self.f["kbd"])
             ws.write_number(r, 5, float(row["planned"]), self.f["kbd"])
             ws.write_number(r, 6, float(row["unplanned"]), self.f["kbd"])
-            ws.write_number(r, 7, int(row["events"]), self.f["kbd"])
+            ws.write_formula(r, 7, f"=IF({A1(r,4)}=0,0,{A1(r,6)}/{A1(r,4)})", self.f["pct"])
+            ws.write_number(r, 8, int(row["events"]), self.f["kbd"])
             r += 1
         ws.conditional_format(rf, 4, r - 1, 4, {"type": "data_bar", "bar_color": PURPLE, "bar_solid": True})
-        ws.autofilter(rf - 1, 1, r - 1, 7)        # sortable/filterable for the floor
-        r += 1
+        ws.autofilter(rf - 1, 1, r - 1, 8)
+        rtbl = r + 1
 
-        # operators x year
+        # operators x year (+ YoY% col) - placed to keep refineries/operators stacked but tight
         ops = self.ctx["operators"]
         oyears = [y for y in ops.columns if 2020 <= y <= 2027]
-        r = self._band(ws, r, 1, 1 + len(oyears), "Top 10 Operators x Year (kbd)")
+        oi25 = oyears.index(2025) if 2025 in oyears else len(oyears) - 1
+        oi24 = oyears.index(2024) if 2024 in oyears else oi25 - 1
+        r = self._band(ws, rtbl, 1, 2 + len(oyears), "Top 10 Operators x Year (kbd) + YoY%")
         ws.write(r, 1, "Operator", self.f["colhdr_l"])
         for j, y in enumerate(oyears):
             ws.write_number(r, 2 + j, y, self._yr(y))
+        ws.write(r, 2 + len(oyears), "YoY%", self.f["colhdr"])
         r += 1
         for i, op in enumerate(ops.index):
             sh = i % 2 == 1
             ws.write(r, 1, short_op(op, 22), self.f["rowlab"])
             for j, y in enumerate(oyears):
                 ws.write_number(r, 2 + j, float(ops.loc[op, y]), self._kf(y, sh))
+            ws.write_formula(r, 2 + len(oyears), self._yoy_formula(A1(r, 2 + oi25), A1(r, 2 + oi24), 50), self.f["pcts"])
             r += 1
-        r += 1
 
-        # scatter + mogas side by side (scatter left as a small block, mogas table)
+        # unplanned event scatter (chart beside a small data block)
         sc = self.ctx["scatter"]
-        r = self._band(ws, r, 1, 6, "Unplanned Events: Capacity vs Duration (2023-25) | Mogas Overlay")
-        ws.write(r, 1, "Duration (days)", self.f["colhdr"])
-        ws.write(r, 2, "Capacity (kbd)", self.f["colhdr"])
-        # mogas yield map header
-        ws.write(r, 4, "Bucket", self.f["colhdr_l"]); ws.write(r, 5, "Factor", self.f["colhdr"])
-        ws.write(r, 6, "Unit categories", self.f["colhdr_l"])
+        r = self._band(ws, r + 1, 1, 2, "Unplanned Events: Capacity vs Duration (2023-25)")
+        ws.write(r, 1, "Duration (days)", self.f["colhdr"]); ws.write(r, 2, "Capacity (kbd)", self.f["colhdr"])
         r += 1
         sfirst = r
         for _, row in sc.iterrows():
@@ -931,13 +976,6 @@ class Build:
             ws.write_number(r, 2, float(row["cap_kbd"]), self.f["kbd"])
             r += 1
         slast = r - 1
-        # mogas yield map rows (written alongside, starting at sfirst)
-        ws.set_column("G:G", 34)
-        for k, (bucket, factor, cats) in enumerate(self.ctx["mogas_yield_map"]):
-            rr = sfirst + k
-            ws.write(rr, 4, bucket, self.f["rowlab_b"])
-            ws.write_number(rr, 5, factor, self.wb.add_format({"font_name": "Arial", "num_format": "0.000", "align": "center"}))
-            ws.write(rr, 6, ", ".join(c.title() for c in cats) or "-", self.f["rowlab"])
         scat = self.wb.add_chart({"type": "scatter"})
         scat.add_series({"categories": ["Units & Refineries", sfirst, 1, slast, 1],
                          "values": ["Units & Refineries", sfirst, 2, slast, 2],
@@ -945,35 +983,120 @@ class Build:
         scat.set_title({"name": "Unplanned Events - Capacity vs Duration"})
         scat.set_x_axis({"name": "Duration (days)", "min": 0}); scat.set_y_axis({"name": "kbd", "min": 0})
         scat.set_legend({"none": True})
-        scat.set_size({"width": 430, "height": 290}); scat.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(sfirst + len(self.ctx["mogas_yield_map"]) + 1, 4, scat)
-
-        # mogas annual
-        rr = sfirst + max(len(self.ctx["mogas_yield_map"]) + 14, slast - sfirst + 2)
-        ma = self.ctx["mogas_annual"]
-        myears = [y for y in ma.index if 2018 <= y <= 2027]
-        rr = self._band(ws, rr, 1, 4, "Mogas-Equivalent Offline by Year (kbd)", "h_green")
-        for j, h in enumerate(["Year", "Planned", "Unplanned", "Total"]):
-            ws.write(rr, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
-        rr += 1
-        mf = rr
-        for y in myears:
-            kf = self.f["kbd_p"] if y in PARTIAL else self.f["kbd"]
-            ws.write_number(rr, 1, y, self._yr(y))
-            ws.write_number(rr, 2, float(ma.loc[y, "Planned"]), kf)
-            ws.write_number(rr, 3, float(ma.loc[y, "Unplanned"]), kf)
-            ws.write_formula(rr, 4, f"={A1(rr,2)}+{A1(rr,3)}", self.f["kbd_p"] if y in PARTIAL else self.f["kbd_b"])
-            rr += 1
-        mch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
-        for ci, (nm, c) in enumerate([("Planned", NAVY), ("Unplanned", GREEN)]):
-            mch.add_series({"name": nm, "categories": ["Units & Refineries", mf, 1, rr - 1, 1],
-                            "values": ["Units & Refineries", mf, 2 + ci, rr - 1, 2 + ci], "fill": {"color": c}})
-        mch.set_title({"name": "Mogas-Equivalent Offline (kbd)"}); mch.set_legend({"position": "bottom"})
-        mch.set_size({"width": 470, "height": 290}); mch.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(mf, 6, mch)
+        scat.set_size({"width": 470, "height": 300}); scat.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(sfirst, 4, scat)
         ws.freeze_panes(6, 0)
 
-    # ===================================================================== EVENTS
+    def mogas(self):
+        ws = self.wb.add_worksheet("Mogas")
+        self._setup(ws, GREEN); self._chrome(ws, 9)
+        ws.set_column("A:A", 2); ws.set_column("B:B", 12); ws.set_column("C:E", 12)
+        ws.set_column("F:F", 40)
+        ws.merge_range("B2:I2", "Mogas-Equivalent Overlay (Secondary)", self.f["title"])
+        ws.merge_range("B3:I3",
+                       "Gasoline-equivalent = capacity offline x each unit's mogas yield. A secondary "
+                       "read; capacity is never discarded.", self.f["subtitle"])
+        # yield map (left) and annual (right) side-by-side
+        r = 5
+        rb = self._band(ws, r, 1, 4, "Yield Map: Unit Bucket -> Mogas Factor", "h_green")
+        for j, h in enumerate(["Bucket", "Factor", "Unit categories"]):
+            ws.write(rb, 1 + j if j < 2 else 5, h, self.f["colhdr_l"] if j != 1 else self.f["colhdr"])
+        ws.write(rb, 5, "Unit categories", self.f["colhdr_l"])
+        ymrow = rb + 1
+        for k, (bucket, factor, cats) in enumerate(self.ctx["mogas_yield_map"]):
+            ws.write(ymrow + k, 1, bucket, self.f["rowlab_b"])
+            ws.write_number(ymrow + k, 2, factor, self.wb.add_format({"font_name": "Arial", "num_format": "0.000", "align": "center"}))
+            ws.write(ymrow + k, 5, ", ".join(c.title() for c in cats) or "-", self.f["rowlab"])
+        self._tip(ws, rb - 1, 1, "mogas-eq kbd = offline kbd x factor. CDU .175, FCC .65, Reforming .85, "
+                  "HDC .05, Coker .20, everything else 0.")
+        # annual to the right (cols H-K)
+        ma = self.ctx["mogas_annual"]
+        myears = [y for y in ma.index if 2018 <= y <= 2027]
+        c0 = 7
+        self._band(ws, r, c0, c0 + 4, "Mogas-Equivalent Offline by Year (kbd) + YoY%", "h_green")
+        hr = r + 1
+        for j, h in enumerate(["Year", "Planned", "Unplanned", "Total", "YoY%"]):
+            ws.write(hr, c0 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
+        mf = hr + 1
+        for i, y in enumerate(myears):
+            rr = mf + i
+            kf = self.f["kbd_p"] if y in PARTIAL else self.f["kbd"]
+            ws.write_number(rr, c0, y, self._yr(y))
+            ws.write_number(rr, c0 + 1, float(ma.loc[y, "Planned"]), kf)
+            ws.write_number(rr, c0 + 2, float(ma.loc[y, "Unplanned"]), kf)
+            ws.write_formula(rr, c0 + 3, f"={A1(rr,c0+1)}+{A1(rr,c0+2)}", self.f["kbd_p"] if y in PARTIAL else self.f["kbd_b"])
+            if i == 0:
+                ws.write(rr, c0 + 4, "-", self.f["na"])
+            else:
+                ws.write_formula(rr, c0 + 4, self._yoy_formula(A1(rr, c0 + 3), A1(rr - 1, c0 + 3), 200), self.f["pcts"])
+        ml = mf + len(myears) - 1
+        mch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
+        for ci, (nm, c) in enumerate([("Planned", NAVY), ("Unplanned", GREEN)]):
+            mch.add_series({"name": nm, "categories": ["Mogas", mf, c0, ml, c0],
+                            "values": ["Mogas", mf, c0 + 1 + ci, ml, c0 + 1 + ci], "fill": {"color": c}})
+        mch.set_title({"name": "Mogas-Equivalent Offline (kbd)"}); mch.set_legend({"position": "bottom"})
+        mch.set_size({"width": 520, "height": 300}); mch.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(max(ymrow + len(self.ctx["mogas_yield_map"]), ml) + 2, 1, mch)
+        ws.freeze_panes(6, 0)
+
+    def naphtha(self):
+        ws = self.wb.add_worksheet("Naphtha")
+        self._setup(ws, "#7030A0"); self._chrome(ws, 9)
+        ws.set_column("A:A", 2); ws.set_column("B:B", 12); ws.set_column("C:I", 11)
+        ws.merge_range("B2:I2", "Naphtha / Octane Complex", self.f["title"])
+        ws.merge_range("B3:I3",
+                       "Reforming + isomerization + aromatics/BTX - the naphtha-fed units that set "
+                       "gasoline octane. Offline here squeezes octane/blending even if crude runs hold.",
+                       self.f["subtitle"])
+        nap = self.ctx["naphtha"]; na = nap["annual"]
+        nyears = [y for y in na.index if 2018 <= y <= 2027]
+        r = 5
+        r = self._band(ws, r, 1, 5, "Naphtha/Octane Complex Offline by Year (kbd) + YoY%", "h_purple")
+        for j, h in enumerate(["Year", "Planned", "Unplanned", "Total", "YoY%"]):
+            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
+        r += 1
+        nf = r
+        for y in nyears:
+            kf = self.f["kbd_p"] if y in PARTIAL else self.f["kbd"]
+            ws.write_number(r, 1, y, self._yr(y))
+            ws.write_number(r, 2, float(na.loc[y, "Planned"]), kf)
+            ws.write_number(r, 3, float(na.loc[y, "Unplanned"]), kf)
+            ws.write_formula(r, 4, f"={A1(r,2)}+{A1(r,3)}", self.f["kbd_p"] if y in PARTIAL else self.f["kbd_b"])
+            if y == nyears[0]:
+                ws.write(r, 5, "-", self.f["na"])
+            else:
+                ws.write_formula(r, 5, self._yoy_formula(A1(r, 4), A1(r - 1, 4), 100), self.f["pcts"])
+            r += 1
+        nl = r - 1
+        nch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
+        for ci, (nm, c) in enumerate([("Planned", NAVY), ("Unplanned", PURPLE)]):
+            nch.add_series({"name": nm, "categories": ["Naphtha", nf, 1, nl, 1],
+                            "values": ["Naphtha", nf, 2 + ci, nl, 2 + ci], "fill": {"color": c}})
+        nch.set_title({"name": "Naphtha/Octane Complex Offline (kbd)"}); nch.set_legend({"position": "bottom"})
+        nch.set_size({"width": 500, "height": 290}); nch.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(nf, 7, nch)
+        # by-PADD (left) and by-unit (right) side-by-side below
+        r += 1
+        bp = nap["by_padd"]; byrs = [y for y in bp.columns if 2020 <= y <= 2027]
+        r = self._band(ws, r, 1, 1 + len(byrs), "Naphtha Complex by PADD x Year (kbd)", "h_navy")
+        ws.write(r, 1, "PADD", self.f["colhdr_l"])
+        for j, y in enumerate(byrs):
+            ws.write_number(r, 2 + j, y, self._yr(y))
+        r += 1
+        for i, p in enumerate(PADDS):
+            ws.write(r, 1, p, self.f["rowlab"])
+            for j, y in enumerate(byrs):
+                ws.write_number(r, 2 + j, float(bp.loc[p, y]) if p in bp.index else 0.0, self._kf(y, i % 2 == 1))
+            r += 1
+        # by-unit list
+        bu = nap["by_unit"]
+        ur = nf
+        ws.write(ur - 1, 11, "By unit (all-yr kbd)", self.f["note_b"])
+        for k, (u, v) in enumerate(bu.items()):
+            ws.write(ur + k, 11, str(u).title(), self.f["rowlab"])
+            ws.write_number(ur + k, 12, float(v), self.f["kbd"])
+        ws.freeze_panes(6, 0)
+
     def events_tas(self):
         ws = self.wb.add_worksheet("Events & TAs")
         self._setup(ws, "#843C0C")
@@ -985,8 +1108,8 @@ class Build:
         ws.set_column("O:O", 8)
         ws.merge_range("B2:O2", "Events & Turnarounds", self.f["title"])
         ws.merge_range("B3:O3",
-                       "Back-to-back FCC clusters external trackers miss, and the 2026 planned "
-                       "turnaround schedule by PADD.", self.f["subtitle"])
+                       "Back-to-back FCC clusters external trackers miss, the ExxonMobil 2027 booked "
+                       "book, and the 2026 & 2027 planned turnaround schedules by PADD.", self.f["subtitle"])
         grid = self.ctx["fcc_grid"]
         r = 5
         r = self._band(ws, r, 1, 14, "ExxonMobil FCC Offline (kbd) - Plant x Month, 2022-2026  (adjacent shaded cells = a run)", "h_orange")
@@ -1020,39 +1143,99 @@ class Build:
         ws.conditional_format(ef, 6, r - 1, 6, {"type": "data_bar", "bar_color": ORANGE, "bar_solid": True})
         r += 1
 
-        # TA schedule by PADD (compact, top events per PADD)
+        # ---- ExxonMobil 2027 booked book (the Exxon-specific 2027 data) ----
+        ex = self.ctx["exxon_2027"]
+        r = self._band(ws, r, 1, 14,
+                       f"ExxonMobil 2027 Planned Outages - the booked book ({ex['total']:,.0f} kbd, planned-only)",
+                       "h_orange")
+        self._tip(ws, r - 1, 1, "2027 is planned-only, so this is ExxonMobil's BOOKED turnaround book for 2027 "
+                  "(not a forecast). Joliet's FCC/crude work dominates - the same Exxon Q1 signal seen above.")
+        by_unit_first = r
+        # by-refinery (left)
+        ws.write(r, 1, "Refinery", self.f["colhdr_l"])
+        ws.write(r, 2, "kbd", self.f["colhdr"]); ws.write(r, 3, "% Exxon", self.f["colhdr"])
+        # by-unit (right, side-by-side)
+        ws.write(r, 5, "Unit", self.f["colhdr_l"])
+        ws.write(r, 6, "kbd", self.f["colhdr"]); ws.write(r, 7, "% Exxon", self.f["colhdr"])
+        r += 1
+        refs = ex["by_ref"]; rf = r
+        for ref, v in refs.items():
+            ws.write(r, 1, str(ref), self.f["rowlab"]); ws.write_number(r, 2, float(v), self.f["kbd"])
+            ws.write_formula(r, 3, f"=IF({A1(r,2)}=0,0,{A1(r,2)}/{ex['total']:.4f})", self.f["pct"])
+            r += 1
+        rl = r - 1
+        ws.conditional_format(rf, 2, rl, 2, {"type": "data_bar", "bar_color": ORANGE, "bar_solid": True})
+        # unit rows next to refinery rows
+        units = ex["by_unit"]; ur = by_unit_first + 1
+        for u, v in units.items():
+            ws.write(ur, 5, str(u).title(), self.f["rowlab"]); ws.write_number(ur, 6, float(v), self.f["kbd"])
+            ws.write(ur, 7, f"=IF({A1(ur,6)}=0,0,{A1(ur,6)}/{ex['total']:.4f})", self.f["pct"])
+            ur += 1
+        ws.conditional_format(by_unit_first + 1, 6, ur - 1, 6,
+                              {"type": "data_bar", "bar_color": NAVY, "bar_solid": True})
+        r = max(r, ur) + 1
+        # refinery x month stacked column (where in 2027 the Exxon work lands)
+        mref = ex["month_ref"]; mrf = r
+        ws.write(r, 1, "Refinery \\ Month", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        r += 1
+        chart_first = r
+        for ref in ex["refs"]:
+            ws.write(r, 1, str(ref).replace(" Refinery", ""), self.f["rowlab"])
+            for j in range(12):
+                ws.write_number(r, 2 + j, float(mref[ref][j]), self.f["kbd"])
+            r += 1
+        chart_last = r - 1
+        exch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
+        excolors = [ORANGE, NAVY, GOLD, GRAY, GREEN]
+        for k, ref in enumerate(ex["refs"]):
+            exch.add_series({"name": str(ref).replace(" Refinery", ""),
+                             "categories": ["Events & TAs", mrf, 2, mrf, 13],
+                             "values": ["Events & TAs", chart_first + k, 2, chart_first + k, 13],
+                             "fill": {"color": excolors[k % len(excolors)]}})
+        exch.set_title({"name": "ExxonMobil 2027 Planned Offline by Refinery (kbd/month)"})
+        exch.set_y_axis({"name": "kbd"}); exch.set_legend({"position": "bottom"})
+        exch.set_size({"width": 840, "height": 300}); exch.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(r + 1, 1, exch)
+        r += 17
+
+        # TA schedule by PADD (compact, top events per PADD) - 2026 full + 2027 H1-focus
         dfmt = self.f["date"]; dfmt_sh = self.f["date_sh"]
-        for p in ["PADD 3", "PADD 2", "PADD 5"]:
-            ta = self.ctx["ta_schedule"][p]
-            if not len(ta):
-                continue
-            r = self._band(ws, r, 1, 8, f"{p} - 2026 Planned TAs (top {min(12,len(ta))} by size)", "h_navy")
-            for j, h in enumerate(["Operator", "Refinery", "Unit", "Offline", "% PADD", "Start", "End"]):
-                ws.write(r, 1 + j, h, self.f["colhdr_l"] if j < 3 else self.f["colhdr"])
-            r += 1
-            for i, (_, row) in enumerate(ta.head(12).iterrows()):
-                sh = i % 2 == 1
-                lf = self.wb.add_format({"font_name": "Arial", "align": "left", "indent": 1, "bg_color": LT_GRAY}) if sh else self.f["rowlab"]
-                ws.write(r, 1, short_op(row["operator"]), lf)
-                ws.write(r, 2, str(row["plant"]), lf)
-                ws.write(r, 3, str(row["unit_cat"]).title(), lf)
-                ws.write_number(r, 4, float(row["kbd"]), self._kf(2025, sh))
-                ws.write_number(r, 5, float(row["pct_padd"]), self.f["pct"])
-                ws.write_datetime(r, 6, row["start"].to_pydatetime(), dfmt_sh if sh else dfmt)
-                ws.write_datetime(r, 7, row["end"].to_pydatetime(), dfmt_sh if sh else dfmt)
+        for yr, sched, cap, band in [(2026, self.ctx["ta_schedule"], 12, "h_navy"),
+                                     (2027, self.ctx["ta_2027"], 8, "h_blue")]:
+            note = " (H1 focus - 2027 book still filling in)" if yr == 2027 else ""
+            for p in ["PADD 3", "PADD 2", "PADD 5"]:
+                ta = sched[p]
+                if not len(ta):
+                    continue
+                r = self._band(ws, r, 1, 8, f"{p} - {yr} Planned TAs (top {min(cap,len(ta))} by size){note}", band)
+                for j, h in enumerate(["Operator", "Refinery", "Unit", "Offline", "% PADD", "Start", "End"]):
+                    ws.write(r, 1 + j, h, self.f["colhdr_l"] if j < 3 else self.f["colhdr"])
                 r += 1
-            r += 1
+                for i, (_, row) in enumerate(ta.head(cap).iterrows()):
+                    sh = i % 2 == 1
+                    lf = self.wb.add_format({"font_name": "Arial", "align": "left", "indent": 1, "bg_color": LT_GRAY}) if sh else self.f["rowlab"]
+                    ws.write(r, 1, short_op(row["operator"]), lf)
+                    ws.write(r, 2, str(row["plant"]), lf)
+                    ws.write(r, 3, str(row["unit_cat"]).title(), lf)
+                    ws.write_number(r, 4, float(row["kbd"]), self._kf(2025, sh))
+                    ws.write_number(r, 5, float(row["pct_padd"]), self.f["pct"])
+                    ws.write_datetime(r, 6, row["start"].to_pydatetime(), dfmt_sh if sh else dfmt)
+                    ws.write_datetime(r, 7, row["end"].to_pydatetime(), dfmt_sh if sh else dfmt)
+                    r += 1
+                r += 1
         ws.freeze_panes(gfirst, 2)
 
     # ===================================================================== MODEL
     def model(self):
-        ws = self.wb.add_worksheet("Model")
+        ws = self.wb.add_worksheet("Scenario Analysis")
         self._setup(ws, "#C55A11")
         self._chrome(ws, 13)
         ws.set_column("A:A", 2)
         ws.set_column("B:B", 24)
         ws.set_column("C:N", 8)
-        SHEET = "Model"
+        SHEET = "Scenario Analysis"
         ws.merge_range("B2:N2", "2027 Scenario & Sensitivity (Live Model)", self.f["title"])
         ws.merge_range("B3:N3",
                        "Edit the yellow inputs - the forecast, per-PADD split, heatmap and tornado all recompute.",
@@ -1191,6 +1374,51 @@ class Build:
         ws.insert_chart(chdr, 15, chart)
         r += 1
 
+        # --- 2027 scenario fan: Conservative / Average / Active ---
+        fan = self.ctx["scenario_fan"]; mu_fan = self.ctx["monthly_unplanned"]
+        r = self._band(ws, r, 1, 14, "2027 Unplanned Scenario Fan - Conservative / Average / Active (kbd by month)", "h_orange")
+        self._tip(ws, r - 1, 1, "Three forward paths off the same seasonal baseline: Conservative = baseline x0.8 "
+                  "(calm year), Average = x1.0 (normal), Active = x1.3 (heavy unplanned). 2025 actual shown for scale.")
+        ws.write(r, 1, "Scenario", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        ws.write(r, 14, "Year", self.f["colhdr"])
+        fhdr = r; r += 1
+        fan_rows = {}
+        for nm, col, dash, wd in [("Conservative", GREEN, "dash", 2.0), ("Average", NAVY, "solid", 2.75),
+                                  ("Active", RED, "dash", 2.0)]:
+            ws.write(r, 1, nm, self.f["rowlab"]); fan_rows[nm] = (r, col, dash, wd)
+            for j, m in enumerate(MONTHS):
+                ws.write_number(r, 2 + j, float(fan[nm][m]), self.f["kbd"])
+            ws.write_formula(r, 14, f"=SUM({A1(r,2)}:{A1(r,13)})", self.f["kbd_b"])
+            r += 1
+        ws.write(r, 1, "2025 Actual", self.f["rowlab"]); act_row = r
+        for j, m in enumerate(MONTHS):
+            ws.write_number(r, 2 + j, float(mu_fan.loc[2025, m]) if 2025 in mu_fan.index else 0.0, self.f["kbd"])
+        ws.write_formula(r, 14, f"=SUM({A1(r,2)}:{A1(r,13)})", self.f["kbd_b"])
+        r += 1
+        fan_chart = self.wb.add_chart({"type": "line"})
+        for nm, (rr, col, dash, wd) in fan_rows.items():
+            fan_chart.add_series({"name": [SHEET, rr, 1], "categories": [SHEET, fhdr, 2, fhdr, 13],
+                                  "values": [SHEET, rr, 2, rr, 13],
+                                  "line": {"color": col, "width": wd, "dash_type": dash}})
+        fan_chart.add_series({"name": "2025 Actual", "categories": [SHEET, fhdr, 2, fhdr, 13],
+                              "values": [SHEET, act_row, 2, act_row, 13],
+                              "line": {"color": GRAY, "width": 1.25, "dash_type": "round_dot"}})
+        fan_chart.set_title({"name": "2027 Unplanned Scenario Fan (kbd by month)"})
+        fan_chart.set_y_axis({"name": "kbd"}); fan_chart.set_legend({"position": "bottom"})
+        fan_chart.set_size({"width": 640, "height": 300}); fan_chart.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(fhdr, 15, fan_chart)
+        # annual-total callouts + interpretation
+        cons_t = float(fan["Conservative"].sum()); avg_t = float(fan["Average"].sum()); act_t = float(fan["Active"].sum())
+        pl27 = float(self.ctx["summary"].loc[2027, "Planned"]) if 2027 in self.ctx["summary"].index else 0.0
+        ws.merge_range(r, 1, r, 13,
+                       f"Annual unplanned: Conservative ~{cons_t:,.0f} | Average ~{avg_t:,.0f} | Active ~{act_t:,.0f} kbd.  "
+                       f"Add 2027 booked planned ({pl27:,.0f} kbd) for implied totals of "
+                       f"~{cons_t+pl27:,.0f} / ~{avg_t+pl27:,.0f} / ~{act_t+pl27:,.0f} kbd. "
+                       f"Active vs Conservative spans ~{act_t-cons_t:,.0f} kbd ({(act_t/cons_t-1):+.0%}) - the risk range to hedge.",
+                       self.f["note"]); ws.set_row(r, 30); r += 2
+
         # --- sensitivity heatmap ---
         growths = [-0.10, -0.05, 0.0, 0.05, 0.10, 0.15]
         mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
@@ -1219,10 +1447,16 @@ class Build:
                                "mid_color": "#FFEB84", "max_color": "#F8696B"})
         r += 1
 
-        # --- tornado ---
-        torn = self.ctx["tornado"]
-        r = self._band(ws, r, 1, 6, "Tornado - 2027 Unplanned Sensitivity by Driver (kbd)", "h_orange")
-        for j, h in enumerate(["Driver", "Low", "Base", "High", "Δ Low", "Δ High"]):
+        # --- driver sensitivity (readable horizontal bars, sorted by total swing) ---
+        # Replaces the old centred stacked "tornado" (labels were unreadable). We
+        # show each driver's full Low->High swing as one sorted bar with the kbd
+        # value labelled, plus the Low/Base/High detail table beside it.
+        torn = sorted(self.ctx["tornado"], key=lambda d: abs(d["high"] - d["low"]))  # asc -> biggest on top in a bar chart
+        r = self._band(ws, r, 1, 7, "Driver Sensitivity - 2027 Unplanned (kbd): each driver's Low -> High swing", "h_orange")
+        self._tip(ws, r - 1, 1, "Sorted by impact: the longest bar is the driver that moves the 2027 unplanned "
+                  "number most when flexed across its plausible range. Width = High minus Low (kbd).")
+        ws.set_column("B:B", 24)   # widen so driver names are fully readable
+        for j, h in enumerate(["Driver", "Low", "Base", "High", "Swing", "% of Base"]):
             ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
         r += 1
         tf = r
@@ -1230,18 +1464,19 @@ class Build:
             ws.write(r, 1, row["driver"], self.f["rowlab"])
             ws.write_number(r, 2, row["low"], self.f["kbd"]); ws.write_number(r, 3, row["base"], self.f["kbd"])
             ws.write_number(r, 4, row["high"], self.f["kbd"])
-            ws.write_formula(r, 5, f"={A1(r,2)}-{A1(r,3)}", self.f["kbd"])
-            ws.write_formula(r, 6, f"={A1(r,4)}-{A1(r,3)}", self.f["kbd"])
+            ws.write_formula(r, 5, f"=ABS({A1(r,4)}-{A1(r,2)})", self.f["kbd_b"])
+            ws.write_formula(r, 6, f"=IF({A1(r,3)}=0,0,{A1(r,5)}/{A1(r,3)})", self.f["pcts"])
             r += 1
         tl = r - 1
-        tch = self.wb.add_chart({"type": "bar", "subtype": "stacked"})
-        tch.add_series({"name": "Downside", "categories": [SHEET, tf, 1, tl, 1],
-                        "values": [SHEET, tf, 5, tl, 5], "fill": {"color": BLUE}})
-        tch.add_series({"name": "Upside", "categories": [SHEET, tf, 1, tl, 1],
-                        "values": [SHEET, tf, 6, tl, 6], "fill": {"color": ORANGE}})
-        tch.set_title({"name": "Tornado - Swing vs base (kbd)"}); tch.set_legend({"position": "bottom"})
-        tch.set_size({"width": 640, "height": 280}); tch.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(tf, 8, tch)
+        tch = self.wb.add_chart({"type": "bar"})
+        tch.add_series({"name": "Low -> High swing (kbd)",
+                        "categories": [SHEET, tf, 1, tl, 1],
+                        "values": [SHEET, tf, 5, tl, 5], "fill": {"color": ORANGE},
+                        "data_labels": {"value": True, "num_format": "#,##0", "font": {"size": 8}}})
+        tch.set_title({"name": "Driver Sensitivity - swing in 2027 unplanned (kbd)"})
+        tch.set_x_axis({"name": "kbd swing"}); tch.set_legend({"none": True})
+        tch.set_size({"width": 720, "height": 300}); tch.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(tl + 2, 1, tch)
 
     # ===================================================================== run
     def run(self):
@@ -1252,12 +1487,14 @@ class Build:
         self.trends()
         self.padd()
         self.units_refineries()
+        self.mogas()
+        self.naphtha()
         self.events_tas()
         self.model()
         # order tabs: Cover first, Data last/hidden
         self.wb.worksheets_objs.sort(key=lambda w: (
             ["Cover", "Dashboard", "Explorer", "Trends", "PADD", "Units & Refineries",
-             "Events & TAs", "Model", "Data"].index(w.name)))
+             "Events & TAs", "Scenario Analysis", "Mogas", "Naphtha", "Data"].index(w.name)))
         self.wb.close()
 
 

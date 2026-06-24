@@ -146,27 +146,35 @@ def padd_combo(ctx, padd, path, figsize=(7.2, 4.2), compact=False):
         return [mat.loc[yr, m] if yr in mat.index else 0.0 for m in MONTHS]
 
     fig, ax = plt.subplots(figsize=figsize)
+    ax2 = ax.twinx()                       # prior-year total lines on a 2nd axis
     x = np.arange(12)
     plan = row(pm["planned"], CUR)
     unpl = row(pm["unplanned"], CUR)
     ax.bar(x, plan, color=GOLD, label="2026 Planned", zorder=3)
     ax.bar(x, unpl, bottom=plan, color=ORANGE, label="2026 Unplanned", zorder=3)
     for yr, color in [(2025, RED), (2024, BLUE), (2023, GRAY)]:
-        ax.plot(x, row(pm["total"], yr), color=color, lw=2.2, marker="o", ms=3,
-                label=f"{yr} Total")
-    ax.plot(x, row(pm["planned"], 2027), color=GREEN, lw=2.2, ls="--", marker="s", ms=3,
-            label="2027 Planned")
+        ax2.plot(x, row(pm["total"], yr), color=color, lw=2.2, marker="o", ms=3,
+                 label=f"{yr} Total")
+    ax2.plot(x, row(pm["planned"], 2027), color=GREEN, lw=2.2, ls="--", marker="s", ms=3,
+             label="2027 Planned")
     ax.set_xticks(x)
     ax.set_xticklabels([m[0] for m in MONTHS] if compact else MONTHS,
                        fontsize=9 if not compact else 8)
     ax.yaxis.set_major_formatter(_thousands)
-    ax.set_ylabel("kbd")
+    ax2.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("2026 plan/unplanned (kbd)")
+    ax2.set_ylabel("prior-yr total / 2027 plan (kbd)", fontsize=9)
+    ax.set_ylim(bottom=0); ax2.set_ylim(bottom=0)
+    ax2.spines["top"].set_visible(False)
     ax.set_title(f"{padd} Planned & Unplanned Offline (kbd)",
                  fontsize=12 if not compact else 11)
     if not compact:
-        ax.legend(frameon=False, ncol=3, fontsize=9, loc="upper center",
+        h1, l1 = ax.get_legend_handles_labels()
+        h2, l2 = ax2.get_legend_handles_labels()
+        ax.legend(h1 + h2, l1 + l2, frameon=False, ncol=3, fontsize=9, loc="upper center",
                   bbox_to_anchor=(0.5, -0.12))
-    _clean(ax)
+    ax.spines["top"].set_visible(False)
+    ax.grid(axis="y", zorder=0)
     return _save(fig, path)
 
 
@@ -484,6 +492,31 @@ def padd_planned_27v26(ctx, padd, path):
     return _save(fig, path)
 
 
+def scenario_fan_chart(ctx, path):
+    """2027 unplanned forecast as Conservative / Average / Active paths."""
+    fan = ctx["scenario_fan"]
+    mu = ctx["monthly_unplanned"]
+    fig, ax = plt.subplots(figsize=(10, 4.7))
+    x = np.arange(12)
+    ax.fill_between(x, fan["Conservative"].values, fan["Active"].values,
+                    color="#D9E1F2", alpha=0.7, zorder=1, label="Conservative-Active range")
+    styles = {"Conservative": (GREEN, "--", 2.0), "Average": (NAVY, "-", 2.8), "Active": (RED, "--", 2.0)}
+    for name, prof in fan.items():
+        c, ls, lw = styles[name]
+        ax.plot(x, prof.values, color=c, lw=lw, ls=ls, marker="o", ms=3,
+                label=f"{name} (~{prof.sum():,.0f} kbd)", zorder=3)
+    if 2025 in mu.index:
+        ax.plot(x, [mu.loc[2025, m] for m in MONTHS], color=GRAY, lw=1.2, zorder=2,
+                label="2025 actual")
+    ax.set_xticks(x, MONTHS)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title("2027 Unplanned Forecast - Conservative / Average / Active (kbd)")
+    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -511,6 +544,7 @@ def render_all(ctx, outdir):
         "padd5": padd_combo(ctx, "PADD 5", p("padd5.png")),
         "planned_xyear": planned_cross_year(ctx, p("planned_xyear.png")),
         "exxon27": exxon_2027_chart(ctx, p("exxon27.png")),
+        "fan": scenario_fan_chart(ctx, p("fan.png")),
         "padd_pl": {pd: padd_planned_27v26(ctx, pd, p(f"padd_pl_{pd[-1]}.png")) for pd in PADDS},
     }
     return out

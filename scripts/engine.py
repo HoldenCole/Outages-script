@@ -700,6 +700,84 @@ def exxon_2027_breakdown(df, operator_contains="EXXON", year=2027):
             "refs": [str(r) for r in refs], "total": float(sub["cap_kbd"].sum())}
 
 
+# ----------------------------------------------------------------------------- outliers, %, forecasts
+OUTLIER_NOTE = {2020: "COVID-19 demand collapse", 2021: "Winter Storm Uri freeze"}
+
+
+def flatten_outliers(series, years=tuple(OUTLIER_YEARS)):
+    """Cap outlier-year values to the max normal year so charts stay readable;
+    return (display_series, footnote) with the real numbers in the footnote."""
+    s = series.copy()
+    normal = [float(v) for y, v in s.items() if int(y) not in years]
+    cap = max(normal) if normal else float(s.max())
+    notes = []
+    for y in years:
+        if y in s.index and float(s.loc[y]) > cap:
+            notes.append(f"{y} ({OUTLIER_NOTE.get(y, 'outlier')}): actual "
+                         f"{float(s.loc[y]):,.0f} kbd, shown flattened to {cap:,.0f}")
+            s.loc[y] = cap
+    return s, "   ".join(notes)
+
+
+def display_annual(df, value="cap_kbd"):
+    """Annual summary with 2020/21 unplanned flattened for chart display."""
+    s = annual_summary(df, value).copy()
+    flU, note = flatten_outliers(s["Unplanned"])
+    s["UnplDisp"] = flU
+    s["TotDisp"] = s["Planned"] + s["UnplDisp"]
+    return s, note
+
+
+def pct_change(cur, prev, min_base=0.0, cap=5.0):
+    """YoY %, suppressed (None) when the base is tiny or the result is absurd -
+    avoids the +1000%/+2000% blow-ups from near-zero prior-year values."""
+    try:
+        cur, prev = float(cur), float(prev)
+    except (TypeError, ValueError):
+        return None
+    if prev == 0 or abs(prev) < min_base:
+        return None
+    p = (cur - prev) / prev
+    return None if abs(p) > cap else p
+
+
+def h1_planned(df):
+    """H1 (Jan-Jun) planned offline by year - the honest like-for-like view
+    while 2027 H2 data is still incomplete."""
+    mp = monthly_by_year(df, type_filter="PLANNED")
+    h1 = MONTHS[:6]
+    return {int(y): float(sum(mp.loc[y, m] for m in h1)) for y in mp.index}
+
+
+def scenario_fan(df, window_key=DEFAULT_WINDOW, lo=0.8, hi=1.3):
+    """Conservative / Average / Active monthly unplanned paths for 2027."""
+    prof = baseline_profile(df, window_key)
+    return {"Conservative": prof * lo, "Average": prof * 1.0, "Active": prof * hi}
+
+
+def completed_unplanned(df, years=(2024, 2025, 2026, 2027)):
+    """Monthly unplanned per year for charts, with the forecast filled in where
+    actuals don't exist: 2027 is all scenario forecast (was zero), and 2026's
+    tail (after the last real month) is forecast. Returns
+    {year: {'vals':[12], 'fc_from': first_forecast_month_idx}}."""
+    mu = monthly_by_year(df, type_filter="UNPLANNED")
+    fc = scenario_forecast(df)["monthly_unplanned"]
+    out = {}
+    for y in years:
+        if y not in mu.index or y == 2027:
+            out[y] = {"vals": [float(fc[m]) for m in MONTHS], "fc_from": 0}
+            continue
+        row = [float(mu.loc[y, m]) for m in MONTHS]
+        if y == 2026:
+            last = max([i for i, v in enumerate(row) if v > 10], default=11)
+            for i in range(last + 1, 12):
+                row[i] = float(fc[MONTHS[i]])
+            out[y] = {"vals": row, "fc_from": last + 1}
+        else:
+            out[y] = {"vals": row, "fc_from": 12}
+    return out
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -750,6 +828,10 @@ def build_context(path):
         "scenario_bands": scenario_bands(df),
         "exxon_2027": exxon_2027_breakdown(df),
         "ta_2027": {p: turnaround_schedule(df, 2027, padd=p, top=8) for p in PADD_ORDER},
+        "display_annual": display_annual(df),
+        "h1_planned": h1_planned(df),
+        "scenario_fan": scenario_fan(df),
+        "completed_unplanned": completed_unplanned(df),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

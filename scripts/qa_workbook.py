@@ -106,12 +106,16 @@ for title, frame in [("Total Offline - PADD x Year", ctx["padd_total"]),
             if not close(v, exp): miss += 1
     check(miss == 0, f"PADD [{title}] {n} cells match engine", f"{miss} mismatches")
 
-# PADD combo chart data blocks
+# PADD combo chart data blocks (2026 unplanned row has a forecast tail past fc_from)
 pm = ctx["padd_month"]
+sp = ctx["scenario_padd"]; nat_fc = ctx["scenario"]["monthly_unplanned"]
+fc_from = ctx["completed_unplanned"][2026]["fc_from"]
+tot_base = sum(float(sp[q]["baseline_annual"]) for q in PADDS) or 1.0
 for p in PADDS:
     br, _ = band_row(ws, f"{p} - 2026 plan")
     hdr = br + 1; first = hdr + 1
-    # row order: 2026 Planned, 2026 Unplanned, 2025 Total, 2024 Total, 2023 Total, 2027 Planned
+    share = float(sp[p]["baseline_annual"]) / tot_base
+    # row order: 2026 Planned, 2026 Unplanned(+fcst), 2025 Total, 2024 Total, 2023 Total, 2027 Planned
     specs = [("planned", 2026), ("unplanned", 2026), ("total", 2025),
              ("total", 2024), ("total", 2023), ("planned", 2027)]
     miss = 0
@@ -119,6 +123,8 @@ for p in PADDS:
         for j, m in enumerate(MONTHS):
             v = num(ws, first + k, 3 + j)
             exp = float(pm[p][key].loc[yr, m]) if yr in pm[p][key].index else 0.0
+            if key == "unplanned" and yr == 2026 and j >= fc_from:
+                exp = float(nat_fc[m]) * share      # forecast-filled tail
             if not close(v, exp): miss += 1
     check(miss == 0, f"PADD combo data [{p}] matches engine", f"{miss} mismatches")
 
@@ -138,9 +144,10 @@ for i, u in enumerate(um.index):
         if not close(v, exp): miss += 1
 check(miss == 0, f"Units matrix {n} cells match engine", f"{miss} mismatches")
 
-# Naphtha annual
+# Naphtha annual (now its own sheet)
+ws = wb["Naphtha"]
 na = ctx["naphtha"]["annual"]
-rows, _ = read_year_block(ws, "Naphtha / Octane Complex", 2)
+rows, _ = read_year_block(ws, "Naphtha/Octane Complex Offline by Year", 2)
 miss = 0
 for y, vals in rows.items():
     if y in na.index:
@@ -148,17 +155,23 @@ for y, vals in rows.items():
         if not close(vals[1], float(na.loc[y, "Unplanned"])): miss += 1
 check(miss == 0, "Naphtha annual matches engine", f"{miss} mismatches")
 
-# Mogas annual
+# Mogas annual (own sheet; table is offset to column H)
+ws = wb["Mogas"]
 ma = ctx["mogas_annual"]
-rows, _ = read_year_block(ws, "Mogas-Equivalent Offline by Year", 2)
-miss = 0
-for y, vals in rows.items():
+br, bc = band_row(ws, "Mogas-Equivalent Offline by Year")
+hdr = br + 1; miss = 0
+for i in range(40):
+    r = hdr + 1 + i
+    y = ws.cell(row=r, column=bc).value
+    if not isinstance(y, (int, float)) or not (2000 <= y <= 2040): break
+    y = int(y)
     if y in ma.index:
-        if not close(vals[0], float(ma.loc[y, "Planned"])): miss += 1
-        if not close(vals[1], float(ma.loc[y, "Unplanned"])): miss += 1
+        if not close(num(ws, r, bc + 1), float(ma.loc[y, "Planned"])): miss += 1
+        if not close(num(ws, r, bc + 2), float(ma.loc[y, "Unplanned"])): miss += 1
 check(miss == 0, "Mogas annual matches engine", f"{miss} mismatches")
 
 # Top refineries (numbers; operator names are shortened so check totals)
+ws = wb["Units & Refineries"]
 pl = ctx["plants"].reset_index(drop=True)
 br, _ = band_row(ws, "Top 15 Refineries")
 hdr = br + 1; miss = 0
@@ -203,7 +216,7 @@ check(any(close(v, float(s.loc[ly,"Total"])) for v in vals), "Dashboard KPI Tota
 check(any(close(v, float(s.loc[ly,"Unplanned"])) for v in vals), "Dashboard KPI Unplanned correct")
 
 # ============================================================ MODEL
-ws = wb["Model"]
+ws = wb["Scenario Analysis"]
 # lookup profiles
 windows = list(engine.BASELINE_WINDOWS.keys())
 br, _ = band_row(ws, "Lookup - Avg Unplanned")
@@ -222,14 +235,19 @@ for pi, p in enumerate(PADDS):
     r = hdr + 1 + pi
     if not close(num(ws, r, 3), float(sp[p]["baseline_annual"])): miss += 1
 check(miss == 0, "Model per-PADD baseline matches engine", f"{miss} mismatches")
-# tornado
-tor = ctx["tornado"]
-br, _ = band_row(ws, "Tornado - 2027 Unplanned")
-hdr = br + 1; miss = 0
-for ti, row in enumerate(tor):
-    r = hdr + 1 + ti
-    if not close(num(ws, r, 3), row["low"]) or not close(num(ws, r, 5), row["high"]): miss += 1
-check(miss == 0, "Model tornado low/high match engine", f"{miss} mismatches")
+# driver sensitivity (rows sorted by swing; match by driver name, not order)
+tor = {d["driver"]: d for d in ctx["tornado"]}
+br, _ = band_row(ws, "Driver Sensitivity - 2027 Unplanned")
+hdr = br + 1; miss = 0; seen = 0
+for i in range(20):
+    r = hdr + 1 + i
+    drv = ws.cell(row=r, column=2).value
+    if not isinstance(drv, str) or drv not in tor: break
+    seen += 1
+    d = tor[drv]
+    if not close(num(ws, r, 3), d["low"]) or not close(num(ws, r, 5), d["high"]): miss += 1
+check(miss == 0 and seen == len(tor), "Model driver-sensitivity low/high match engine",
+      f"{miss} mismatches, {seen}/{len(tor)} rows")
 
 # ============================================================ FORMULAS structural
 err_tokens = ["#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!"]
