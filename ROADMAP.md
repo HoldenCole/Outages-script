@@ -39,12 +39,17 @@ logic to M would make the workbook *fully* self-refreshing with no Python at all
 but it duplicates the (locked) cleaning rules in a second language. Keeping the
 cleaning in Python + a thin feed file is lower-risk and keeps one source of truth.
 
-### Things to verify when we build it
-- SUMIFS ranges over the `Data` table should become **structured-table
-  references** (e.g. `Data[kbd]`) so they auto-expand when the feed grows/shrinks
-  — today they're fixed `$E$2:$E$2701` ranges sized to the current row count.
+### Foundation already laid (done)
+- The `Data` sheet is now two **named Excel Tables** — `tPADD` and `tUNIT` — and
+  the Explorer's SUMIFS use **structured references** (`tPADD[kbd]`,
+  `tPADD[year]`, …) instead of fixed `$E$2:$E$2701` ranges. They auto-expand, so
+  replacing the table rows (via Power Query) flows through with no formula edits.
+
+### Things to verify when we build the refresh
+- Point `tPADD` / `tUNIT` at the external feed (Power Query → load to these
+  tables) and confirm the Explorer recomputes on Refresh.
 - The scenario lookup (baseline-window profiles) and the 2027-planned constants
-  are currently written as values; decide whether those also come from the feed.
+  are still written as values; decide whether those also come from the feed.
 - Confirm Refresh preserves the dropdown selections and the scenario inputs.
 
 ---

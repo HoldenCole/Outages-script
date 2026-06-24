@@ -327,12 +327,16 @@ class Build:
 
     # ===================================================================== DATA
     def data_sheet(self):
+        # Backing data lives in two NAMED EXCEL TABLES so every downstream
+        # formula uses structured references (tPADD[kbd], ...) that auto-expand.
+        # That's the foundation for a future "refresh the feed" workflow: swap
+        # the rows (e.g. via Power Query) and the tables/SUMIFS resize themselves
+        # with no formula edits. See ROADMAP.md.
         ws = self.wb.add_worksheet("Data")
         cols = ["year", "month", "key", "type", "kbd", "mogas"]
+        tnames = {"padd": "tPADD", "unit": "tUNIT"}
         for dim, c0 in [("padd", 0), ("unit", 8)]:
             df = self.ctx["tidy_padd"] if dim == "padd" else self.ctx["tidy_unit"]
-            for j, h in enumerate(cols):
-                ws.write(0, c0 + j, h, self.f["data_hdr"])
             for i, (_, row) in enumerate(df.iterrows(), start=1):
                 ws.write_number(i, c0 + 0, int(row["year"]), self.f["data"])
                 ws.write_number(i, c0 + 1, int(row["month"]), self.f["data"])
@@ -341,15 +345,17 @@ class Build:
                 ws.write_number(i, c0 + 4, float(row["kbd"]), self.f["data"])
                 ws.write_number(i, c0 + 5, float(row["mogas"]), self.f["data"])
             n = len(df)
+            t = tnames[dim]
+            ws.add_table(0, c0, n, c0 + 5, {
+                "name": t, "style": "Table Style Light 8", "banded_rows": False,
+                "columns": [{"header": h} for h in cols]})
+            # structured references (workbook-global table names -> no sheet prefix)
             self.data_refs[dim] = {
-                "yr": "Data!" + xl_range_abs(1, c0, n, c0),
-                "mo": "Data!" + xl_range_abs(1, c0 + 1, n, c0 + 1),
-                "key": "Data!" + xl_range_abs(1, c0 + 2, n, c0 + 2),
-                "type": "Data!" + xl_range_abs(1, c0 + 3, n, c0 + 3),
-                "kbd": "Data!" + xl_range_abs(1, c0 + 4, n, c0 + 4),
-                "mogas": "Data!" + xl_range_abs(1, c0 + 5, n, c0 + 5),
+                "yr": f"{t}[year]", "mo": f"{t}[month]", "key": f"{t}[key]",
+                "type": f"{t}[type]", "kbd": f"{t}[kbd]", "mogas": f"{t}[mogas]",
                 "keys": sorted(df["key"].unique(), key=lambda k: (k not in ("Total US", "All Units"), k)),
             }
+        ws.set_column("A:N", 9)
         ws.hide()
 
     # =============================================================== EXPLORER
