@@ -77,7 +77,15 @@ input cells in Excel without rebuilding.
 ## Workbook sheets
 
 `Cover · Dashboard · Summary · Monthly · PADD Charts · PADD Detail · Units ·
-Refinery Detail · Clusters · Scenario 2027 · Sensitivity · Mogas Overlay · Notes`
+Refinery Detail · Clusters · TA Schedule · Scenario 2027 · Sensitivity ·
+Mogas Overlay · Notes`
+
+- **Monthly** — Total/Planned/Unplanned month×year matrices **plus YoY% change
+  by month** (live formulas, green→red scaled) — the "% difference each month by
+  year" view.
+- **TA Schedule** — the 2026 planned turnaround schedule by PADD (operator,
+  refinery, unit, offline kbd, % of PADD, start/end dates), matching the
+  reference "Fall TAs" tables.
 
 - **PADD Charts** — one native combo chart per PADD: 2026 plan+unplanned stacked
   columns with prior-year total lines and the 2027 plan line.
@@ -95,9 +103,21 @@ Refinery Detail · Clusters · Scenario 2027 · Sensitivity · Mogas Overlay · 
 - **Sensitivity** — a 6×6 growth × multiplier heatmap (3-colour scale, base case
   outlined) wired to the scenario baseline, plus a tornado of the drivers.
 
-The deck mirrors these as chart+bullet slides, including a dedicated
-back-to-back FCC slide and a 2027-scenario-by-PADD slide. The dashboard adds an
-FCC-clusters table and shares the exact same palette and numbers.
+### Deck (`outage_deck.pptx`)
+
+Styled to a sell-side "weekly meeting" template: a navy title slide, white
+content slides with a **red section header**, brand wordmark and page number,
+and **dense layouts** — multi-chart grids, combo-charts + "key takeaways"
+bullets, range-band seasonality charts, and **full-width turnaround-schedule
+tables** per PADD. Set `BRAND_LOGO` in `build_slides.py` to drop in your own
+logo (the layout reproduces the reference look, not the trademarked mark).
+
+### Dashboard (`outage_dashboard.html`)
+
+KPI tiles, metric/PADD filters, YoY bars, a range-band seasonality chart, a
+monthly YoY% chart, an FCC-clusters table, a **2026 TA-schedule table** (PADD
+selector) and the live 2027 scenario panel — all in one self-contained file
+sharing the exact same palette and numbers as the workbook.
 
 ---
 

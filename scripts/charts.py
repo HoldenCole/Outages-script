@@ -362,6 +362,69 @@ def scenario_by_padd(ctx, path):
     return _save(fig, path)
 
 
+def seasonality_band(ctx, path):
+    """Range-band seasonality chart (matches the reference demand charts): a
+    shaded historical min-max band with recent-year lines on top."""
+    rb = ctx["range_band"]
+    mu = ctx["monthly_unplanned"]
+    fig, ax = plt.subplots(figsize=(10, 4.7))
+    x = np.arange(12)
+    ax.fill_between(x, rb["min"].values, rb["max"].values, color="#D9D9D9", alpha=0.85,
+                    zorder=1, label="Range (22-25)")
+    ax.plot(x, rb["avg"].values, color="#7F7F7F", lw=1.4, ls=":", zorder=2, label="5-yr avg")
+    for y, c, w in [(2024, BLUE, 1.8), (2025, RED, 2.6), (2026, GOLD, 2.0)]:
+        if y in mu.index:
+            ax.plot(x, [mu.loc[y, m] for m in MONTHS], color=c, lw=w,
+                    ls="--" if y == 2026 else "-", marker="o", ms=3,
+                    label=f"{y}*" if y in engine.PARTIAL_YEARS else str(y), zorder=3)
+    ax.set_xticks(x, MONTHS)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title("Unplanned Offline by Month - range band & recent years (kbd)")
+    ax.legend(frameon=False, ncol=5, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def monthly_yoy_bars(ctx, path):
+    """Grouped bars: YoY % change in unplanned offline for each month (the
+    'percent difference in each month by year' view)."""
+    _, yoy = ctx["monthly_yoy"]
+    fig, ax = plt.subplots(figsize=(10, 4.3))
+    x = np.arange(12)
+    yrs = [y for y in (2024, 2025) if y in yoy.index]
+    w = 0.8 / max(1, len(yrs))
+    cols = {2024: BLUE, 2025: RED}
+    for i, y in enumerate(yrs):
+        vals = [yoy.loc[y, m] * 100 if yoy.loc[y, m] == yoy.loc[y, m] else 0 for m in MONTHS]
+        ax.bar(x + i * w, vals, w, color=cols[y], label=str(y), zorder=3)
+    ax.axhline(0, color="#404040", lw=1)
+    ax.set_xticks(x + 0.4 - w / 2, MONTHS)
+    ax.set_ylabel("YoY % change")
+    ax.set_title("Unplanned Offline - YoY % Change by Month")
+    ax.legend(frameon=False, ncol=2, loc="upper right")
+    _clean(ax)
+    return _save(fig, path)
+
+
+def mogas_annual_chart(ctx, path):
+    ma = ctx["mogas_annual"]
+    years = [y for y in ma.index if 2018 <= y <= 2027]
+    fig, ax = plt.subplots(figsize=(6.4, 4.3))
+    x = np.arange(len(years))
+    ax.bar(x, [ma.loc[y, "Planned"] for y in years], color=NAVY, label="Planned", zorder=3)
+    ax.bar(x, [ma.loc[y, "Unplanned"] for y in years],
+           bottom=[ma.loc[y, "Planned"] for y in years], color=GREEN, label="Unplanned", zorder=3)
+    ax.set_xticks(x, [f"{y}*" if y in engine.PARTIAL_YEARS else str(y) for y in years],
+                  rotation=45, fontsize=8)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd (mogas-eq)")
+    ax.set_title("Mogas-Equivalent Offline by Year")
+    ax.legend(frameon=False, ncol=2)
+    _clean(ax)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -381,6 +444,12 @@ def render_all(ctx, outdir):
         "scenario_padd": scenario_by_padd(ctx, p("scenario_padd.png")),
         "heatmap": sensitivity_heatmap(ctx, p("heatmap.png")),
         "tornado": tornado(ctx, p("tornado.png")),
+        "season_band": seasonality_band(ctx, p("season_band.png")),
+        "yoy_month": monthly_yoy_bars(ctx, p("yoy_month.png")),
+        "mogas": mogas_annual_chart(ctx, p("mogas.png")),
+        "padd1": padd_combo(ctx, "PADD 1", p("padd1.png")),
+        "padd2": padd_combo(ctx, "PADD 2", p("padd2.png")),
+        "padd5": padd_combo(ctx, "PADD 5", p("padd5.png")),
     }
     return out
 

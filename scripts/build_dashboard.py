@@ -107,6 +107,33 @@ def build_data(ctx):
     unit_pct = {str(u).title(): float(ctx["unit_share"].loc[u, 2025])
                 for u in ctx["unit_share"].index[:8]}
 
+    rb = ctx["range_band"]
+    range_band = {k: [float(rb.loc[m, k]) for m in engine.MONTHS] for k in ("min", "max", "avg")}
+    _, ym = ctx["monthly_yoy"]
+    yoy_month = {str(y): [None if ym.loc[y, m] != ym.loc[y, m] else float(ym.loc[y, m])
+                          for m in engine.MONTHS]
+                 for y in (2024, 2025) if y in ym.index}
+
+    def _shop(s):
+        s = str(s).title()
+        for w in ("Corporation", "Company", "Incorporated", "Petroleum", "Refining",
+                  " Llc", " Lp", "North America", "Products", "Energy", " Inc"):
+            s = s.replace(w, "")
+        return " ".join(s.split())[:22]
+
+    def _dt(x):
+        try:
+            return f"{x.month}/{x.day}/{str(x.year)[2:]}"
+        except Exception:
+            return ""
+    ta = {}
+    for p in engine.PADD_ORDER:
+        tdf = ctx["ta_schedule"][p]
+        ta[p] = [{"op": _shop(rw["operator"]), "plant": str(rw["plant"])[:34],
+                  "unit": str(rw["unit_cat"]).title(), "kbd": round(float(rw["kbd"]), 1),
+                  "pct": float(rw["pct_padd"]), "start": _dt(rw["start"]), "end": _dt(rw["end"])}
+                 for _, rw in tdf.head(18).iterrows()]
+
     d = ctx["diag"]
     return {
         "meta": {"rows": d["rows"], "years": list(d["years"]),
@@ -119,6 +146,9 @@ def build_data(ctx):
         "units": units,
         "unit_pct": unit_pct,
         "fcc": fcc,
+        "range_band": range_band,
+        "yoy_month": yoy_month,
+        "ta": ta,
         "monthly": monthly,
         "padd_monthly": padd_monthly,
         "scenario": {
@@ -210,7 +240,14 @@ table.alloc td:first-child{text-align:left}
     <div class="card"><h3 id="paddTitle">Unplanned by PADD</h3><p class="note">Selected metric across recent years, kbd.</p><div class="chartbox"><canvas id="cPadd"></canvas></div></div>
     <div class="card"><h3 id="seasTitle">Seasonality</h3><p class="note">Selected metric by month, one line per year.</p><div class="chartbox"><canvas id="cSeason"></canvas></div></div>
     <div class="card"><h3>Top Unit Categories</h3><p class="note">Capacity offline, all years, kbd.</p><div class="chartbox"><canvas id="cUnits"></canvas></div></div>
+    <div class="card"><h3>Unplanned Seasonality &amp; Range Band</h3><p class="note">Grey band = 2022-25 monthly min-max; lines = recent years.</p><div class="chartbox"><canvas id="cBand"></canvas></div></div>
+    <div class="card"><h3>Unplanned &mdash; YoY % Change by Month</h3><p class="note">Percent difference in each month vs the prior year.</p><div class="chartbox"><canvas id="cYoyMonth"></canvas></div></div>
     <div class="card full"><h3>Year-over-Year Change in Total Offline</h3><p class="note">YoY % change, total capacity offline.</p><div class="chartbox"><canvas id="cYoy"></canvas></div></div>
+    <div class="card full"><h3>2026 Planned Turnaround Schedule
+        <select id="taPadd" style="font-size:12px;padding:3px 6px;margin-left:8px;border:1px solid #c8d0dc;border-radius:5px"></select></h3>
+      <p class="note">Event-level planned outages with offline capacity (kbd), % of PADD, and dates. Top by size.</p>
+      <table class="alloc" id="taTbl"><thead><tr><th>Operator</th><th>Refinery</th><th>Unit</th><th>Offline (kbd)</th><th>% PADD</th><th>Start</th><th>End</th></tr></thead><tbody></tbody></table>
+    </div>
     <div class="card full"><h3>Back-to-Back FCC Outages &mdash; ExxonMobil <span class="tag" id="fccTag"></span></h3>
       <p class="note">Consecutive-month FCC (cat cracker) runs at the same plant &mdash; the clustered signal month-level external trackers miss (2020 excluded).</p>
       <table class="alloc" id="fccTbl"><thead><tr><th>Refinery</th><th>PADD</th><th>Year</th><th>Span</th><th>Months</th><th>kbd</th><th>Unpl %</th></tr></thead><tbody></tbody></table>
@@ -335,6 +372,40 @@ new Chart(document.getElementById('cYoy'),{type:'bar',
       backgroundColor:yearsAll.map(y=>{const v=DATA.summary[y].yoy_pct;return v==null?'#ccc':(v>=0?C.green:C.red);})}]},
   options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false}},
     y:{ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+
+// ---- seasonality range band ----
+const RB = DATA.range_band;
+new Chart(document.getElementById('cBand'),{type:'line',
+  data:{labels:DATA.months,datasets:[
+    {label:'Range max',data:RB.max,borderColor:'rgba(0,0,0,0)',backgroundColor:'rgba(150,150,150,0.25)',pointRadius:0,fill:'+1',tension:.3},
+    {label:'Range min',data:RB.min,borderColor:'rgba(0,0,0,0)',backgroundColor:'rgba(150,150,150,0.25)',pointRadius:0,fill:false,tension:.3},
+    {label:'5-yr avg',data:RB.avg,borderColor:C.gray,borderDash:[3,3],borderWidth:1.4,pointRadius:0,tension:.3},
+    {label:'2024',data:DATA.monthly.unplanned[2024],borderColor:C.blue,borderWidth:1.8,pointRadius:2,tension:.25},
+    {label:'2025',data:DATA.monthly.unplanned[2025],borderColor:C.red,borderWidth:2.6,pointRadius:2,tension:.25},
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false}},
+    y:{ticks:{callback:v=>v.toLocaleString()}}},
+    plugins:{legend:{position:'bottom',labels:{filter:i=>!i.text.startsWith('Range')}}}}});
+
+// ---- monthly YoY% ----
+new Chart(document.getElementById('cYoyMonth'),{type:'bar',
+  data:{labels:DATA.months,datasets:Object.keys(DATA.yoy_month).map((y,i)=>({
+    label:y,backgroundColor:i?C.red:C.blue,
+    data:DATA.yoy_month[y].map(v=>v==null?null:v*100)}))},
+  options:{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false}},
+    y:{ticks:{callback:v=>v+'%'}}},plugins:{legend:{position:'bottom'}}}});
+
+// ---- TA schedule ----
+const taSel=document.getElementById('taPadd');
+DATA.padd_order.forEach((p,i)=>{const o=document.createElement('option');o.value=p;o.textContent=p+' ('+(DATA.ta[p]||[]).length+')';if(p==='PADD 3')o.selected=true;taSel.appendChild(o);});
+function renderTA(){
+  const rows=DATA.ta[taSel.value]||[];
+  document.querySelector('#taTbl tbody').innerHTML=rows.map(r=>
+    `<tr><td>${r.op}</td><td>${r.plant}</td><td>${r.unit}</td><td>${r.kbd.toFixed(1)}</td>`+
+    `<td>${(r.pct*100).toFixed(1)}%</td><td>${r.start}</td><td>${r.end}</td></tr>`).join('')
+    || '<tr><td colspan=7 style="text-align:center;color:#999">No planned TAs</td></tr>';
+}
+taSel.addEventListener('change',renderTA); renderTA();
 
 // ---- back-to-back FCC clusters (ExxonMobil) ----
 document.getElementById('fccTag').textContent = DATA.fcc.length + ' runs';

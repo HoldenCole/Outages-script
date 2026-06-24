@@ -541,6 +541,51 @@ def scenario_by_padd(df, window_key=DEFAULT_WINDOW, growth=0.0, multiplier=1.0):
     return res
 
 
+def monthly_yoy(df, type_filter="UNPLANNED"):
+    """year x month matrix of YoY % change (each cell vs the same month a year
+    earlier). The 'percent difference in each month by year' view."""
+    m = monthly_by_year(df, type_filter=type_filter)
+    yoy = m.pct_change(axis=0)            # down the years, per month column
+    return m, yoy
+
+
+def monthly_range_band(df, type_filter="UNPLANNED", years=None, padd=None):
+    """Per-calendar-month min / max / avg across `years` (default the baseline
+    window) - the shaded 'N-yr range' band behind the seasonality lines."""
+    if years is None:
+        years = BASELINE_WINDOWS[DEFAULT_WINDOW]
+    sub = df[df["type"].eq(type_filter) & df["year"].isin(years)]
+    if padd:
+        sub = sub[sub["padd"].eq(padd)]
+    by_ym = (sub.groupby(["year", "month"])["cap_kbd"].sum()
+             .unstack("month").reindex(index=years, columns=range(1, 13)).fillna(0.0))
+    out = pd.DataFrame({"min": by_ym.min(axis=0), "max": by_ym.max(axis=0),
+                        "avg": by_ym.mean(axis=0)})
+    out.index = MONTHS
+    return out
+
+
+def turnaround_schedule(df, year, padd=None, type_filter="PLANNED", top=40):
+    """Event-level outage schedule (the 'Fall TAs' tables): one row per
+    outage/unit with operator, refinery, PADD, offline kbd, % of PADD, start &
+    end dates, type and unit. Sorted by start date."""
+    sub = df[(df["year"] == year) & df["type"].eq(type_filter)]
+    if padd:
+        sub = sub[sub["padd"].eq(padd)]
+    if sub.empty:
+        return pd.DataFrame(columns=["operator", "plant", "padd", "unit_cat",
+                                     "kbd", "pct_padd", "start", "end", "type"])
+    g = sub.groupby(["outage_id", "operator", "plant", "padd", "unit_cat"]).agg(
+        kbd=("cap_kbd", "mean"), start=("start", "min"), end=("end", "max")).reset_index()
+    padd_tot = sub.groupby("padd")["cap_kbd"].mean().to_dict()  # avg offline rate per PADD
+    denom = sub.groupby("padd")["cap_kbd"].sum().to_dict()
+    g["pct_padd"] = g.apply(
+        lambda r: (r["kbd"] / denom[r["padd"]]) if denom.get(r["padd"]) else 0.0, axis=1)
+    g["type"] = type_filter.title()
+    g = g.sort_values(["kbd"], ascending=False).head(top).sort_values("start")
+    return g[["operator", "plant", "padd", "unit_cat", "kbd", "pct_padd", "start", "end", "type"]]
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -579,6 +624,11 @@ def build_context(path):
         "fcc_grid": exxon_fcc_month_grid(df, [2022, 2023, 2024, 2025, 2026]),
         "padd_unpl_yoy": padd_yoy(df, "UNPLANNED"),
         "unit_share": unit_share(df),
+        "monthly_yoy": monthly_yoy(df, "UNPLANNED"),
+        "monthly_yoy_total": monthly_yoy(df, None),
+        "range_band": monthly_range_band(df, "UNPLANNED"),
+        "ta_schedule": {p: turnaround_schedule(df, 2026, padd=p) for p in PADD_ORDER},
+        "ta_all": turnaround_schedule(df, 2026, top=60),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

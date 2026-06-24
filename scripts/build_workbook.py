@@ -58,6 +58,16 @@ PADDS = engine.PADD_ORDER
 PARTIAL = set(engine.PARTIAL_YEARS)
 
 
+def short_op(name, n=18):
+    """Trim long company suffixes so operator names don't clip in tables."""
+    s = str(name).title()
+    for w in ("Corporation", "Company", "Incorporated", "Petroleum", "Refining",
+              " Llc", " Lp", " L.P.", "North America", "Products", "Energy", " Inc"):
+        s = s.replace(w, "")
+    s = " ".join(s.split())
+    return (s or str(name).title())[:n]
+
+
 class Build:
     def __init__(self, ctx, out_path):
         self.ctx = ctx
@@ -218,6 +228,7 @@ class Build:
             ("Units", "Unit-category x year matrix + magnitude bars"),
             ("Refinery Detail", "Top refineries, operators and event scatter"),
             ("Clusters", "Back-to-back outage runs incl. ExxonMobil FCC turnarounds"),
+            ("TA Schedule", "2026 planned turnaround schedule by PADD, with dates"),
             ("Scenario 2027", "Live driver-based 2027 unplanned forecast (dropdowns)"),
             ("Sensitivity", "Two-way heatmap and tornado of the scenario drivers"),
             ("Mogas Overlay", "Secondary mogas-equivalent view"),
@@ -482,7 +493,7 @@ class Build:
                   ("Planned", self.ctx["monthly_planned"], "h_blue"),
                   ("Unplanned", self.ctx["monthly_unplanned"], "h_red")]
         r = 5
-        unpl_first_row = unpl_last_row = None
+        binfo = {}
         for title, mat, band in blocks:
             self._band(ws, r, 1, 14, f"{title} (kbd)", band); r += 1
             ws.write(r, 1, "Year", self.f["colhdr_l"])
@@ -491,8 +502,7 @@ class Build:
             ws.write(r, 14, "Total", self.f["colhdr"])
             r += 1
             years = [y for y in mat.index if 2018 <= y <= 2027]
-            if title == "Unplanned":
-                unpl_first_row = r
+            first = r
             for y in years:
                 partial = y in PARTIAL
                 kf = self.f["kbd_p"] if partial else self.f["kbd"]
@@ -502,10 +512,36 @@ class Build:
                 ws.write_formula(r, 14, f"=SUM({A1(r,2)}:{A1(r,13)})",
                                  self.f["kbd_p"] if partial else self.f["kbd_b"])
                 r += 1
-            if title == "Unplanned":
-                unpl_last_row = r - 1
-                unpl_years = years
+            binfo[title] = (first, years)
             r += 1
+        unpl_first_row, unpl_years = binfo["Unplanned"]
+
+        # --- % difference in each month, year-over-year (live formulas) ---
+        for title, band in [("Unplanned", "h_red"), ("Total Offline", "h_navy")]:
+            lvl_first, years = binfo[title]
+            self._band(ws, r, 1, 13, f"{title} - YoY % Change by Month", band); r += 1
+            ws.write(r, 1, "Year", self.f["colhdr_l"])
+            for j, m in enumerate(MONTHS):
+                ws.write(r, 2 + j, m, self.f["colhdr"])
+            r += 1
+            for i, y in enumerate(years):
+                pf = self.f["pct_p"] if y in PARTIAL else self.f["pct"]
+                ws.write_number(r, 1, y, self._yr_fmt(y))
+                for j in range(12):
+                    if i == 0:
+                        ws.write(r, 2 + j, "-", self.f["na"])
+                    else:
+                        cur, prev = A1(lvl_first + i, 2 + j), A1(lvl_first + i - 1, 2 + j)
+                        ws.write_formula(r, 2 + j,
+                                         f"=IF({prev}=0,\"n/a\",({cur}-{prev})/{prev})", pf)
+                r += 1
+            # conditional 3-color scale on the YoY% grid (green=down, red=up)
+            ws.conditional_format(r - len(years) + 1, 2, r - 1, 13,
+                                  {"type": "3_color_scale", "min_color": "#63BE7B",
+                                   "mid_color": "#FFFFFF", "max_color": "#F8696B"})
+            r += 1
+        ws.write(r, 1, "Positive = more offline vs prior year (worse supply); shaded green→red.",
+                 self.f["subtitle"]); r += 2
 
         # Seasonality line chart: unplanned by month, one series per recent year
         line = self.wb.add_chart({"type": "line"})
@@ -589,10 +625,10 @@ class Build:
             col.set_x_axis({"name": ""})
             col.set_y_axis({"name": "kbd"})
             col.set_legend({"position": "top"})
-            col.set_size({"width": 760, "height": 360})
+            col.set_size({"width": 820, "height": 330})
             col.set_chartarea({"border": {"none": True}})
-            ws.insert_chart(data_first, 15, col)
-            r = max(r, data_first + 19) + 1
+            ws.insert_chart(r, 1, col)            # chart directly below its data block
+            r += 18
 
     # =============================================================== PADD DETAIL
     def padd_detail(self):
@@ -747,7 +783,7 @@ class Build:
         for i, (_, row) in enumerate(pl.iterrows()):
             ws.write(r, 1, str(row["plant"]), self.f["rowlab"])
             ws.write(r, 2, str(row["padd"]), self.f["rowlab"])
-            ws.write(r, 3, str(row["operator"]).title(), self.f["rowlab"])
+            ws.write(r, 3, short_op(row["operator"], 24), self.f["rowlab"])
             ws.write_number(r, 4, float(row["total"]), self.f["kbd"])
             ws.write_number(r, 5, float(row["planned"]), self.f["kbd"])
             ws.write_number(r, 6, float(row["unplanned"]), self.f["kbd"])
@@ -1201,9 +1237,9 @@ class Build:
         ws = self.wb.add_worksheet("Clusters")
         self._setup(ws, "#843C0C")
         ws.set_column("A:A", 2)
-        ws.set_column("B:B", 22)
-        ws.set_column("C:N", 7.5)
-        ws.set_column("O:O", 9)
+        ws.set_column("B:B", 27)
+        ws.set_column("C:N", 7)
+        ws.set_column("O:O", 8)
         ws.merge_range("B2:O2", "Back-to-Back Outage Clusters", self.f["title"])
         ws.merge_range("B3:O3",
                        "Consecutive-month outages at one plant/unit - the clustered risk that "
@@ -1259,24 +1295,80 @@ class Build:
         r += 2
 
         # --- table: notable clusters across ALL operators (>=4 months) ---
-        self._band(ws, r, 1, 8, "Notable Multi-Month Clusters - All Operators (>=4 months, ex-2020)",
+        # Operator gets a merged 2-col cell (C:D) so long company names never clip.
+        self._band(ws, r, 1, 9, "Notable Multi-Month Clusters - All Operators (>=4 months, ex-2020)",
                    "h_navy"); r += 1
-        for j, h in enumerate(["Refinery", "Operator", "PADD", "Year", "Span", "Mo", "kbd"]):
-            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j in (0, 1) else self.f["colhdr"])
+        ws.write(r, 1, "Refinery", self.f["colhdr_l"])
+        ws.merge_range(r, 2, r, 3, "Operator", self.f["colhdr_l"])
+        for j, h in enumerate(["PADD", "Year", "Span", "Mo", "kbd"]):
+            ws.write(r, 4 + j, h, self.f["colhdr"])
         r += 1
         cl_first = r
         for c in self.ctx["clusters"][:20]:
             ws.write(r, 1, c["plant"], self.f["rowlab"])
-            ws.write(r, 2, str(c["operator"]).title(), self.f["rowlab"])
-            ws.write(r, 3, c["padd"], self.f["rowlab"])
-            ws.write_number(r, 4, c["year"], self._yr_fmt(c["year"]))
-            ws.write(r, 5, c["span"], self.f["rowlab"])
-            ws.write_number(r, 6, c["n"], self.f["kbd"])
-            ws.write_number(r, 7, c["kbd"], self.f["kbd"])
+            ws.merge_range(r, 2, r, 3, short_op(c["operator"]), self.f["rowlab"])
+            ws.write(r, 4, c["padd"], self.f["rowlab"])
+            ws.write_number(r, 5, c["year"], self._yr_fmt(c["year"]))
+            ws.write(r, 6, c["span"], self.f["rowlab"])
+            ws.write_number(r, 7, c["n"], self.f["kbd"])
+            ws.write_number(r, 8, c["kbd"], self.f["kbd"])
             r += 1
-        ws.conditional_format(cl_first, 7, r - 1, 7,
+        ws.conditional_format(cl_first, 8, r - 1, 8,
                               {"type": "data_bar", "bar_color": NAVY, "bar_solid": True})
         ws.freeze_panes(grid_first, 2)
+
+    # =============================================================== TA SCHEDULE
+    def ta_schedule(self):
+        """2026 planned turnaround schedule by PADD (the reference 'Fall TAs'
+        tables): event-level outages with operator, refinery, unit, offline kbd,
+        % of PADD and start/end dates."""
+        ws = self.wb.add_worksheet("TA Schedule")
+        self._setup(ws, "#C55A11")
+        ws.set_column("A:A", 2)
+        ws.set_column("B:B", 22)
+        ws.set_column("C:C", 28)
+        ws.set_column("D:D", 19)
+        ws.set_column("E:H", 10)
+        ws.merge_range("B2:H2", "2026 Planned Turnaround Schedule", self.f["title"])
+        ws.merge_range("B3:H3",
+                       "Event-level planned outages by PADD - offline capacity (kbd), % of PADD, "
+                       "and dates. Sorted by start.", self.f["subtitle"])
+        dfmt = self.wb.add_format({"font_name": "Arial", "num_format": "mm/dd/yy",
+                                   "align": "center"})
+        dfmt_sh = self.wb.add_format({"font_name": "Arial", "num_format": "mm/dd/yy",
+                                      "align": "center", "bg_color": LT_GRAY})
+        r = 5
+        for p in ["PADD 3", "PADD 2", "PADD 5", "PADD 1", "PADD 4"]:
+            ta = self.ctx["ta_schedule"][p]
+            if not len(ta):
+                continue
+            self._band(ws, r, 1, 7, f"{p}  -  2026 Planned TAs  ({len(ta)} events shown, top by size)",
+                       "h_orange"); r += 1
+            for j, h in enumerate(["Operator", "Refinery", "Unit", "Offline (kbd)", "% PADD",
+                                   "Start", "End"]):
+                ws.write(r, 1 + j, h, self.f["colhdr_l"] if j < 3 else self.f["colhdr"])
+            r += 1
+            first = r
+            for i, (_, row) in enumerate(ta.head(16).iterrows()):
+                shade = i % 2 == 1
+                tf = self.f["kbd_sh"] if shade else self.f["kbd"]
+                lf = self.wb.add_format({"font_name": "Arial", "align": "left", "indent": 1,
+                                         "bg_color": LT_GRAY}) if shade else self.f["rowlab"]
+                ws.write(r, 1, short_op(row["operator"]), lf)
+                ws.write(r, 2, str(row["plant"]), lf)
+                ws.write(r, 3, str(row["unit_cat"]).title(), lf)
+                ws.write_number(r, 4, float(row["kbd"]), tf)
+                ws.write_number(r, 5, float(row["pct_padd"]),
+                                self.f["pct"] if not shade else self.wb.add_format(
+                                    {"font_name": "Arial", "num_format": PCT, "align": "right",
+                                     "bg_color": LT_GRAY}))
+                ws.write_datetime(r, 6, row["start"].to_pydatetime(), dfmt_sh if shade else dfmt)
+                ws.write_datetime(r, 7, row["end"].to_pydatetime(), dfmt_sh if shade else dfmt)
+                r += 1
+            ws.conditional_format(first, 4, r - 1, 4,
+                                  {"type": "data_bar", "bar_color": "#ED7D31", "bar_solid": True})
+            r += 2
+        ws.freeze_panes(5, 0)
 
     # ===================================================================== run
     def run(self):
@@ -1289,6 +1381,7 @@ class Build:
         self.units()
         self.refinery_detail()
         self.clusters()
+        self.ta_schedule()
         self.scenario()
         self.sensitivity()      # depends on scenario refs
         self.mogas()
