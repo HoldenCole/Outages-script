@@ -3,8 +3,9 @@
 Turns the Snowflake refinery-outage export into three commodities-desk-grade
 deliverables from one data pipeline:
 
-1. **Excel workbook** (`outage_workbook.xlsx`) — 11 visible sheets (incl.
-   dedicated **Mogas**, **Naphtha** and **Margin Context** sheets), native charts,
+1. **Excel workbook** (`outage_workbook.xlsx`) — 12 visible sheets (incl. an
+   **Assumptions & Methodology** source-of-truth sheet and dedicated **Mogas**,
+   **Naphtha** and **Margin Context** sheets), native charts,
    a two-way sensitivity heatmap, a sorted driver-sensitivity bar, and a **live**
    2027 **Scenario Analysis** model (Conservative/Average/Active fan) driven by
    data-validation dropdowns. *(Priority 1.)*
@@ -91,14 +92,18 @@ template.
 
 ## Workbook sheets
 
-**11 findable sheets** (+ a hidden `Data` backing sheet):
+**12 findable sheets** (+ a hidden `Data` backing sheet):
 
-`Cover · Dashboard · Explorer · Trends · PADD · Units & Refineries ·
+`Cover · Assumptions · Dashboard · Explorer · Trends · PADD · Units & Refineries ·
 Mogas · Naphtha · Margin Context · Events & TAs · Scenario Analysis`
 
 - **Cover** — contents (hyperlinks), read-before-use caveats (COVID/Uri outliers,
   2027-incomplete H1-focus, planned-only guardrail), colour key, and an
   **auto-generated "This Week's Reads"** block (top movers computed from the data).
+- **Assumptions & Methodology** — single **source of truth**: every locked desk
+  rule, the mogas yield map, baseline windows + scenario/forecast formula, the
+  $-at-risk method, the **tested** (and rejected) crack↔outage relationship, and
+  full data provenance — so a reviewer can audit the numbers without reading code.
 - **Dashboard** — KPI tiles and headline charts.
 - **Explorer** — *the interactive sheet.* Dropdowns for **PADD/unit**, **type**
   (All/Planned/Unplanned) and **measure** (Capacity vs Mogas-equivalent) drive a

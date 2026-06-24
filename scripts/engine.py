@@ -850,6 +850,36 @@ def outage_dollar_impact(df, crack, years=range(2018, 2028)):
     return out
 
 
+def crack_outage_relationship(df, crack, y0=2018, y1=2025):
+    """Test whether outages actually track the gasoline crack, over full years
+    [y0, y1]. The honest result on this book: planned r~0 (turnarounds are
+    operational/seasonal, NOT margin-timed) and unplanned only weakly negative
+    (driven by the 2020-21 demand/freeze extremes). Conclusion the desk should
+    take: the crack is a *valuation lens* (what outages are worth), not a
+    predictor of when they happen. Returns {} when no crack data is present."""
+    if not crack:
+        return {}
+    mp = monthly_by_year(df, type_filter="PLANNED")
+    mu = monthly_by_year(df, type_filter="UNPLANNED")
+    cr, pl, un = [], [], []
+    for y in range(y0, y1 + 1):
+        for mi, m in enumerate(MONTHS):
+            c = crack.get((y, mi + 1))
+            if c is None:
+                continue
+            cr.append(c)
+            pl.append(float(mp.loc[y, m]) if y in mp.index else 0.0)
+            un.append(float(mu.loc[y, m]) if y in mu.index else 0.0)
+    if len(cr) < 12:
+        return {}
+    cr, pl, un = np.array(cr), np.array(pl), np.array(un)
+
+    def corr(a, b):
+        return float(np.corrcoef(a, b)[0, 1]) if a.std() > 0 and b.std() > 0 else 0.0
+    return {"n": len(cr), "planned_r": corr(cr, pl), "unplanned_r": corr(cr, un),
+            "total_r": corr(cr, pl + un)}
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -906,6 +936,7 @@ def build_context(path):
         "completed_unplanned": completed_unplanned(df),
         "crack": load_crack(),
         "dollar_impact": outage_dollar_impact(df, load_crack()),
+        "crack_corr": crack_outage_relationship(df, load_crack()),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

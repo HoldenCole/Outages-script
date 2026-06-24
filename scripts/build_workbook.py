@@ -576,6 +576,7 @@ class Build:
         r += 1
         r = self._band(ws, r, 1, 7, "Contents", "h_navy")
         toc = [
+            ("Assumptions", "Single source of truth - every desk rule, factor, window, formula and data source"),
             ("Dashboard", "KPIs and headline charts"),
             ("Explorer", "Interactive: dropdown PADD/unit/type -> live monthly grid + YoY% + chart"),
             ("Trends", "Annual table, comparisons, monthly matrices + month-by-month YoY%"),
@@ -601,6 +602,82 @@ class Build:
                  "font_color": color if color != YELLOW else "#000000",
                  "bg_color": YELLOW if color == YELLOW else WHITE}))
             ws.merge_range(r, 2, r, 7, desc, self.f["note"]); r += 1
+
+    # ============================================================== ASSUMPTIONS
+    def assumptions(self):
+        """Single source of truth - every desk rule, factor, window, formula and
+        data source in one place (the hallmark of a trustworthy desk model)."""
+        ws = self.wb.add_worksheet("Assumptions")
+        self._setup(ws, "#7F6000", landscape=False)
+        self._chrome(ws, 8)
+        ws.set_column("A:A", 2); ws.set_column("B:B", 26); ws.set_column("C:H", 15)
+        ws.merge_range("B2:H2", "Assumptions & Methodology", self.f["title"])
+        ws.merge_range("B3:H3",
+                       "Every locked desk rule, factor, window and formula behind the model - so any reviewer "
+                       "can audit the numbers without reading the code.", self.f["subtitle"])
+
+        def kv(r, k, v):
+            ws.write(r, 1, k, self.f["note_b"])
+            ws.merge_range(r, 2, r, 7, v, self.f["note"])
+            lines = max(1, -(-len(v) // 88))          # ceil: ~88 chars across C:H
+            ws.set_row(r, max(24, lines * 13 + 6))
+            return r + 1
+        d = self.ctx["diag"]; y0, y1 = d["years"]
+        r = 5
+        r = self._band(ws, r, 1, 7, "Core Definitions", "h_navy")
+        r = kv(r, "Primary metric", "CAP_OFFLINE_ADJUSTED_KBD - capacity offline, thousand bbl/day, all units. "
+               "Mogas-equivalent is a secondary overlay only.")
+        r = kv(r, "Outage type", "Binary {PLANNED, UNPLANNED}; UNKNOWN folded into UNPLANNED (desk rule).")
+        r = kv(r, "Event count", "Distinct OUTAGE_IDs (raw rows are unit-month slices, so they over-count).")
+        r = kv(r, "PADD", "Parsed from PAD_DIST Roman numerals (100% resolved); a state map is the fallback.")
+        r += 1
+        r = self._band(ws, r, 1, 7, "Year Treatment", "h_red")
+        r = kv(r, "2020 / 2021", "COVID-19 demand collapse / Winter Storm Uri freeze - excluded from forecast "
+               "baselines AND flattened on charts (capped to the next-highest year); real actuals kept in tables.")
+        r = kv(r, "2026", "Partial year - grey italic, never shown as a final full-year number.")
+        r = kv(r, "2027", "PLANNED-ONLY; unplanned-2027 is a modelled scenario. Planned is incomplete past H1, "
+               "so H1-vs-H1 is the like-for-like read. Any Plan+Unplanned / Unplanned vs 2027 shows n/a.")
+        r = kv(r, "YoY% guards", "Tiny prior-year base -> 'n/m'; no-actual-unplanned-2027 -> 'n/a' (kills the "
+               "+1000% small-base and -100% planned-only artefacts).")
+        r += 1
+        # Mogas yield matrix (mirrors the reference workbook's yields table)
+        r = self._band(ws, r, 1, 7, "Mogas Yield Map  (mogas-eq kbd = offline kbd x factor)", "h_green")
+        ws.write(r, 1, "Bucket", self.f["colhdr_l"]); ws.write(r, 2, "Factor", self.f["colhdr"])
+        ws.merge_range(r, 3, r, 7, "Unit categories", self.f["colhdr_l"]); r += 1
+        f3 = self.wb.add_format({"font_name": "Arial", "num_format": "0.000", "align": "center"})
+        for bucket, factor, cats in self.ctx["mogas_yield_map"]:
+            ws.write(r, 1, bucket, self.f["rowlab_b"]); ws.write_number(r, 2, factor, f3)
+            ws.merge_range(r, 3, r, 7, ", ".join(c.title() for c in cats), self.f["note"]); r += 1
+        r = kv(r, "Naphtha / octane complex", "Reforming + Isomerization + Aromatics + BTX - the naphtha-fed "
+               "octane units (own sheet).")
+        r += 1
+        r = self._band(ws, r, 1, 7, "Scenario & Forecast Math", "h_orange")
+        r = kv(r, "Forecast formula", "forecast[m] = baseline(window)[m] x (1+growth) x multiplier + one-off "
+               "(stress month only).   2027 unplanned = sum(forecast); implied total = + 2027 booked planned.")
+        r = kv(r, "Baseline windows", "  |  ".join(engine.BASELINE_WINDOWS.keys())
+               + f"   (default: {engine.DEFAULT_WINDOW}; 2020-21 always excluded).")
+        r = kv(r, "Scenario fan", "Conservative / Average / Active = baseline x 0.8 / 1.0 / 1.3.  "
+               "Range band = P25 / P50 / P90 of historical annual unplanned over the window.")
+        r += 1
+        r = self._band(ws, r, 1, 7, "Margin Context ($ at risk)", "h_navy")
+        r = kv(r, "$ formula", "$MM = offline kbd x crack ($/bbl) x days / 1000 (gross refining-margin proxy). "
+               "Unplanned = unexpected supply loss; planned = margin deferred via scheduled work.")
+        r = kv(r, "Gasoline crack", "EIA NY-Harbor conventional regular gasoline spot x 42 - WTI ($/bbl), monthly. "
+               "Blue/editable input - overwrite with a Bloomberg pull (e.g. RBOB 321). See data/market_crack.csv.")
+        cc = self.ctx.get("crack_corr") or {}
+        if cc:
+            r = kv(r, "Relationship tested", f"Over {cc['n']} months (2018-25), crack vs PLANNED offline r="
+                   f"{cc['planned_r']:+.2f} (~0) and vs UNPLANNED r={cc['unplanned_r']:+.2f} (driven by 2020-21). "
+                   "Outage timing is operational / seasonal, NOT margin-timed - so the crack is a valuation lens, "
+                   "not a predictor.")
+        r += 1
+        r = self._band(ws, r, 1, 7, "Data Provenance", "h_navy")
+        r = kv(r, "Source", "Snowflake export Refinery_Outages_Data.xlsx, sheet 'Query1' (45 columns).")
+        r = kv(r, "Vintage", f"{d['rows']:,} rows | {y0}-{y1} | {d['events_distinct']:,} distinct outages | PADD 100% resolved.")
+        r = kv(r, "Refresh", "Drop a same-schema export into data/ and re-run scripts/build_all.py. Market data: "
+               "scripts/fetch_market_data.py (EIA) or paste Bloomberg into market_crack.csv. Engine is the only "
+               "place raw data is touched; everything else is derived.")
+        ws.freeze_panes(5, 0)
 
     # ================================================================= DASHBOARD
     def dashboard(self):
@@ -640,7 +717,7 @@ class Build:
         jl = self.wb.add_format({"font_name": "Arial", "font_color": BLUE, "underline": 1,
                                  "bold": True, "align": "center", "bg_color": LT_BLUE,
                                  "border": 1, "border_color": "#9DC3E6"})
-        for k, name in enumerate(["Explorer", "Trends", "PADD", "Units & Refineries",
+        for k, name in enumerate(["Assumptions", "Explorer", "Trends", "PADD", "Units & Refineries",
                                   "Mogas", "Naphtha", "Margin Context", "Events & TAs", "Scenario Analysis"]):
             ws.merge_range(8, 2 + k * 2, 8, 3 + k * 2, name, jl)
             ws.write_url(8, 2 + k * 2, f"internal:'{name}'!A1", jl, name)
@@ -1622,6 +1699,7 @@ class Build:
     def run(self):
         self.data_sheet()        # hidden backing first (Explorer references it)
         self.cover()
+        self.assumptions()
         self.dashboard()
         self.explorer()
         self.trends()
@@ -1634,9 +1712,9 @@ class Build:
         self.model()
         # order tabs: Cover first, Data last/hidden
         self.wb.worksheets_objs.sort(key=lambda w: (
-            ["Cover", "Dashboard", "Explorer", "Trends", "PADD", "Units & Refineries",
-             "Mogas", "Naphtha", "Margin Context", "Events & TAs", "Scenario Analysis",
-             "Data"].index(w.name)))
+            ["Cover", "Assumptions", "Dashboard", "Explorer", "Trends", "PADD",
+             "Units & Refineries", "Mogas", "Naphtha", "Margin Context",
+             "Events & TAs", "Scenario Analysis", "Data"].index(w.name)))
         self.wb.close()
 
 

@@ -280,6 +280,21 @@ for i, y in enumerate(MCYEARS):
     if not close(tot, di.get(y, {}).get("unplanned", 0.0), 1.0): miss += 1
 check(miss == 0, "Margin Context $-at-risk replicates engine", f"{miss} mismatches")
 
+# ============================================================ ASSUMPTIONS
+ws = wb["Assumptions"]
+br, _ = band_row(ws, "Mogas Yield Map")
+hdr = br + 1; miss = 0; n = 0
+ym = {b: f for b, f, _ in engine.mogas_yield_map()}
+for i in range(len(ym) + 2):
+    r = hdr + 1 + i
+    b = ws.cell(row=r, column=2).value
+    if b not in ym: break
+    n += 1
+    if not close(num(ws, r, 3), ym[b], 0.001): miss += 1
+check(miss == 0 and n == len(ym), "Assumptions mogas yield factors match engine", f"{miss} off, {n}/{len(ym)}")
+check(band_row(ws, "Data Provenance")[0] is not None and band_row(ws, "Scenario & Forecast Math")[0] is not None,
+      "Assumptions has provenance + methodology sections")
+
 # ============================================================ FORMULAS structural
 err_tokens = ["#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!"]
 fcount = 0; ferr = 0; unbalanced = 0
