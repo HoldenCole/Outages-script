@@ -586,6 +586,105 @@ def turnaround_schedule(df, year, padd=None, type_filter="PLANNED", top=40):
     return g[["operator", "plant", "padd", "unit_cat", "kbd", "pct_padd", "start", "end", "type"]]
 
 
+def tidy_monthly(df, dim="padd", years=range(2014, 2028)):
+    """Long backing table for the interactive Explorer's SUMIFS.
+
+    Columns: year, month(1-12), key, type, kbd. `dim` is 'padd' or 'unit_cat'.
+    Includes pre-aggregated rollups ('Total US'/'All Units' and type 'All') so a
+    dropdown value maps to exactly one summable slice.
+    """
+    years = set(int(y) for y in years)
+    if dim == "padd":
+        opts = ["Total US"] + PADD_ORDER
+        rollup = "Total US"
+    else:
+        present = [u for u in df["unit_cat"].dropna().unique()]
+        # order units by total offline, cap to keep the table lean
+        order = (df.groupby("unit_cat")["cap_kbd"].sum().sort_values(ascending=False).index.tolist())
+        opts = ["All Units"] + [u for u in order if u in present]
+        rollup = "All Units"
+    rows = []
+    for o in opts:
+        sub_o = df if o == rollup else df[df[dim].eq(o)]
+        for t in ["All", "PLANNED", "UNPLANNED"]:
+            sub = sub_o if t == "All" else sub_o[sub_o["type"].eq(t)]
+            g = sub.groupby(["year", "month"])[["cap_kbd", "mogas_kbd"]].sum()
+            tlab = "All" if t == "All" else t.title()
+            for (y, m), rr in g.iterrows():
+                cap, mog = float(rr["cap_kbd"]), float(rr["mogas_kbd"])
+                if pd.notna(y) and pd.notna(m) and int(y) in years and 1 <= int(m) <= 12 and (cap or mog):
+                    rows.append((int(y), int(m), str(o), tlab, cap, mog))
+    return pd.DataFrame(rows, columns=["year", "month", "key", "type", "kbd", "mogas"])
+
+
+# ----------------------------------------------------------------------------- naphtha / octane
+NAPHTHA_UNITS = ["REFORMING", "ISOMERIZATION", "AROMATICS", "BTX"]
+
+
+def naphtha_analysis(df):
+    """The naphtha / octane complex: catalytic reforming (naphtha -> high-octane
+    reformate), isomerization (light naphtha -> isomerate) and aromatics/BTX.
+    When these are offline, gasoline octane and blending are squeezed even if
+    crude runs hold - a read external CDU-only trackers miss.
+    """
+    sub = df[df["unit_cat"].isin(NAPHTHA_UNITS)]
+    annual = sub.groupby(["year", "type"])["cap_kbd"].sum().unstack("type").fillna(0.0)
+    for c in ["PLANNED", "UNPLANNED"]:
+        if c not in annual:
+            annual[c] = 0.0
+    annual = annual.rename(columns={"PLANNED": "Planned", "UNPLANNED": "Unplanned"})
+    annual["Total"] = annual["Planned"] + annual["Unplanned"]
+    annual.index = [int(y) for y in annual.index]
+    monthly_unpl = _month_matrix(sub[sub["type"].eq("UNPLANNED")])
+    by_padd = (sub[sub["padd"].isin(PADD_ORDER)].groupby(["padd", "year"])["cap_kbd"].sum()
+               .unstack("year").fillna(0.0))
+    by_padd.columns = [int(c) for c in by_padd.columns]
+    by_unit = sub.groupby("unit_cat")["cap_kbd"].sum().sort_values(ascending=False)
+    # share of reforming offline that is naphtha-octane vs total offline
+    return {"annual": annual.sort_index(), "monthly_unpl": monthly_unpl,
+            "by_padd": by_padd, "by_unit": by_unit, "units": NAPHTHA_UNITS}
+
+
+def top_movers(df):
+    """Auto-insight one-liners for the dashboard commentary block."""
+    s = yoy_delta(df)
+    ly = max(y for y in s.index if y not in PARTIAL_YEARS and s.loc[y, "Unplanned"] > 0)
+    lines = []
+    _, pyoy = padd_yoy(df, "UNPLANNED")
+    if ly in pyoy.columns:
+        mv = pyoy[ly].dropna()
+        if len(mv):
+            up, dn = mv.idxmax(), mv.idxmin()
+            lines.append(f"{up} unplanned {pyoy.loc[up, ly]:+.0%} YoY in {ly} (biggest riser); "
+                         f"{dn} {pyoy.loc[dn, ly]:+.0%} (biggest faller).")
+    mu = monthly_by_year(df, type_filter="UNPLANNED")
+    if ly in mu.index:
+        pk = mu.loc[ly].idxmax()
+        lines.append(f"{ly} unplanned peaked in {pk} ({mu.loc[ly, pk]:,.0f} kbd) - watch the "
+                     "Feb-freeze / autumn-turnaround windows.")
+    nap = naphtha_analysis(df)["annual"]
+    if ly in nap.index and (ly - 1) in nap.index and nap.loc[ly - 1, "Total"]:
+        ch = nap.loc[ly, "Total"] / nap.loc[ly - 1, "Total"] - 1
+        lines.append(f"Naphtha/octane-complex offline {nap.loc[ly, 'Total']:,.0f} kbd in {ly} "
+                     f"({ch:+.0%} YoY) - direct octane/blending read.")
+    fc = scenario_forecast(df)
+    lines.append(f"2027 implied total ~{fc['implied_total']:,.0f} kbd "
+                 f"({fc['planned_2027']:,.0f} planned + ~{fc['annual_unplanned']:,.0f} modeled unplanned).")
+    return lines
+
+
+def scenario_bands(df, window_key=DEFAULT_WINDOW):
+    """P25 / P50 / P90 of historical annual unplanned over the window -> a range
+    around the point forecast."""
+    years = BASELINE_WINDOWS[window_key]
+    annuals = [df[df["type"].eq("UNPLANNED") & df["year"].eq(y)]["cap_kbd"].sum() for y in years]
+    annuals = [a for a in annuals if a]
+    if not annuals:
+        return {"p25": 0.0, "p50": 0.0, "p90": 0.0, "mean": 0.0}
+    return {"p25": float(np.percentile(annuals, 25)), "p50": float(np.percentile(annuals, 50)),
+            "p90": float(np.percentile(annuals, 90)), "mean": float(np.mean(annuals))}
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -629,6 +728,11 @@ def build_context(path):
         "range_band": monthly_range_band(df, "UNPLANNED"),
         "ta_schedule": {p: turnaround_schedule(df, 2026, padd=p) for p in PADD_ORDER},
         "ta_all": turnaround_schedule(df, 2026, top=60),
+        "tidy_padd": tidy_monthly(df, "padd"),
+        "tidy_unit": tidy_monthly(df, "unit_cat"),
+        "naphtha": naphtha_analysis(df),
+        "top_movers": top_movers(df),
+        "scenario_bands": scenario_bands(df),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

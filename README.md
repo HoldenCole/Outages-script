@@ -76,32 +76,33 @@ input cells in Excel without rebuilding.
 
 ## Workbook sheets
 
-`Cover · Dashboard · Summary · Monthly · PADD Charts · PADD Detail · Units ·
-Refinery Detail · Clusters · TA Schedule · Scenario 2027 · Sensitivity ·
-Mogas Overlay · Notes`
+Consolidated into **8 findable sheets** (+ a hidden `Data` backing sheet):
 
-- **Monthly** — Total/Planned/Unplanned month×year matrices **plus YoY% change
-  by month** (live formulas, green→red scaled) — the "% difference each month by
-  year" view.
-- **TA Schedule** — the 2026 planned turnaround schedule by PADD (operator,
-  refinery, unit, offline kbd, % of PADD, start/end dates), matching the
-  reference "Fall TAs" tables.
+`Cover · Dashboard · Explorer · Trends · PADD · Units & Refineries ·
+Events & TAs · Model`
 
-- **PADD Charts** — one native combo chart per PADD: 2026 plan+unplanned stacked
-  columns with prior-year total lines and the 2027 plan line.
-- **Summary / PADD Detail / Units** — percentage detail throughout: annual YoY%,
-  unplanned-by-PADD level + YoY%, and per-unit share-of-total + YoY% (all live
-  formulas).
-- **Clusters** — back-to-back (consecutive-month) outage detection. A plant×month
-  heat-strip and tables surface the recurring **Q1 FCC turnarounds at the
-  ExxonMobil plants** (Baton Rouge, Baytown, Beaumont, Joliet) — the clustered
-  signal that month-aggregated external trackers wash out.
-- **Scenario 2027** — yellow input cells + dropdowns (baseline window, growth,
-  unplanned multiplier, one-off, stress month). The forecast cascade, the line
-  chart, and a **live per-PADD breakdown** (each PADD on its own seasonality)
-  are all formulas.
-- **Sensitivity** — a 6×6 growth × multiplier heatmap (3-colour scale, base case
-  outlined) wired to the scenario baseline, plus a tornado of the drivers.
+- **Cover** — contents (hyperlinks), caveats, colour key, and an
+  **auto-generated "This Week's Reads"** block (top movers computed from the data).
+- **Dashboard** — KPI tiles and headline charts.
+- **Explorer** — *the interactive sheet.* Dropdowns for **PADD/unit**, **type**
+  (All/Planned/Unplanned) and **measure** (Capacity vs Mogas-equivalent) drive a
+  **SUMIFS** model: the monthly grid, the **month-by-month YoY%** ("Jan +7% vs
+  last Jan"), and the chart all recompute live off the hidden `Data` sheet.
+- **Trends** — annual table + comparisons + Total/Planned/Unplanned monthly
+  matrices with **in-cell sparklines** and heatmap colour-scales, plus
+  **month-by-month YoY%** grids.
+- **PADD** — per-PADD combo charts (2026 plan+unplanned vs prior-year totals &
+  2027 plan) and PADD×year matrices.
+- **Units & Refineries** — unit mix (share + YoY%), a **Naphtha / octane
+  complex** block (reforming + isomerization + aromatics/BTX — the octane read),
+  top refineries (autofiltered), operators, event scatter and the mogas overlay.
+- **Events & TAs** — back-to-back FCC clusters (the **ExxonMobil Q1 turnaround**
+  signal external trackers miss) and the 2026 planned turnaround schedule.
+- **Model** — live 2027 scenario (dropdown inputs → cascade → per-PADD split →
+  **P25/P50/P90 bands**) and the sensitivity heatmap + tornado.
+
+Every sheet has a **Home** link and a data-vintage stamp. The build is
+re-runnable and idempotent.
 
 ### Deck (`outage_deck.pptx`)
 
