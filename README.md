@@ -21,47 +21,56 @@ always agree. Everything is re-runnable: point at a refreshed export and rebuild
 
 ```bash
 pip install -r requirements.txt
-python build_all.py "rEFINERY oUTAGES.xlsx"
+python scripts/build_all.py
 ```
 
-Outputs land next to the script: `outage_workbook.xlsx`, `outage_deck.pptx`,
-`outage_dashboard.html`. Use `--outdir dist` to write them elsewhere.
+That reads `data/rEFINERY oUTAGES.xlsx` and writes the three deliverables to
+`output/`. Paths resolve relative to the repo root, so it works from any
+directory. Point at a different export or output folder with
+`python scripts/build_all.py path/to/export.xlsx --outdir somewhere/`.
 
 Build a single deliverable instead:
 
 ```bash
-python build_workbook.py  "rEFINERY oUTAGES.xlsx" --out outage_workbook.xlsx
-python build_slides.py    "rEFINERY oUTAGES.xlsx" --out outage_deck.pptx
-python build_dashboard.py "rEFINERY oUTAGES.xlsx" --out outage_dashboard.html
+python scripts/build_workbook.py            # -> output/outage_workbook.xlsx
+python scripts/build_slides.py              # -> output/outage_deck.pptx
+python scripts/build_dashboard.py           # -> output/outage_dashboard.html
 ```
 
-If no path is given, each script falls back to the `INPUT_PATH` constant at the
-top of the file. Leading/trailing whitespace in the path and sheet name is
-stripped automatically.
+Each takes an optional input path and `--out`; with no args it uses
+`data/rEFINERY oUTAGES.xlsx`. Leading/trailing whitespace in the path and sheet
+name is stripped automatically.
+
+---
+
+## Repository layout
+
+```
+.
+├── scripts/      pipeline code (run these)
+│   ├── engine.py            data core — the only place raw data is touched
+│   ├── charts.py            matplotlib renderers (shared by the deck)
+│   ├── build_workbook.py    Excel workbook (XlsxWriter) — 12-sheet deliverable
+│   ├── build_slides.py      PowerPoint deck (python-pptx)
+│   ├── build_dashboard.py   self-contained HTML dashboard (Chart.js inlined)
+│   └── build_all.py         orchestrator — loads once, builds all three
+├── data/         live input: rEFINERY oUTAGES.xlsx
+├── output/       generated deliverables (.xlsx / .pptx / .html)
+├── reference/    example workbook, gasoline-weekly PDF, Yields.txt
+├── docs/         CLAUDE_CODE_BUILD_SPEC.md, "What good output looks like"
+├── legacy/       superseded openpyxl prototype (reference only)
+├── README.md  ·  requirements.txt
+```
 
 ---
 
 ## Refreshing with new data
 
-Drop a new Snowflake export (same `Query1` schema) in place and re-run
-`build_all.py`. Only `engine.py` touches raw data; the builders consume its
-frames. The Excel **Scenario** and **Sensitivity** sheets are live formulas, so
-you can also just edit the yellow input cells in Excel without rebuilding.
-
----
-
-## Files
-
-| File | Role |
-|---|---|
-| `engine.py` | Data core: load/clean, all pivots, scenario/sensitivity math, `build_context()` bundle. **The only place raw data is touched.** |
-| `build_workbook.py` | Excel workbook (XlsxWriter) — the 12-sheet deliverable. |
-| `charts.py` | Matplotlib renderers (desk palette) shared by the deck. |
-| `build_slides.py` | PowerPoint deck (python-pptx). |
-| `build_dashboard.py` | Self-contained HTML dashboard (Chart.js vendored inline). |
-| `build_all.py` | Orchestrator — loads once, builds all three. |
-| `CLAUDE_CODE_BUILD_SPEC.md` | The original build specification. |
-| `outage_workbook.py`, `outage_monthly.py`, `outage_analyzer.py` | Legacy openpyxl prototype, moved to `legacy/` for reference. Superseded by the scripts above. |
+Drop a new Snowflake export (same `Query1` schema) into `data/` and re-run
+`python scripts/build_all.py` (or pass its path). Only `engine.py` touches raw
+data; the builders consume its frames. The Excel **Scenario** and
+**Sensitivity** sheets are live formulas, so you can also just edit the yellow
+input cells in Excel without rebuilding.
 
 ---
 

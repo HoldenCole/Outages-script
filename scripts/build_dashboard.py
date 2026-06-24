@@ -20,10 +20,13 @@ import ssl
 import sys
 import urllib.request
 
+from pathlib import Path
+
 import engine
 
-INPUT_PATH = "rEFINERY oUTAGES.xlsx"
-OUT_PATH = "outage_dashboard.html"
+_ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
+INPUT_PATH = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+OUT_PATH = str(_ROOT / "output" / "outage_dashboard.html")
 CHARTJS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
 
 
@@ -385,6 +388,7 @@ def main():
 
     html = HTML.replace("__CHARTJS__", cjs).replace(
         "__DATA__", json.dumps(data, separators=(",", ":")))
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(html)
     size = os.path.getsize(args.out) / 1024

@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+from pathlib import Path
 
 import engine
 import charts
@@ -22,13 +23,15 @@ import build_workbook
 import build_slides
 import build_dashboard
 
-DEFAULT_INPUT = "rEFINERY oUTAGES.xlsx"
+_ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
+DEFAULT_INPUT = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+DEFAULT_OUTDIR = str(_ROOT / "output")
 
 
 def main():
     ap = argparse.ArgumentParser(description="Build workbook + deck + dashboard")
     ap.add_argument("excel", nargs="?", default=DEFAULT_INPUT, help="path to the outage .xlsx export")
-    ap.add_argument("--outdir", default=".", help="output directory")
+    ap.add_argument("--outdir", default=DEFAULT_OUTDIR, help="output directory")
     args = ap.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
     out = lambda n: os.path.join(args.outdir, n)

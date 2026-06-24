@@ -23,11 +23,14 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
+from pathlib import Path
+
 import engine
 import charts
 
-INPUT_PATH = "rEFINERY oUTAGES.xlsx"
-OUT_PATH = "outage_deck.pptx"
+_ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
+INPUT_PATH = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+OUT_PATH = str(_ROOT / "output" / "outage_deck.pptx")
 
 NAVY = RGBColor(0x1F, 0x38, 0x64)
 BLUE = RGBColor(0x2E, 0x54, 0x96)
@@ -338,6 +341,7 @@ def main():
         print("Rendering charts ...")
         assets = charts.render_all(ctx, tmp)
         print(f"Building deck -> {args.out}")
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         deck = Deck(ctx, assets)
         deck.build()
         deck.save(args.out)

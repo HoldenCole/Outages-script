@@ -476,5 +476,7 @@ def build_context(path):
 if __name__ == "__main__":
     import json
     import sys
-    df = load(sys.argv[1] if len(sys.argv) > 1 else "rEFINERY oUTAGES.xlsx")
+    from pathlib import Path
+    default = str(Path(__file__).resolve().parent.parent / "data" / "rEFINERY oUTAGES.xlsx")
+    df = load(sys.argv[1] if len(sys.argv) > 1 else default)
     print(json.dumps(diagnostics(df), indent=2, default=str))

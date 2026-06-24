@@ -11,6 +11,7 @@ only. They are **superseded** by the current pipeline in the repository root
 | `outage_monthly.py` | Monthly KBD aggregation engine used by the prototype. |
 | `outage_analyzer.py` | Standalone HTML/analysis script. |
 
-They still run from this folder (`python legacy/outage_workbook.py ...`), but the
+They still run if you pass the input explicitly
+(`python legacy/outage_workbook.py "data/rEFINERY oUTAGES.xlsx"`), but the
 charts/heatmaps render flat in openpyxl — which is why the production build moved
-to `XlsxWriter`. Use the root pipeline instead.
+to `XlsxWriter`. Use the `scripts/` pipeline instead.

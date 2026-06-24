@@ -25,10 +25,13 @@ import sys
 import xlsxwriter
 from xlsxwriter.utility import xl_rowcol_to_cell as A1, xl_range_abs
 
+from pathlib import Path
+
 import engine
 
-INPUT_PATH = "rEFINERY oUTAGES.xlsx"
-OUT_PATH = "outage_workbook.xlsx"
+_ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
+INPUT_PATH = str(_ROOT / "data" / "rEFINERY oUTAGES.xlsx")
+OUT_PATH = str(_ROOT / "output" / "outage_workbook.xlsx")
 
 # --------------------------------------------------------------------------- palette
 NAVY = "#1F3864"
@@ -1151,6 +1154,7 @@ def main():
     ctx = engine.build_context(args.excel)
     print(f"  {ctx['diag']['rows']:,} rows | {ctx['diag']['events_distinct']:,} distinct outages")
     print(f"Building workbook -> {args.out}")
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Build(ctx, args.out).run()
     print("Done.")
 
