@@ -158,6 +158,11 @@ implied total  = 2027 unplanned + 2027 planned (booked)
 
 ## QA notes
 
+- **`python scripts/qa_workbook.py`** runs a full regression check: every data
+  table is cross-checked against the engine's source aggregations, the live
+  formulas (YoY%, SUMIFS, scenario, sensitivity) are replicated, and all charts
+  are validated (populated ranges, aligned categories, combos have bar+line).
+  Exits non-zero on any failure — run it after a rebuild or a data refresh.
 - Open `outage_workbook.xlsx` in **real Excel** (not LibreOffice) for final
   visual QA — confirm the combo charts show columns *and* lines, the heatmap
   shows a green→red gradient with the base case outlined, and changing a
