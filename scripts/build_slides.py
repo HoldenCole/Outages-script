@@ -15,6 +15,7 @@ Usage:
     python build_slides.py path/to/export.xlsx --out outage_deck.pptx
 """
 import argparse
+import math
 import os
 import sys
 import tempfile
@@ -161,11 +162,17 @@ class Deck:
             sub = b.startswith("- ")
             txt = b[2:] if sub else b
             bx = x + (Inches(0.45) if sub else Inches(0.0))
+            fs = size if not sub else size - 1.5
+            boxw = w - Inches(0.22) - (bx - x)                  # text width (EMU)
+            # estimate wrapped line count so multi-line bullets don't overlap
+            cpl = max(18, int((boxw / 914400) * 72 / (fs * 0.53)))
+            nlines = max(1, math.ceil(len(txt) / cpl))
             self._rect(s, bx, y + Inches(0.07), Inches(0.09), Inches(0.09),
                        GOLD if not sub else GRAY)
-            self._text(s, bx + Inches(0.22), y, w - Inches(0.22) - (bx - x), Inches(0.7),
-                       [(txt, size if not sub else size - 1.5, False, INK)])
-            y += Inches(spacing if not sub else spacing - 0.06)
+            self._text(s, bx + Inches(0.22), y, boxw, Inches(0.26 * nlines + 0.1),
+                       [(txt, fs, False, INK)])
+            base = spacing if not sub else spacing - 0.06
+            y += Inches(max(base, nlines * (fs * 1.2 / 72) + 0.16))
         return y
 
     def _dotgrid(self, s, x0, y0, cols, rows, step, color, d=Pt(5)):
@@ -408,6 +415,24 @@ class Deck:
              f"Active vs Conservative spans ~{kbd(act-cons)} kbd ({act/cons-1:+.0%}) - the unplanned risk range to hedge.",
              "Risk peaks in Feb (winter freeze) and Sep-Oct (turnaround overlap), with a summer trough.",
              "Fully tunable in the Excel Scenario Analysis sheet - window, growth, multiplier, one-off and stress month."])
+
+        # 2b) Outages in dollars - gross margin at risk (valued at the gasoline crack)
+        di = ctx.get("dollar_impact") or {}
+        if di:
+            d25 = di.get(2025) or di[max(di)]
+            self.charts_bullets_slide(
+                "Outages in Dollars - Gross Margin at Risk",
+                "Offline capacity valued at the gasoline crack spread (EIA NYH gasoline - WTI)",
+                [a["dollar"]],
+                [f"Valuing offline capacity at the gasoline crack turns outages into P&L: 2025 unplanned "
+                 f"outages = ~${d25['unplanned']/1000:.1f}bn gross margin at risk (crack ~${d25['crack_avg']:.0f}/bbl).",
+                 f"Planned turnarounds ~${d25['planned']/1000:.1f}bn, timed into softer-margin shoulder seasons.",
+                 f"Crack has firmed to ~${di.get(2026,{}).get('crack_avg',0):.0f}/bbl in 2026 (from "
+                 f"~${d25['crack_avg']:.0f}), so the same offline volume is worth materially more this year.",
+                 "2020-21 spikes ($35bn+) reflect the COVID / Winter-Storm-Uri extremes, not normal years.",
+                 "Crack is a Bloomberg-overwritable input in the Excel Margin Context sheet (swap EIA seed for RBOB 321)."],
+                foot="$MM = offline kbd x crack ($/bbl) x days / 1000. A gross-margin proxy; unplanned = unexpected "
+                     "supply loss, planned = margin deferred via scheduled work.")
 
         # 3) back-to-back-to-back FCC
         self.charts_bullets_slide(

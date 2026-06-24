@@ -113,6 +113,15 @@ def build_data(ctx):
     completed = {str(y): {"vals": [float(v) for v in cu[y]["vals"]], "fc_from": int(cu[y]["fc_from"])}
                  for y in (2024, 2025, 2026, 2027) if y in cu}
 
+    # market context: $ of refining margin at risk + the gasoline crack overlay
+    di = ctx["dollar_impact"]
+    dollar_impact = {str(y): {k: float(v) for k, v in d.items() if k != "monthly_unpl"}
+                     for y, d in di.items()}
+    cmyears = [y for y in (2022, 2023, 2024, 2025, 2026) if di]
+    crack_monthly = ({str(y): [float(v) for v in cmv]
+                      for y, cmv in engine.crack_matrix(ctx["crack"], cmyears).items()}
+                     if ctx["crack"] else {})
+
     fcc = [{"plant": c["plant"].replace(" Refinery", ""), "padd": c["padd"],
             "year": c["year"], "span": c["span"], "n": c["n"],
             "kbd": round(c["kbd"]), "unpl": c["unpl_share"]}
@@ -167,6 +176,8 @@ def build_data(ctx):
         "h1_planned": h1,
         "fan": fan_out,
         "completed_unplanned": completed,
+        "dollar_impact": dollar_impact,
+        "crack_monthly": crack_monthly,
         "scenario": {
             "windows": list(engine.BASELINE_WINDOWS.keys()),
             "default_window": engine.DEFAULT_WINDOW,
@@ -202,7 +213,7 @@ header .sub{color:var(--ltblue);font-size:12.5px;margin-top:3px}
 .kpi .sub{color:var(--gray);font-size:10.5px;font-style:italic;text-align:center;padding:4px;background:var(--ltblue)}
 .kpi .sub.up{color:#1d6f33;font-style:normal;font-weight:bold}
 .kpi .sub.down{color:#b3261e;font-style:normal;font-weight:bold}
-.outlook{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.outlook{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:16px}
 .ocard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:8px;padding:11px 15px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .ocard .ot{font-size:11.5px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.3px}
 .ocard .ov{font-size:21px;font-weight:bold;color:var(--navy);margin-top:3px}
@@ -275,6 +286,7 @@ table.alloc td:first-child{text-align:left}
     <div class="card"><h3>Top Unit Categories</h3><p class="note">Capacity offline, all years, kbd.</p><div class="chartbox"><canvas id="cUnits"></canvas></div></div>
     <div class="card"><h3>Unplanned Seasonality &amp; Range Band</h3><p class="note">Grey band = 2022-25 monthly min-max; 2026 dashed = actual + forecast tail; 2027 dotted = Average scenario (not zero).</p><div class="chartbox"><canvas id="cBand"></canvas></div></div>
     <div class="card"><h3>Unplanned &mdash; YoY % Change by Month</h3><p class="note">Percent difference in each month vs the prior year.</p><div class="chartbox"><canvas id="cYoyMonth"></canvas></div></div>
+    <div class="card full"><h3>$ Gross Margin at Risk &amp; Gasoline Crack</h3><p class="note">Offline capacity valued at the gasoline crack: unplanned/planned $MM per year (left axis, bars) vs avg crack $/bbl (right axis, line). 2020-21 inflated by COVID/Uri spikes; crack = EIA NYH&minus;WTI, Bloomberg-overwritable.</p><div class="chartbox"><canvas id="cDollar"></canvas></div></div>
     <div class="card full"><h3>Year-over-Year Change in Total Offline</h3><p class="note">YoY % change, total capacity offline.</p><div class="chartbox"><canvas id="cYoy"></canvas></div></div>
     <div class="card full"><h3>2026 Planned Turnaround Schedule
         <select id="taPadd" style="font-size:12px;padding:3px 6px;margin-left:8px;border:1px solid #c8d0dc;border-radius:5px"></select></h3>
@@ -390,7 +402,30 @@ fySel.addEventListener('change',renderKPIs); renderKPIs();
   cards.push(card('2027 unplanned - forecast', '~'+fmt(fan.average)+' kbd',
     'range ~'+fmt(fan.conservative)+' - '+fmt(fan.active), 'up',
     'Conservative/Average/Active. Implied total ~'+fmt(fan.average+plan27)+' kbd with booked planned.'));
+  const d25=(DATA.dollar_impact||{})['2025'];
+  if(d25){
+    cards.push(card('2025 unplanned - $ at risk', '~$'+(d25.unplanned/1000).toFixed(1)+'bn',
+      'avg crack $'+Math.round(d25.crack_avg)+'/bbl', 'down',
+      'Gross gasoline-refining margin on unplanned offline capacity. Planned ~$'+(d25.planned/1000).toFixed(1)+'bn.'));
+  }
   document.getElementById('outlook').innerHTML=cards.join('');
+})();
+
+// ---- $ gross margin at risk + crack overlay ----
+(function(){
+  const DI=DATA.dollar_impact||{};
+  const yrs=Object.keys(DI).filter(y=>+y>=2022).sort();
+  if(!yrs.length){return;}
+  new Chart(document.getElementById('cDollar'),{
+    data:{labels:yrs.map(y=>+y>=2026?y+'*':y),datasets:[
+      {type:'bar',label:'Unplanned $ at risk ($MM)',backgroundColor:C.navy,yAxisID:'y',data:yrs.map(y=>DI[y].unplanned)},
+      {type:'bar',label:'Planned $ ($MM)',backgroundColor:C.gold,yAxisID:'y',data:yrs.map(y=>DI[y].planned)},
+      {type:'line',label:'Avg gasoline crack ($/bbl)',borderColor:C.red,backgroundColor:C.red,borderWidth:2.6,pointRadius:3,tension:.25,yAxisID:'y1',data:yrs.map(y=>DI[y].crack_avg)}]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{
+      x:{grid:{display:false}},
+      y:{position:'left',title:{display:true,text:'$MM / yr'},ticks:{callback:v=>v.toLocaleString()}},
+      y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'crack $/bbl'}}},
+      plugins:{legend:{position:'bottom'}}}});
 })();
 
 // ---- controls ----

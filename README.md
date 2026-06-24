@@ -3,12 +3,12 @@
 Turns the Snowflake refinery-outage export into three commodities-desk-grade
 deliverables from one data pipeline:
 
-1. **Excel workbook** (`outage_workbook.xlsx`) — 10 visible sheets (incl.
-   dedicated **Mogas** and **Naphtha** sheets), native charts, a two-way
-   sensitivity heatmap, a sorted driver-sensitivity bar, and a **live** 2027
-   **Scenario Analysis** model (Conservative/Average/Active fan) driven by
+1. **Excel workbook** (`outage_workbook.xlsx`) — 11 visible sheets (incl.
+   dedicated **Mogas**, **Naphtha** and **Margin Context** sheets), native charts,
+   a two-way sensitivity heatmap, a sorted driver-sensitivity bar, and a **live**
+   2027 **Scenario Analysis** model (Conservative/Average/Active fan) driven by
    data-validation dropdowns. *(Priority 1.)*
-2. **Slide deck** (`outage_deck.pptx`) — 11-slide 16:9 deck mirroring the
+2. **Slide deck** (`outage_deck.pptx`) — 12-slide 16:9 deck mirroring the
    workbook's charts with data-driven takeaways; the planned slide leads with the
    H1-vs-H1 like-for-like and the scenario slide is the Conservative/Average/Active
    fan. *(Priority 2.)*
@@ -55,13 +55,14 @@ name is stripped automatically.
 ├── scripts/      pipeline code (run these)
 │   ├── engine.py            data core — the only place raw data is touched
 │   ├── charts.py            matplotlib renderers (shared by the deck)
-│   ├── build_workbook.py    Excel workbook (XlsxWriter) — 10-sheet deliverable
+│   ├── build_workbook.py    Excel workbook (XlsxWriter) — 11-sheet deliverable
 │   ├── build_slides.py      PowerPoint deck (python-pptx)
 │   ├── build_dashboard.py   self-contained HTML dashboard (Chart.js inlined)
+│   ├── fetch_market_data.py vendors the gasoline crack (EIA) -> market_crack.csv
 │   └── build_all.py         orchestrator — loads once, builds all three
-├── data/         live input: Refinery_Outages_Data.xlsx
+├── data/         live input: Refinery_Outages_Data.xlsx  ·  market_crack.csv
 ├── output/       generated deliverables (.xlsx / .pptx / .html)
-├── reference/    example workbook, gasoline-weekly PDF, Yields.txt
+├── reference/    mogas & ethylene-margins workbooks, gasoline-weekly PDF, Yields.txt
 ├── docs/         CLAUDE_CODE_BUILD_SPEC.md, "What good output looks like"
 ├── legacy/       superseded openpyxl prototype (reference only)
 ├── README.md  ·  requirements.txt
@@ -77,14 +78,23 @@ data; the builders consume its frames. The Excel **Scenario Analysis** sheet
 (scenario cascade + sensitivity heatmap) is live formulas, so you can also just
 edit the yellow input cells in Excel without rebuilding.
 
+**Market data (gasoline crack).** The **Margin Context** sheet values outages in
+dollars off a monthly gasoline crack vendored to `data/market_crack.csv`. Refresh
+it with `python scripts/fetch_market_data.py` (pulls EIA NY-Harbor gasoline + WTI,
+no API key), or overwrite the CSV with a Bloomberg pull (e.g. RBOB 321) using the
+same columns. The crack is also a blue, editable input inside the workbook, so the
+$ figures recompute live without a rebuild. If the CSV is absent the rest of the
+pipeline still builds — the Margin Context sheet just shows a Bloomberg-fillable
+template.
+
 ---
 
 ## Workbook sheets
 
-**10 findable sheets** (+ a hidden `Data` backing sheet):
+**11 findable sheets** (+ a hidden `Data` backing sheet):
 
 `Cover · Dashboard · Explorer · Trends · PADD · Units & Refineries ·
-Mogas · Naphtha · Events & TAs · Scenario Analysis`
+Mogas · Naphtha · Margin Context · Events & TAs · Scenario Analysis`
 
 - **Cover** — contents (hyperlinks), read-before-use caveats (COVID/Uri outliers,
   2027-incomplete H1-focus, planned-only guardrail), colour key, and an
@@ -107,6 +117,11 @@ Mogas · Naphtha · Events & TAs · Scenario Analysis`
   stacked chart (the gasoline read).
 - **Naphtha** — the octane complex (reforming + isomerization + aromatics/BTX):
   annual + YoY%, by-PADD and by-unit (octane/blending risk).
+- **Margin Context** — values offline capacity in **$ of gross refining margin at
+  risk** (`offline kbd × crack($/bbl) × days / 1000`). The gasoline crack is a
+  **blue, Bloomberg-overwritable input** seeded from EIA (NY-Harbor gasoline − WTI);
+  the $ figures are live formulas, with a two-axis offline-vs-crack overlay
+  (margin-timing) and annual $-at-risk bars.
 - **Events & TAs** — back-to-back FCC clusters (the **ExxonMobil Q1 turnaround**
   signal external trackers miss), the **ExxonMobil 2027 booked book** (by refinery
   / by unit + a refinery×month chart), and the 2026 & 2027 planned TA schedules.

@@ -20,6 +20,8 @@ Locked decisions (do not re-derive -- see CLAUDE_CODE_BUILD_SPEC.md):
 """
 
 import re
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -787,6 +789,67 @@ def completed_unplanned(df, years=(2024, 2025, 2026, 2027)):
     return out
 
 
+# ----------------------------------------------------------------------------- market context ($ at risk)
+MARKET_CRACK_PATH = Path(__file__).resolve().parent.parent / "data" / "market_crack.csv"
+DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def load_crack(path=None):
+    """Monthly gasoline crack ($/bbl) from data/market_crack.csv ->
+    {(year, month): crack}. Returns {} if the file is absent so the rest of the
+    pipeline degrades gracefully (the Margin Context sheet just stays a blank,
+    Bloomberg-fillable template). Refresh it with scripts/fetch_market_data.py."""
+    p = Path(path) if path else MARKET_CRACK_PATH
+    if not p.exists():
+        return {}
+    df = pd.read_csv(p, comment="#")
+    return {(int(r.year), int(r.month)): float(r.crack) for r in df.itertuples()}
+
+
+def crack_matrix(crack, years):
+    """year -> [12] monthly crack, filling any missing month with that year's own
+    mean (or the all-history mean) so charts/formulas never see gaps."""
+    allv = list(crack.values())
+    gmean = float(np.mean(allv)) if allv else 0.0
+    out = {}
+    for y in years:
+        yvals = [crack.get((y, m)) for m in range(1, 13)]
+        present = [v for v in yvals if v is not None]
+        ymean = float(np.mean(present)) if present else gmean
+        out[y] = [v if v is not None else ymean for v in yvals]
+    return out
+
+
+def outage_dollar_impact(df, crack, years=range(2018, 2028)):
+    """Gross refining-margin **at risk** from offline capacity, valued at the
+    gasoline crack: $MM[m] = offline_kbd[m] * days[m] * crack[m] / 1000.
+
+    A desk shorthand - it values offline capacity at the gasoline gross margin;
+    unplanned = unexpected supply loss (the bullish/at-risk number), planned =
+    margin deferred via scheduled work. Returns
+    {year: {planned, unplanned, total, crack_avg}} in $MM, plus 'monthly_unpl'
+    per year for charting."""
+    if not crack:
+        return {}
+    mp = monthly_by_year(df, type_filter="PLANNED")
+    mu = monthly_by_year(df, type_filter="UNPLANNED")
+    yrs = [int(y) for y in years if any((y, m) in crack for m in range(1, 13))]
+    cm = crack_matrix(crack, yrs)
+    out = {}
+    for y in yrs:
+        cr = cm[y]
+
+        def dollars(mat):
+            if y not in mat.index:
+                return [0.0] * 12
+            return [float(mat.loc[y, MONTHS[m]] * DAYS_IN_MONTH[m] * cr[m] / 1000.0)
+                    for m in range(12)]
+        pl, un = dollars(mp), dollars(mu)
+        out[y] = {"planned": sum(pl), "unplanned": sum(un), "total": sum(pl) + sum(un),
+                  "crack_avg": float(np.mean(cr)), "monthly_unpl": un}
+    return out
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -841,6 +904,8 @@ def build_context(path):
         "h1_planned": h1_planned(df),
         "scenario_fan": scenario_fan(df),
         "completed_unplanned": completed_unplanned(df),
+        "crack": load_crack(),
+        "dollar_impact": outage_dollar_impact(df, load_crack()),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

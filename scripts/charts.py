@@ -526,6 +526,36 @@ def scenario_fan_chart(ctx, path):
     return _save(fig, path)
 
 
+def dollar_at_risk(ctx, path):
+    """Annual $ of gross refining margin at risk (offline valued at the gasoline
+    crack), unplanned vs planned bars + the average crack on a 2nd axis."""
+    di = ctx.get("dollar_impact") or {}
+    fig, ax = plt.subplots(figsize=(9.8, 4.7))
+    if not di:
+        ax.text(0.5, 0.5, "No crack data - run scripts/fetch_market_data.py",
+                ha="center", va="center", fontsize=12, color=GRAY)
+        ax.axis("off")
+        return _save(fig, path)
+    years = [y for y in sorted(di) if 2018 <= y <= 2026]
+    x = np.arange(len(years))
+    ax2 = ax.twinx()
+    ax.bar(x - 0.2, [di[y]["unplanned"] for y in years], width=0.4, color=NAVY,
+           label="Unplanned $ at risk", zorder=3)
+    ax.bar(x + 0.2, [di[y]["planned"] for y in years], width=0.4, color=GOLD,
+           label="Planned $", zorder=3)
+    ax2.plot(x, [di[y]["crack_avg"] for y in years], color=RED, lw=2.6, marker="o", ms=4,
+             label="Avg crack ($/bbl)")
+    ax.set_xticks(x, [str(y) for y in years])
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("$MM / yr"); ax2.set_ylabel("crack ($/bbl)")
+    ax.set_title("Gross Refining Margin at Risk from Outages ($MM) vs Gasoline Crack")
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, frameon=False, ncol=3, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -554,6 +584,7 @@ def render_all(ctx, outdir):
         "planned_xyear": planned_cross_year(ctx, p("planned_xyear.png")),
         "exxon27": exxon_2027_chart(ctx, p("exxon27.png")),
         "fan": scenario_fan_chart(ctx, p("fan.png")),
+        "dollar": dollar_at_risk(ctx, p("dollar.png")),
         "padd_pl": {pd: padd_planned_27v26(ctx, pd, p(f"padd_pl_{pd[-1]}.png")) for pd in PADDS},
     }
     return out

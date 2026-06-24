@@ -583,6 +583,7 @@ class Build:
             ("Units & Refineries", "Unit categories (share/YoY%), top refineries, operators, scatter"),
             ("Mogas", "Gasoline-yield-weighted outages: annual, YoY%, by-PADD, stacked"),
             ("Naphtha", "Octane complex (reforming / isomerization / aromatics / BTX): annual, YoY%, by-PADD/unit"),
+            ("Margin Context", "Values offline capacity in $ at the gasoline crack ($ margin at risk; Bloomberg-fillable)"),
             ("Events & TAs", "Back-to-back FCC clusters, Exxon 2027 breakdown and turnaround schedule"),
             ("Scenario Analysis", "Live 2027 forecast & scenario/stress test - conservative / average / active"),
         ]
@@ -640,7 +641,7 @@ class Build:
                                  "bold": True, "align": "center", "bg_color": LT_BLUE,
                                  "border": 1, "border_color": "#9DC3E6"})
         for k, name in enumerate(["Explorer", "Trends", "PADD", "Units & Refineries",
-                                  "Mogas", "Naphtha", "Events & TAs", "Scenario Analysis"]):
+                                  "Mogas", "Naphtha", "Margin Context", "Events & TAs", "Scenario Analysis"]):
             ws.merge_range(8, 2 + k * 2, 8, 3 + k * 2, name, jl)
             ws.write_url(8, 2 + k * 2, f"internal:'{name}'!A1", jl, name)
         ws.set_row(8, 18)
@@ -1097,6 +1098,145 @@ class Build:
             ws.write_number(ur + k, 12, float(v), self.f["kbd"])
         ws.freeze_panes(6, 0)
 
+    # ============================================================= MARGIN CONTEXT
+    def margin_context(self):
+        """Values offline capacity in $ terms using the gasoline crack spread -
+        the one market-data lens that's genuinely outage-native. Crack is a blue,
+        Bloomberg-overwritable input; the $ figures are live formulas off it."""
+        ws = self.wb.add_worksheet("Margin Context")
+        self._setup(ws, "#375623")
+        self._chrome(ws, 15)
+        ws.set_column("A:A", 2); ws.set_column("B:B", 22)
+        ws.set_column("C:N", 7); ws.set_column("O:O", 9)
+        ws.merge_range("B2:O2", "Margin Context - $ of Refining Margin at Risk", self.f["title"])
+        ws.merge_range("B3:O3",
+                       "Values offline capacity at the gasoline crack: $MM = offline kbd x crack($/bbl) x days / 1000. "
+                       "Turns 'X kbd offline' into the P&L number a trading desk actually speaks.", self.f["subtitle"])
+        crack = self.ctx["crack"]; di = self.ctx["dollar_impact"]
+        YEARS = [2022, 2023, 2024, 2025, 2026]
+        cm = engine.crack_matrix(crack, YEARS) if crack else {y: [0.0] * 12 for y in YEARS}
+        mu = self.ctx["monthly_unplanned"]; days = engine.DAYS_IN_MONTH
+        r = 5
+        if not crack:
+            r = self._band(ws, r, 1, 14, "No data/market_crack.csv - run scripts/fetch_market_data.py or paste a Bloomberg crack", "h_red")
+        # --- crack input (blue, editable) ---
+        r = self._band(ws, r, 1, 14, "Gasoline Crack Spread ($/bbl) - EIA NYH seed; OVERWRITE with Bloomberg (e.g. RBOB 321) to go live", "h_green")
+        self._tip(ws, r - 1, 1, "Blue = editable input. Seeded from EIA NY-Harbor conventional gasoline spot x42 minus WTI; "
+                  "paste your Bloomberg crack over these and every $ figure below recomputes.")
+        ws.write(r, 1, "Year", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        ws.write(r, 14, "Avg", self.f["colhdr"]); r += 1
+        blue = self.wb.add_format({"font_name": "Arial", "num_format": "0.0", "font_color": "#0000FF",
+                                   "align": "right", "bg_color": "#EAF1FB", "border": 1, "border_color": "#BDD7EE"})
+        crack_first = r
+        for y in YEARS:
+            ws.write_number(r, 1, y, self._yr(y))
+            for j in range(12):
+                ws.write_number(r, 2 + j, round(cm[y][j], 2), blue)
+            ws.write_formula(r, 14, f"=AVERAGE({A1(r,2)}:{A1(r,13)})", self.f["calc"])
+            r += 1
+        ws.write(r, 1, "Days in month", self.f["rowlab"]); days_row = r
+        for j in range(12):
+            ws.write_number(r, 2 + j, days[j], self.f["kbd"])
+        r += 2
+        # --- unplanned offline kbd ---
+        r = self._band(ws, r, 1, 14, "Unplanned Offline (kbd) by Month", "h_red")
+        ws.write(r, 1, "Year", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        ws.write(r, 14, "Total", self.f["colhdr"]); r += 1
+        off_first = r
+        for y in YEARS:
+            kf = self.f["kbd_p"] if y in PARTIAL else self.f["kbd"]
+            ws.write_number(r, 1, y, self._yr(y))
+            for j, m in enumerate(MONTHS):
+                ws.write_number(r, 2 + j, float(mu.loc[y, m]) if y in mu.index else 0.0, kf)
+            ws.write_formula(r, 14, f"=SUM({A1(r,2)}:{A1(r,13)})", self.f["kbd_b"])
+            r += 1
+        off_first_data = off_first
+        r += 1
+        # --- $ at risk (live formula off crack x offline x days) ---
+        r = self._band(ws, r, 1, 14, "Unplanned $ Gross Margin at Risk ($MM)  =  offline x crack x days / 1000  (live)", "h_navy")
+        ws.write(r, 1, "Year", self.f["colhdr_l"])
+        for j, m in enumerate(MONTHS):
+            ws.write(r, 2 + j, m, self.f["colhdr"])
+        ws.write(r, 14, "Total", self.f["colhdr"]); r += 1
+        money = self.wb.add_format({"font_name": "Arial", "num_format": "#,##0", "align": "right"})
+        money_b = self.wb.add_format({"font_name": "Arial", "num_format": "#,##0", "align": "right",
+                                      "bold": True, "bg_color": LT_BLUE})
+        dol_first = r
+        for i, y in enumerate(YEARS):
+            ws.write_number(r, 1, y, self._yr(y))
+            cr_r, off_r = crack_first + i, off_first_data + i
+            for j in range(12):
+                ws.write_formula(r, 2 + j, f"={A1(off_r,2+j)}*{A1(cr_r,2+j)}*{A1(days_row,2+j)}/1000", money)
+            ws.write_formula(r, 14, f"=SUM({A1(r,2)}:{A1(r,13)})", money_b)
+            r += 1
+        dol_last = r - 1
+        ws.conditional_format(dol_first, 2, dol_last, 13,
+                              {"type": "2_color_scale", "min_type": "num", "min_value": 0,
+                               "min_color": WHITE, "max_color": "#C00000"})
+        r += 1
+        # --- charts: monthly overlay (2025) two-axis, and annual $ bars ---
+        foc = 2025; fi = YEARS.index(foc)
+        combo = self.wb.add_chart({"type": "column"})
+        combo.add_series({"name": f"{foc} Unplanned offline (kbd)",
+                          "categories": ["Margin Context", crack_first - 1, 2, crack_first - 1, 13],
+                          "values": ["Margin Context", off_first_data + fi, 2, off_first_data + fi, 13],
+                          "fill": {"color": ORANGE}})
+        ln = self.wb.add_chart({"type": "line"})
+        ln.add_series({"name": f"{foc} Crack ($/bbl)",
+                       "categories": ["Margin Context", crack_first - 1, 2, crack_first - 1, 13],
+                       "values": ["Margin Context", crack_first + fi, 2, crack_first + fi, 13],
+                       "line": {"color": NAVY, "width": 2.5}, "y2_axis": True})
+        combo.combine(ln)
+        combo.set_title({"name": f"{foc}: Unplanned Offline vs Gasoline Crack (margin-timing)"})
+        combo.set_y_axis({"name": "Unplanned offline (kbd)"})
+        combo.set_y2_axis({"name": "Crack ($/bbl)"})
+        combo.set_legend({"position": "bottom"})
+        combo.set_size({"width": 560, "height": 300}); combo.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(r, 1, combo)
+        dbar = self.wb.add_chart({"type": "column"})
+        dbar.add_series({"name": "Unplanned $ at risk ($MM)",
+                         "categories": ["Margin Context", dol_first, 1, dol_last, 1],
+                         "values": ["Margin Context", dol_first, 14, dol_last, 14],
+                         "fill": {"color": NAVY},
+                         "data_labels": {"value": True, "num_format": "#,##0", "font": {"size": 8}}})
+        dbar.set_title({"name": "Unplanned Gross Margin at Risk ($MM/yr)"})
+        dbar.set_y_axis({"name": "$MM"}); dbar.set_legend({"none": True})
+        dbar.set_size({"width": 360, "height": 300}); dbar.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(r, 11, dbar)
+        r += 17
+        # --- annual $ summary + callouts ---
+        r = self._band(ws, r, 1, 6, "Annual $ at Risk Summary ($MM)", "h_navy")
+        for j, h in enumerate(["Year", "Unpl kbd", "Crack avg", "Unplanned $MM", "Planned $MM", "Total $MM"]):
+            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
+        r += 1
+        for i, y in enumerate(YEARS):
+            kf = self.f["kbd_p"] if y in PARTIAL else self.f["kbd"]
+            ws.write_number(r, 1, y, self._yr(y))
+            ws.write_formula(r, 2, f"={A1(off_first_data+i,14)}", kf)
+            ws.write_formula(r, 3, f"={A1(crack_first+i,14)}", self.wb.add_format({"font_name": "Arial", "num_format": "0.0", "align": "right"}))
+            ws.write_formula(r, 4, f"={A1(dol_first+i,14)}", money)               # live, from the $ block
+            ws.write_number(r, 5, float(di.get(y, {}).get("planned", 0.0)), money)  # planned $ (from engine)
+            ws.write_formula(r, 6, f"={A1(r,4)}+{A1(r,5)}", money_b)
+            r += 1
+        r += 1
+        d25 = di.get(2025, {})
+        if d25:
+            ws.merge_range(r, 1, r, 14,
+                           f"Read: in {foc}, unplanned outages put ~${d25['unplanned']/1000:.1f}bn of gross gasoline-refining "
+                           f"margin at risk (avg crack ${d25['crack_avg']:.0f}/bbl); planned turnarounds ~${d25['planned']/1000:.1f}bn, "
+                           "scheduled into softer-margin shoulder seasons. Overlay above shows offline capacity stepping down "
+                           "as the crack firms - the margin-timing signal.", self.f["note"])
+            ws.set_row(r, 30); r += 1
+        ws.merge_range(r, 1, r, 14,
+                       "2020-21 $ figures are inflated by the COVID/Uri outage spikes (see Cover caveats). "
+                       "Crack = EIA NYH gasoline x42 - WTI; replace with a Bloomberg pull for desk-grade RBOB 321.",
+                       self.f["red_note"]); ws.set_row(r, 26)
+        ws.freeze_panes(6, 2)
+
     def events_tas(self):
         ws = self.wb.add_worksheet("Events & TAs")
         self._setup(ws, "#843C0C")
@@ -1489,12 +1629,14 @@ class Build:
         self.units_refineries()
         self.mogas()
         self.naphtha()
+        self.margin_context()
         self.events_tas()
         self.model()
         # order tabs: Cover first, Data last/hidden
         self.wb.worksheets_objs.sort(key=lambda w: (
             ["Cover", "Dashboard", "Explorer", "Trends", "PADD", "Units & Refineries",
-             "Events & TAs", "Scenario Analysis", "Mogas", "Naphtha", "Data"].index(w.name)))
+             "Mogas", "Naphtha", "Margin Context", "Events & TAs", "Scenario Analysis",
+             "Data"].index(w.name)))
         self.wb.close()
 
 

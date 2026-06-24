@@ -249,6 +249,37 @@ for i in range(20):
 check(miss == 0 and seen == len(tor), "Model driver-sensitivity low/high match engine",
       f"{miss} mismatches, {seen}/{len(tor)} rows")
 
+# ============================================================ MARGIN CONTEXT
+ws = wb["Margin Context"]
+MCYEARS = [2022, 2023, 2024, 2025, 2026]
+crack = ctx["crack"]; di = ctx["dollar_impact"]
+cm = engine.crack_matrix(crack, MCYEARS) if crack else {y: [0.0] * 12 for y in MCYEARS}
+mu = ctx["monthly_unplanned"]; days = engine.DAYS_IN_MONTH
+# crack seed block
+br, _ = band_row(ws, "Gasoline Crack Spread")
+hdr = br + 1; cfirst = hdr + 1; miss = 0
+for i, y in enumerate(MCYEARS):
+    for j in range(12):
+        v = num(ws, cfirst + i, 3 + j)
+        if not close(v, round(cm[y][j], 2), 0.02): miss += 1
+check(miss == 0, "Margin Context crack seed matches engine", f"{miss} mismatches")
+# offline block matches monthly unplanned
+br, _ = band_row(ws, "Unplanned Offline (kbd) by Month")
+hdr = br + 1; ofirst = hdr + 1; miss = 0
+for i, y in enumerate(MCYEARS):
+    for j, m in enumerate(engine.MONTHS):
+        v = num(ws, ofirst + i, 3 + j)
+        exp = float(mu.loc[y, m]) if y in mu.index else 0.0
+        if not close(v, exp): miss += 1
+check(miss == 0, "Margin Context offline matches engine", f"{miss} mismatches")
+# $ at-risk: replicate offline*crack*days/1000 and compare annual total to engine
+miss = 0
+for i, y in enumerate(MCYEARS):
+    tot = sum((float(mu.loc[y, engine.MONTHS[j]]) if y in mu.index else 0.0) * cm[y][j] * days[j] / 1000.0
+              for j in range(12))
+    if not close(tot, di.get(y, {}).get("unplanned", 0.0), 1.0): miss += 1
+check(miss == 0, "Margin Context $-at-risk replicates engine", f"{miss} mismatches")
+
 # ============================================================ FORMULAS structural
 err_tokens = ["#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!"]
 fcount = 0; ferr = 0; unbalanced = 0
