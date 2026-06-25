@@ -4,3 +4,9 @@ __pycache__/
 scratch_charts/
 scratch_recalc/
 .DS_Store
+
+# Proprietary inputs and generated audit artifacts are not committed.
+# Drop your outage export at data/Refinery_Outages_Enhanced.xlsx (or pass a path).
+/data/*
+!/data/.gitkeep
+/output/exxon_*_reconciliation.*

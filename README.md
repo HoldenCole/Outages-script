@@ -41,8 +41,9 @@ python scripts/build_all.py
 ```
 
 That reads `data/Refinery_Outages_Enhanced.xlsx` and writes the deck and
-dashboard to `output/`. Paths resolve relative to the repo root, so it runs from
-any directory. **No network is required** to build.
+dashboard to `output/`. **The input data is not committed** — drop your outage
+export at that path (or pass one as an argument). Paths resolve relative to the
+repo root, so it runs from any directory. **No network is required** to build.
 
 In **VS Code**, the committed `.vscode/` configs give you three one-click paths
 (on first open it offers to install the recommended Python + Debugpy extensions):
