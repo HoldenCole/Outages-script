@@ -723,8 +723,8 @@ class Build:
             ws.write_url(8, 2 + k * 2, f"internal:'{name}'!A1", jl, name)
         ws.set_row(8, 18)
 
-        # data block (compact, just below the charts area)
-        d0 = 28
+        # data block (reference) - placed BELOW both rows of charts (which run to ~row 42)
+        d0 = 43
         ws.write(d0 - 1, 1, "Chart data (kbd)", self.f["note_b"])
         years = [y for y in s.index if 2016 <= y <= 2027]
         ws.write(d0, 1, "Year", self.f["colhdr_l"])
@@ -1155,10 +1155,11 @@ class Build:
         nch.set_title({"name": "Naphtha/Octane Complex Offline (kbd)"}); nch.set_legend({"position": "bottom"})
         nch.set_size({"width": 500, "height": 290}); nch.set_chartarea({"border": {"none": True}})
         ws.insert_chart(nf, 7, nch)
-        # by-PADD (left) and by-unit (right) side-by-side below
-        r += 1
+        # by-PADD (left) and by-unit (right) side-by-side below - clear the annual chart first
+        r = max(r + 1, nf + 16)
         bp = nap["by_padd"]; byrs = [y for y in bp.columns if 2020 <= y <= 2027]
         r = self._band(ws, r, 1, 1 + len(byrs), "Naphtha Complex by PADD x Year (kbd)", "h_navy")
+        bprow = r                              # by-PADD header row (sits below the annual chart)
         ws.write(r, 1, "PADD", self.f["colhdr_l"])
         for j, y in enumerate(byrs):
             ws.write_number(r, 2 + j, y, self._yr(y))
@@ -1168,9 +1169,9 @@ class Build:
             for j, y in enumerate(byrs):
                 ws.write_number(r, 2 + j, float(bp.loc[p, y]) if p in bp.index else 0.0, self._kf(y, i % 2 == 1))
             r += 1
-        # by-unit list
+        # by-unit list - sits to the right of the by-PADD table, below the annual chart
         bu = nap["by_unit"]
-        ur = nf
+        ur = bprow + 1
         ws.write(ur - 1, 11, "By unit (all-yr kbd)", self.f["note_b"])
         for k, (u, v) in enumerate(bu.items()):
             ws.write(ur + k, 11, str(u).title(), self.f["rowlab"])
@@ -1627,7 +1628,7 @@ class Build:
         fan_chart.set_title({"name": "2027 Unplanned Scenario Fan (kbd by month)"})
         fan_chart.set_y_axis({"name": "kbd"}); fan_chart.set_legend({"position": "bottom"})
         fan_chart.set_size({"width": 640, "height": 300}); fan_chart.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(fhdr, 15, fan_chart)
+        ws.insert_chart(chdr + 16, 15, fan_chart)   # stack below the scenario chart (avoid overlap)
         # annual-total callouts + interpretation
         cons_t = float(fan["Conservative"].sum()); avg_t = float(fan["Average"].sum()); act_t = float(fan["Active"].sum())
         pl27 = float(self.ctx["summary"].loc[2027, "Planned"]) if 2027 in self.ctx["summary"].index else 0.0
