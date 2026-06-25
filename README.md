@@ -9,11 +9,12 @@ deliverables from one data pipeline:
    a two-way sensitivity heatmap, a 2027 implied-total-by-scenario chart, and a **live**
    2027 **Scenario Analysis** model (Conservative/Average/Active fan) driven by
    data-validation dropdowns. *(Priority 1.)*
-2. **Slide deck** (`outage_deck.pptx`) — tight 8-slide 16:9 deck, two charts per
-   content slide, mirroring the workbook's charts with data-driven takeaways; the
-   planned slide leads with the H1-vs-H1 like-for-like, the scenario slide pairs the
-   Conservative/Average/Active fan with a 2027 implied-total-by-scenario chart, and the regional view is a
-   five-PADD small-multiples + a national turnaround table. *(Priority 2.)*
+2. **Slide deck** (`outage_deck.pptx`) — 16:9 deck (two charts per content slide)
+   that **opens with a month-over-month "what changed" section** — movers by
+   PADD/unit, a trailing-13-month trend, and new-vs-resolved outages, all computed
+   live from the data — then the 2027 outlook: the planned H1-vs-H1 like-for-like,
+   the Conservative/Average/Active fan with an implied-total-by-scenario chart, a
+   five-PADD small-multiples and a national turnaround table. *(Priority 2.)*
 3. **HTML dashboard** (`outage_dashboard.html`) — a single self-contained file
    with a **dynamic focus-year selector** (KPIs show the picked year vs the prior
    year), a 2026-vs-2025 / H1'27-vs-H1'26 / 2027-forecast outlook strip, and a
@@ -24,29 +25,53 @@ always agree. Everything is re-runnable: point at a refreshed export and rebuild
 
 ---
 
-## Quick start
+## Quick start (VS Code or any terminal)
 
 ```bash
+# 1. create an isolated environment (recommended before sharing)
+python -m venv .venv
+source .venv/bin/activate            # macOS/Linux
+# .venv\Scripts\Activate.ps1         # Windows PowerShell
+
+# 2. install dependencies
 pip install -r requirements.txt
+
+# 3. build all three deliverables
 python scripts/build_all.py
 ```
 
-That reads `data/Refinery_Outages_Data.xlsx` and writes the three deliverables to
-`output/`. Paths resolve relative to the repo root, so it works from any
-directory. Point at a different export or output folder with
-`python scripts/build_all.py path/to/export.xlsx --outdir somewhere/`.
+That reads `data/Refinery_Outages_Data.xlsx` and writes the workbook, deck and
+dashboard to `output/`. Paths resolve relative to the repo root, so it runs from
+any directory — in VS Code, opening any script and hitting **▶ Run** just works.
+**No network is required** to build (a market-crack CSV is vendored in `data/`).
 
-Build a single deliverable instead:
+Build a single deliverable, or point at a refreshed export / different output dir:
 
 ```bash
-python scripts/build_workbook.py            # -> output/outage_workbook.xlsx
-python scripts/build_slides.py              # -> output/outage_deck.pptx
-python scripts/build_dashboard.py           # -> output/outage_dashboard.html
+python scripts/build_workbook.py                       # -> output/outage_workbook.xlsx
+python scripts/build_slides.py                         # -> output/outage_deck.pptx
+python scripts/build_dashboard.py                      # -> output/outage_dashboard.html
+python scripts/build_all.py path/to/export.xlsx --outdir dist/
 ```
 
-Each takes an optional input path and `--out`; with no args it uses
-`data/Refinery_Outages_Data.xlsx`. Leading/trailing whitespace in the path and sheet
-name is stripped automatically.
+### Run it on your own data
+
+Drop your export in `data/`, pass its path, and rebuild. The loader is forgiving:
+
+* **Excel or CSV** — `.xlsx`/`.xls` (the right worksheet is auto-detected,
+  preferring one named `Query1`) or `.csv`.
+* **Required columns** — `CAP_OFFLINE_ADJUSTED_KBD`, `OUTAGE_YEAR`, `OUTAGE_MONTH`.
+  Missing any of these stops with a clear message rather than a silent empty run.
+* **Used when present** (gracefully skipped otherwise) — `OUTAGE_TYPE`
+  (PLANNED/UNPLANNED; UNKNOWN folds into UNPLANNED), `PAD_DIST`, `REFINERY_STATE`,
+  `UNIT_CATEGORY`, `REFINERY_OPERATOR`, `PLANT_NAME`, `OUTAGE_ID`,
+  `OUTAGE_START_DATE` / `OUTAGE_END_DATE`.
+* The deck's **month-over-month section appears automatically** once the data has
+  two comparable months; it anchors on the latest *substantially-reported* month,
+  so a still-filling-in tail won't show up as a fake cliff.
+* Market crack ($-at-risk) is optional — refresh with
+  `python scripts/fetch_market_data.py` (EIA) or paste your own into
+  `data/market_crack.csv`.
 
 ---
 

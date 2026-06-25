@@ -359,6 +359,50 @@ class Deck:
             note="Top planned 2027 turnarounds by offline capacity (kbd), all PADDs. 2027 is "
                  "planned-only and complete through H1; H2 books continue to fill in.", maxrows=14)
 
+    def mom_section(self):
+        """Month-over-month 'what changed' section - built entirely from
+        engine.period_change(), so it adapts to whatever month a refresh ends on.
+        Silently skipped when the data doesn't have two comparable months."""
+        pc = self.ctx.get("period_change")
+        if not pc:
+            return
+        a = self.a
+        ct, pt = pc["total"]; cu, pu = pc["unplanned"]; cpl, ppl = pc["planned"]
+        ce, pe = pc["events"]
+        dt = ct - pt; dpct = (ct / pt - 1) if pt else 0.0
+        pad_up = pc["by_padd"].idxmax(); pad_up_v = pc["by_padd"].max()
+        pad_dn = pc["by_padd"].idxmin(); pad_dn_v = pc["by_padd"].min()
+        unit_dn = pc["by_unit"].idxmin(); unit_dn_v = pc["by_unit"].min()
+        driver = "mostly planned turnarounds" if abs(cpl - ppl) >= abs(cu - pu) else "mostly unplanned outages"
+        self.charts_bullets_slide(
+            f"Month-over-Month - What Moved ({pc['cur_label']})",
+            f"Latest reported month {pc['cur_label']} vs {pc['prev_label']} - change in capacity offline (kbd)",
+            [a["mom_movers"], a["mom_trend"]],
+            [f"Total offline ~{kbd(ct)} kbd in {pc['cur_label']} vs ~{kbd(pt)} in {pc['prev_label']} "
+             f"({dt:+,.0f} kbd, {dpct:+.0%}) - {driver}.",
+             f"Unplanned ~{kbd(cu)} vs ~{kbd(pu)} kbd ({cu-pu:+,.0f}); planned ~{kbd(cpl)} vs ~{kbd(ppl)} ({cpl-ppl:+,.0f}).",
+             f"Biggest regional swings: {pad_dn} {pad_dn_v:+,.0f} kbd"
+             + (f", {pad_up} {pad_up_v:+,.0f}" if pad_up_v > 0 else "") + ".",
+             f"Largest unit move: {str(unit_dn).title()} {unit_dn_v:+,.0f} kbd.",
+             f"{ce} distinct outages this month vs {pe} prior.",
+             "Read this as the current pulse; the 2027 planned outlook and scenarios follow."],
+            foot="'Latest reported month' = the most recent month with substantially-complete unplanned reporting "
+                 "(later months still filling in are excluded so the step isn't a reporting artifact).")
+        # new vs resolved detail
+        new, gone = pc["new"], pc["gone"]
+        bullets = [f"{len(new)} outages newly offline in {pc['cur_label']}; {len(gone)} resolved or came back online."]
+        for _, rr in new.head(3).iterrows():
+            bullets.append(f"- New: {str(rr.plant).replace(' Refinery','')} - {str(rr.unit).title()} (~{kbd(rr.kbd)} kbd).")
+        for _, rr in gone.head(3).iterrows():
+            bullets.append(f"- Resolved: {str(rr.plant).replace(' Refinery','')} - {str(rr.unit).title()} (~{kbd(rr.kbd)} kbd).")
+        bullets.append("New = an OUTAGE_ID present this month but not last; resolved = present last month, not this.")
+        self.charts_bullets_slide(
+            f"New & Resolved Outages - {pc['cur_label']}",
+            "Which outages drove the month's change - added vs dropped off (by offline kbd)",
+            [a["mom_newgone"]], bullets,
+            foot="Counts are distinct OUTAGE_IDs. A large 'resolved' count in a turnaround-trough month is "
+                 "expected as spring/autumn planned work completes.")
+
     def build(self):
         a = self.a
         ctx = self.ctx
@@ -375,6 +419,9 @@ class Deck:
             return (v27 / v26 - 1) if v26 else 0.0
 
         self.title_slide()
+
+        # 0) what changed since last month - the recurring "current pulse" (only if data supports it)
+        self.mom_section()
 
         # 1) 2027 vs 2026 & 2025 planned  (lead with the H1 like-for-like)
         h1 = ctx["h1_planned"]; h1_26 = float(h1.get(2026, 0)); h1_27 = float(h1.get(2027, 0))

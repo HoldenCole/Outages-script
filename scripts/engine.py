@@ -124,13 +124,61 @@ def _to_padd_from_state(st):
     return f"PADD {n}" if n else None
 
 
+def _pick_sheet(xls):
+    """Choose the worksheet that looks like the outage export: prefer RAW_SHEET,
+    else the sheet whose header best matches the expected columns."""
+    names = xls.sheet_names
+    if RAW_SHEET in names:
+        return RAW_SHEET
+    want = set(COLMAP.values())
+    best, best_score = names[0], -1
+    for nm in names:
+        try:
+            cols = set(pd.read_excel(xls, sheet_name=nm, nrows=0).columns)
+        except Exception:
+            continue
+        score = len(want & cols)
+        if score > best_score:
+            best, best_score = nm, score
+    return best
+
+
+def _read_table(path):
+    """Read the raw export into a dataframe. Accepts .xlsx/.xls (auto-picks the
+    sheet) or .csv, with clear errors so others can run this on their own data."""
+    path = str(path).strip()
+    if not Path(path).exists():
+        raise FileNotFoundError(
+            f"Input file not found: {path}\n"
+            "Pass the path to your outage export, e.g.:\n"
+            "    python scripts/build_all.py data/MyExport.xlsx")
+    if path.lower().endswith((".csv", ".txt")):
+        return pd.read_csv(path)
+    xls = pd.ExcelFile(path)
+    return pd.read_excel(xls, sheet_name=_pick_sheet(xls))
+
+
+# Source columns the analysis genuinely needs; everything else degrades gracefully.
+ESSENTIAL_SRC = ["CAP_OFFLINE_ADJUSTED_KBD", "OUTAGE_YEAR", "OUTAGE_MONTH"]
+
+
 def load(path):
     """Load the raw export, return a cleaned long-form dataframe.
 
-    The path and sheet name are stripped of stray whitespace (a past run failed
-    on a leading space in the filename).
+    Robust to other people's files: the sheet is auto-selected (preferring
+    'Query1'), .csv is accepted, and a clear error is raised if the essential
+    columns are absent rather than silently producing an empty analysis.
     """
-    df = pd.read_excel(str(path).strip(), sheet_name=RAW_SHEET.strip())
+    df = _read_table(path)
+    missing = [c for c in ESSENTIAL_SRC if c not in df.columns]
+    if missing:
+        shown = ", ".join(map(str, list(df.columns)[:25])) + (" ..." if len(df.columns) > 25 else "")
+        raise ValueError(
+            "The input is missing required column(s): " + ", ".join(missing) + ".\n"
+            f"Found columns: {shown}\n"
+            "This tool expects a refinery-outage export with at least "
+            "CAP_OFFLINE_ADJUSTED_KBD, OUTAGE_YEAR and OUTAGE_MONTH "
+            "(see README -> 'Run it on your own data' for the full schema).")
     out = pd.DataFrame()
     for logical, src in COLMAP.items():
         out[logical] = df[src] if src in df.columns else np.nan
@@ -850,6 +898,98 @@ def crack_outage_relationship(df, crack, y0=2018, y1=2025):
             "total_r": corr(cr, pl + un)}
 
 
+# ----------------------------------------------------------------------------- period-over-period
+def latest_actual_month(df, min_frac=0.4):
+    """Most recent *substantially-reported* (year, month).
+
+    Anchoring naively on the very last month is wrong when a refresh's tail is
+    still filling in (unplanned reporting trails off, or the month is a
+    planned-only future book): that would read as a fake month-on-month cliff.
+    So we take the last month whose UNPLANNED offline is at least `min_frac` of
+    the median monthly level - which lands on the last genuinely-reported month
+    and self-adjusts to whatever month a real refresh ends on. Returns
+    (year, month) or None.
+    """
+    base = df.dropna(subset=["year", "month"])
+    un = base[base["type"] == "UNPLANNED"].groupby(["year", "month"])["cap_kbd"].sum()
+    if un.empty or un[un > 0].empty:
+        un = base.groupby(["year", "month"])["cap_kbd"].sum()      # fall back to total
+    pos = un[un > 0]
+    if pos.empty:
+        return None
+    good = un[un >= min_frac * float(pos.median())]
+    if good.empty:
+        return None
+    y, m = max(good.index)
+    return int(y), int(m)
+
+
+def period_change(df):
+    """Month-over-month change: the latest actual month vs the prior calendar
+    month. Returns headline deltas (total / planned / unplanned), the biggest
+    movers by PADD / unit / operator, and the outages that newly appeared or
+    dropped off. None when there aren't two comparable months.
+
+    The deck's "what changed" section is built entirely from this, so it adapts
+    to whatever month a refreshed export lands on - no hard-coded dates.
+    """
+    cur = latest_actual_month(df)
+    if cur is None:
+        return None
+    cy, cm = cur
+    py, pm = (cy, cm - 1) if cm > 1 else (cy - 1, 12)
+
+    def sub(y, m):
+        return df[(df["year"] == y) & (df["month"] == m)]
+    cur_df, prv_df = sub(cy, cm), sub(py, pm)
+    if cur_df["cap_kbd"].sum() == 0 and prv_df["cap_kbd"].sum() == 0:
+        return None
+
+    def tot(d, t=None):
+        return float((d if t is None else d[d["type"] == t])["cap_kbd"].sum())
+
+    def movers(col):
+        c = cur_df.groupby(col)["cap_kbd"].sum()
+        p = prv_df.groupby(col)["cap_kbd"].sum()
+        idx = c.index.union(p.index)
+        delta = (c.reindex(idx, fill_value=0.0) - p.reindex(idx, fill_value=0.0))
+        return delta.sort_values(ascending=False)            # +ve = month-on-month increase
+
+    def ids(d):
+        d = d.dropna(subset=["outage_id"])
+        if d.empty:
+            return pd.DataFrame(columns=["kbd", "plant", "unit", "padd", "type"])
+        return d.groupby("outage_id").agg(
+            kbd=("cap_kbd", "sum"), plant=("plant", "first"),
+            unit=("unit_cat", "first"), padd=("padd", "first"), type=("type", "first"))
+    ci, pi = ids(cur_df), ids(prv_df)
+    new = ci.loc[ci.index.difference(pi.index)].sort_values("kbd", ascending=False)
+    gone = pi.loc[pi.index.difference(ci.index)].sort_values("kbd", ascending=False)
+
+    # trailing 13-month context up to (and including) the anchor month
+    seq, yy, mm = [], cy, cm
+    for _ in range(13):
+        seq.append((yy, mm))
+        mm, yy = (mm - 1, yy) if mm > 1 else (12, yy - 1)
+    trail = []
+    for (yy, mm) in reversed(seq):
+        s = sub(yy, mm)
+        trail.append({"label": f"{MONTHS[mm - 1]} {str(yy)[2:]}",
+                      "total": float(s["cap_kbd"].sum()),
+                      "unplanned": float(s[s["type"] == "UNPLANNED"]["cap_kbd"].sum())})
+
+    return {
+        "cur": (cy, cm), "prev": (py, pm), "trail": trail,
+        "cur_label": f"{MONTHS[cm - 1]} {cy}", "prev_label": f"{MONTHS[pm - 1]} {py}",
+        "total": (tot(cur_df), tot(prv_df)),
+        "unplanned": (tot(cur_df, "UNPLANNED"), tot(prv_df, "UNPLANNED")),
+        "planned": (tot(cur_df, "PLANNED"), tot(prv_df, "PLANNED")),
+        "events": (int(cur_df["outage_id"].nunique()), int(prv_df["outage_id"].nunique())),
+        "by_padd": movers("padd"), "by_unit": movers("unit_cat"), "by_operator": movers("operator"),
+        "new": new, "gone": gone,
+    }
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -906,6 +1046,7 @@ def build_context(path):
         "crack": load_crack(),
         "dollar_impact": outage_dollar_impact(df, load_crack()),
         "crack_corr": crack_outage_relationship(df, load_crack()),
+        "period_change": period_change(df),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

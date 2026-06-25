@@ -653,6 +653,97 @@ def fcc_by_year(ctx, path):
     return _save(fig, path)
 
 
+def _dcolors(vals):
+    return [GREEN if v >= 0 else RED for v in vals]
+
+
+def mom_movers_chart(ctx, path):
+    """Month-over-month change in offline capacity: diverging bars by PADD (left)
+    and by the biggest-moving unit categories (right)."""
+    pc = ctx.get("period_change")
+    fig, (axp, axu) = plt.subplots(1, 2, figsize=(10.2, 3.7))
+    if not pc:
+        for ax in (axp, axu):
+            ax.axis("off")
+        axp.text(0.5, 0.5, "Need >= 2 reported months", ha="center", va="center", color=GRAY)
+        return _save(fig, path)
+    pad = pc["by_padd"]
+    axp.barh([str(i).replace("PADD ", "P") for i in pad.index], pad.values,
+             color=_dcolors(pad.values), zorder=3)
+    axp.axvline(0, color=NAVY, lw=1)
+    axp.set_title("By PADD (kbd)", fontsize=10)
+    un = pc["by_unit"]
+    top = un.reindex(un.abs().sort_values(ascending=False).index).head(8).iloc[::-1]
+    axu.barh([str(i).title()[:16] for i in top.index], top.values,
+             color=_dcolors(top.values), zorder=3)
+    axu.axvline(0, color=NAVY, lw=1)
+    axu.set_title("By unit - biggest movers (kbd)", fontsize=10)
+    for ax in (axp, axu):
+        ax.xaxis.set_major_formatter(_thousands)
+        ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
+        ax.grid(axis="x", zorder=0); ax.tick_params(length=0)
+    fig.suptitle(f"Month-over-Month Change - {pc['cur_label']} vs {pc['prev_label']} (kbd)",
+                 fontsize=13, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    fig.savefig(path, dpi=200, bbox_inches="tight"); plt.close(fig)
+    return path
+
+
+def mom_trend_chart(ctx, path):
+    """Trailing 13 months of total (bars) & unplanned (line) offline, latest month
+    highlighted - the context the single MoM step sits in."""
+    pc = ctx.get("period_change")
+    fig, ax = plt.subplots(figsize=(10.2, 3.3))
+    if not pc:
+        ax.axis("off"); return _save(fig, path)
+    trail = pc["trail"]
+    x = np.arange(len(trail))
+    tot = [t["total"] for t in trail]
+    ax.bar(x, tot, color="#D6E0F0", label="Total offline", zorder=2)
+    ax.bar([x[-1]], [tot[-1]], color=GOLD, zorder=3, label=f"Latest ({pc['cur_label']})")
+    ax.plot(x, [t["unplanned"] for t in trail], color=RED, lw=2.2, marker="o", ms=3,
+            label="Unplanned", zorder=4)
+    ax.set_xticks(x, [t["label"] for t in trail], fontsize=7.5)
+    ax.yaxis.set_major_formatter(_thousands); ax.set_ylabel("kbd")
+    ax.set_title("Trailing 13 Months - Total & Unplanned Offline (kbd)")
+    ax.legend(frameon=False, ncol=3, loc="upper right", fontsize=8.5)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def mom_newgone_chart(ctx, path):
+    """The outages that newly appeared vs dropped off this month, top by kbd."""
+    pc = ctx.get("period_change")
+    fig, (a0, a1) = plt.subplots(1, 2, figsize=(10.2, 3.6))
+    if not pc:
+        for ax in (a0, a1):
+            ax.axis("off")
+        return _save(fig, path)
+
+    def panel(ax, frame, color, title):
+        d = frame.head(7).iloc[::-1]
+        if len(d) == 0:
+            ax.axis("off"); ax.text(0.5, 0.5, "none", ha="center", va="center", color=GRAY)
+            ax.set_title(title, fontsize=10); return
+        labels = [f"{str(r.plant).replace(' Refinery', '')[:20]} - {str(r.unit).title()[:10]}"
+                  for _, r in d.iterrows()]
+        ax.barh(range(len(d)), d["kbd"].values, color=color, zorder=3)
+        ax.set_yticks(range(len(d)), labels, fontsize=7)
+        for i, v in enumerate(d["kbd"].values):
+            ax.text(v, i, f" {v:,.0f}", va="center", fontsize=7, color=NAVY)
+        ax.set_xlim(right=max(d["kbd"].values) * 1.18)
+        ax.xaxis.set_major_formatter(_thousands); ax.set_title(title, fontsize=10)
+        ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
+        ax.grid(axis="x", zorder=0); ax.tick_params(length=0)
+    panel(a0, pc["new"], GREEN, f"New this month ({len(pc['new'])})")
+    panel(a1, pc["gone"], GRAY, f"Resolved / came back ({len(pc['gone'])})")
+    fig.suptitle(f"Outages Added vs Resolved - {pc['cur_label']} (kbd offline)",
+                 fontsize=13, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.savefig(path, dpi=200, bbox_inches="tight"); plt.close(fig)
+    return path
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -686,6 +777,9 @@ def render_all(ctx, outdir):
         "exxon_unit": exxon_by_unit(ctx, p("exxon_unit.png")),
         "padd_all": padd_small_multiples(ctx, list(engine.PADD_ORDER), p("padd_all.png")),
         "fcc_year": fcc_by_year(ctx, p("fcc_year.png")),
+        "mom_movers": mom_movers_chart(ctx, p("mom_movers.png")),
+        "mom_trend": mom_trend_chart(ctx, p("mom_trend.png")),
+        "mom_newgone": mom_newgone_chart(ctx, p("mom_newgone.png")),
         "padd_pl": {pd: padd_planned_27v26(ctx, pd, p(f"padd_pl_{pd[-1]}.png")) for pd in PADDS},
     }
     return out
