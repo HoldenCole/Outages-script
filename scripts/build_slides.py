@@ -276,11 +276,11 @@ class Deck:
                    [("Refinery Capacity Offline", 36, True, WHITE),
                     ("by Unit - 2027 Turnaround Outlook", 36, True, WHITE)], sa=2)
         self._rect(s, Inches(0.72), Inches(5.35), Inches(2.8), Pt(2.5), GOLD)
-        self._text(s, Inches(0.72), Inches(5.55), Inches(7.6), Inches(0.7),
+        self._text(s, Inches(0.72), Inches(5.55), Inches(7.8), Inches(0.9),
                    [("Per-unit capacity offline (kbd): CDU - FCC - hydrocracker - reformer   |   "
                      "2021-2027", 12, False, LT_BLUE),
-                    ("ExxonMobil 2027 slate verified against the operator's own corporate "
-                     "turnaround plan", 11, False, RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
+                    ("2027: ExxonMobil full-year (verified vs their corporate plan); all other "
+                     "operators H1-confirmed only", 11, False, RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
         self._text(s, Inches(11.3), Inches(7.0), Inches(1.85), Inches(0.3),
                    [("PROPRIETARY", 9, False, LT_BLUE)], align=PP_ALIGN.RIGHT)
 
@@ -324,9 +324,10 @@ class Deck:
              "crude offline at the peak; it's the floor year of this view.",
              "FCC, hydrocracker and reformer are smaller in kbd but gasoline-octane-critical: their loss "
              "squeezes blending even when crude runs hold.",
-             "2026-27 are partial / booked-only; 2027 shows planned turnarounds only (no unplanned actuals exist yet)."],
+             "2026-27 are partial / booked-only; for 2027, only ExxonMobil is full-year - all other "
+             "operators are H1-confirmed (so the 2027 H2 cells are an incomplete, non-Exxon floor)."],
             foot="Read each panel left-to-right as a month-by-month timeline; cells are kbd of that unit "
-                 "class concurrently offline. Never sum across panels.")
+                 "class concurrently offline. Never sum across panels. 2027 H2 (non-Exxon) is not yet confirmed.")
 
     def unit_deepdive_slide(self, focus, lines_img, padd_img, extra_bullets, foot):
         fp = self.ctx["focus_peak"]
@@ -405,8 +406,10 @@ class Deck:
         conf = foc[foc["verified"] == True]                       # noqa: E712
         flag = foc[foc["verified"] == False]                      # noqa: E712
         bullets = [
-            "Shown per unit, never summed: each bar is one unit's nameplate offline over its turnaround "
-            "window - so no meaningless Exxon 'total'.",
+            "ExxonMobil is the ONLY operator with a full-year 2027 plan - so it's the one refiner whose "
+            "H2 turnarounds we can confirm. Everyone else is H1-only.",
+            "Shown per unit, never summed: each bar is one unit's nameplate offline over its window - no "
+            "meaningless Exxon 'total'.",
             f"Confirmed against Exxon's corporate plan ({len(conf)} focus-unit events): Baytown & Beaumont "
             "FCC in Q1, Joliet crude+vacuum Apr-May, Baton Rouge PSLA-9 crude in autumn.",
         ]
@@ -422,9 +425,30 @@ class Deck:
             foot="Cross-checked against data/exxon_ta_plan.csv (vendored from the AMR Turnaround Schedule). "
                  "Match = same refinery + unit class overlapping the same months.")
 
+    def basis_2027_slide(self):
+        c2 = self.ctx["confirmed2027"]
+        pk = lambda f: max(c2[f]["confirmed"])
+        self.wide_chart_slide(
+            "2027 - What's Confirmed vs Still Being Booked",
+            "Capacity offline by unit & month: solid = confirmed, hatched = non-Exxon H2 (not yet booked)",
+            self.a["splits_2027"],
+            ["Only ExxonMobil gave a full-year 2027 plan - and we verified it against their own "
+             "corporate turnaround schedule. For every other operator, only H1 (Jan-Jun) 2027 is booked.",
+             "So in H2, the solid bars are ExxonMobil alone; the hatched H2 is other operators' work "
+             "still being scheduled - a floor that fills in, not a confirmed number.",
+             f"Confirmed peak concurrent offline (all in H1): CDU ~{kbd(pk('CDU'))} kbd, "
+             f"FCC ~{kbd(pk('FCC'))}, hydrocracker ~{kbd(pk('Hydrocracker'))}, reformer ~{kbd(pk('Reformer'))}.",
+             "The apparent autumn CDU spike is almost entirely unconfirmed non-Exxon H2 - don't read it "
+             "as a booked surge.",
+             "Bottom line: compare 2027 H1 like-for-like vs prior years; read H2 as Exxon-confirmed plus "
+             "an open book."],
+            foot="Confirmed = ExxonMobil (any month, plan-verified) + all operators' H1. The Joliet Sep-Oct "
+                 "'Crude' duplicate and the 2027 Joliet FCC (the plan books it 2026/2030) are excluded.")
+
     def build(self):
         self.title_slide()
         self.principle_slide()
+        self.basis_2027_slide()
         self.overview_slide()
         self.cdu_slide()
         self.fcc_slide()
@@ -435,8 +459,9 @@ class Deck:
         foc = ev[ev["focus"].isin(engine.FOCUS_ORDER)].sort_values("kbd", ascending=False)
         self.unit_table_slide(
             "Largest 2027 Turnarounds by Unit - CDU / FCC / HC / Reformer", foc,
-            note="One row per physical unit (deduped to peak nameplate offline), focus units only, all "
-                 "PADDs. 2027 is planned-only and complete through H1; H2 books continue to fill in.")
+            note="One row per physical unit (deduped to peak nameplate offline), focus units only, all PADDs. "
+                 "ExxonMobil rows are full-year plan-verified; non-Exxon H2 rows are not yet confirmed. "
+                 "Excludes the verified-bad Joliet Sep-Oct crude & 2027 FCC.")
 
     def save(self, path):
         self.prs.save(path)

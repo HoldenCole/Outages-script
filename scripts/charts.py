@@ -819,7 +819,44 @@ def focus_padd_bars(ctx, focus, year, path, figsize=(7.4, 4.1)):
     ax.set_title(f"{focus} Offline by Month & PADD - {year} (kbd)")
     ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
     _clean(ax)
+    if year == 2027:                       # mark the H1 (confirmed) | H2 (non-Exxon unconfirmed) line
+        ax.set_ylim(top=ax.get_ylim()[1] * 1.15)
+        top = ax.get_ylim()[1]
+        ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
+        ax.text(2.6, top * 0.99, "H1 confirmed", ha="center", va="top", fontsize=8, color=GRAY)
+        ax.text(8.8, top * 0.99, "H2: non-Exxon unconfirmed", ha="center", va="top",
+                fontsize=7.5, color=RED, style="italic")
     return _save(fig, path)
+
+
+def splits_2027(ctx, path):
+    """The 2027 completeness story, per focus unit: monthly concurrent offline
+    split into CONFIRMED (Exxon full-year plan + every other operator's H1) and
+    NON-EXXON H2 (still being booked, not confirmed). 2x2, one panel per unit."""
+    fig, axes = plt.subplots(2, 2, figsize=(11.6, 6.6))
+    x = np.arange(12)
+    for ax, f in zip(axes.reshape(-1), engine.FOCUS_ORDER):
+        sp = ctx["confirmed2027"][f]
+        conf, ind = np.array(sp["confirmed"]), np.array(sp["indicative"])
+        ax.bar(x, conf, color=FOCUS_COLOR.get(f, NAVY), zorder=3)
+        ax.bar(x, ind, bottom=conf, color="#E2E2E2", hatch="////", edgecolor="#A6A6A6",
+               lw=0.4, zorder=3)
+        ax.axvline(5.5, color=GRAY, ls=":", lw=1.2, zorder=2)
+        ax.set_xticks(x, [mo[0] for mo in MONTHS], fontsize=7.5)
+        ax.yaxis.set_major_formatter(_thousands)
+        ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
+        _clean(ax)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=NAVY),
+               plt.Rectangle((0, 0), 1, 1, facecolor="#E2E2E2", hatch="////", edgecolor="#A6A6A6")]
+    fig.legend(handles, ["Confirmed  (Exxon full-year + all others H1)",
+                         "Non-Exxon H2  (still being booked - not confirmed)"],
+               loc="lower center", ncol=2, frameon=False, fontsize=9.5)
+    fig.suptitle("2027 Capacity Offline by Unit - Confirmed vs Not-Yet-Confirmed (kbd/month)",
+                 fontsize=13, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0.05, 1, 0.95])
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
 
 
 def exxon_gantt(ctx, path):
@@ -912,6 +949,7 @@ def render_all(ctx, outdir):
     out = {
         # the per-unit principle + master timeline
         "joliet_decode": joliet_decode(ctx, p("joliet_decode.png")),
+        "splits_2027": splits_2027(ctx, p("splits_2027.png")),
         "focus_heat": focus_heat(ctx, p("focus_heat.png")),
         # per-unit deep dives: by month (lines) + by month & PADD (stacked)
         "cdu_lines": unit_year_lines(ctx, "CDU", p("cdu_lines.png")),

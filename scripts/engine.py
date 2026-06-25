@@ -224,6 +224,8 @@ def load(path):
     # mogas overlay
     out["bucket"] = out["unit_cat"].map(UNITCAT_TO_BUCKET).fillna("Other")
     out["focus"] = out["unit_cat"].map(UNITCAT_TO_FOCUS)      # NaN for non-focus units
+    out["is_exxon"] = (out["operator"].astype(str).str.upper()
+                       .str.contains("EXXON", na=False))
     out["mogas_kbd"] = out["cap_kbd"] * out["bucket"].map(YIELD_FACTOR).fillna(0.0)
 
     out["month_name"] = out["month"].map(
@@ -1074,13 +1076,39 @@ def focus_annual_peak(df, type_filter=None, y0=START_YEAR, y1=END_YEAR):
     return pd.DataFrame(out).reindex(range(y0, y1 + 1))
 
 
+H1_MONTHS = [1, 2, 3, 4, 5, 6]
+
+
+def focus_2027_split(df, focus, value="cap_raw"):
+    """The 2027 data-completeness split for one focus unit.
+
+    We have ExxonMobil's full-year 2027 plan (verified against their corporate
+    schedule), but for every other operator only H1-2027 (Jan-Jun) is actually
+    booked -- H2 is still being scheduled. So each month's concurrent offline is
+    split into:
+        confirmed  = Exxon (any month)  +  non-Exxon in H1
+        indicative = non-Exxon in H2 (incomplete, a floor that fills in)
+    Returns {'confirmed': [12], 'indicative': [12]} (kbd)."""
+    sub = df[(df["year"] == 2027) & df["focus"].eq(focus)].dropna(subset=["month"]).copy()
+    conf = sub[sub["is_exxon"] | sub["month"].isin(H1_MONTHS)]
+    indic = sub[(~sub["is_exxon"]) & (~sub["month"].isin(H1_MONTHS))]
+
+    def monthly(d):
+        if d.empty:
+            return [0.0] * 12
+        dd = (d.groupby(["month", "plant", "unit_name"], dropna=False)[value].max().reset_index())
+        s = dd.groupby("month")[value].sum().reindex(range(1, 13)).fillna(0.0)
+        return [float(s[m]) for m in range(1, 13)]
+    return {"confirmed": monthly(conf), "indicative": monthly(indic)}
+
+
 def unit_events(df, focus=None, operator_contains=None, year=None, padd=None,
                 type_filter=None, top=None, min_kbd=0.0):
     """Per-unit event timeline: one row per physical outage (deduped to its peak
     nameplate, full date span) -- the 'per unit, not summed' detail behind the
     monthly view. Columns: plant, operator, padd, focus, unit_cat, unit_name,
     kbd, start, end, months, span, type, year. Sorted by offline kbd."""
-    cols = ["plant", "operator", "padd", "focus", "unit_cat", "unit_name",
+    cols = ["outage_id", "plant", "operator", "padd", "focus", "unit_cat", "unit_name",
             "kbd", "start", "end", "months", "span", "type", "year"]
     sub = df.copy()
     if focus:
@@ -1102,6 +1130,7 @@ def unit_events(df, focus=None, operator_contains=None, year=None, padd=None,
     for (oid, plant, unit), g in sub.groupby(["outage_id", "plant", "unit_name"], dropna=False):
         months = sorted(int(m) for m in g["month"].dropna().unique())
         rows.append({
+            "outage_id": str(oid),
             "plant": str(plant), "operator": str(g["operator"].iloc[0]),
             "padd": str(g["padd"].iloc[0]),
             "focus": (g["focus"].dropna().iloc[0] if g["focus"].notna().any() else None),
@@ -1225,6 +1254,14 @@ def build_context(path):
     diag = diagnostics(df)
     summary = yoy_delta(df)
 
+    # Deck numbers use a cleaned 2027: drop the ExxonMobil 2027 records that fail
+    # the corporate-plan check (the Joliet Sep-Oct 'Crude' duplicate + the 2027
+    # FCC the plan books in 2026/2030), so per-unit 2027 is the verified picture.
+    exxon_ver = verify_exxon(df, 2027)
+    _bad = ({str(x) for x in exxon_ver["flagged"]["outage_id"].dropna()}
+            if not exxon_ver["flagged"].empty else set())
+    df_deck = df[~df["outage_id"].astype(str).isin(_bad)].copy() if _bad else df
+
     ctx = {
         "df": df,
         "diag": diag,
@@ -1271,13 +1308,18 @@ def build_context(path):
         "crack_corr": crack_outage_relationship(df, load_crack()),
         "period_change": period_change(df),
         # --- per-unit capacity offline (2021+), the focus of the deck ---
-        "focus_monthly": focus_unit_monthly(df),                       # all outages
-        "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
-        "focus_peak": focus_annual_peak(df),
-        "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
+        #     built on df_deck (verified-clean 2027); 2027 = Exxon full-year +
+        #     non-Exxon H1 confirmed, non-Exxon H2 indicative (see confirmed2027).
+        "focus_monthly": focus_unit_monthly(df_deck),                  # all outages
+        "focus_planned": focus_unit_monthly(df_deck, type_filter="PLANNED"),
+        "focus_peak": focus_annual_peak(df_deck),
+        "focus_padd": {y: {f: focus_unit_padd_month(df_deck, f, y) for f in FOCUS_ORDER}
                        for y in (2026, 2027)},
-        "unit_events_2027": unit_events(df, year=2027, type_filter="PLANNED"),
-        "exxon_verify": verify_exxon(df, 2027),
+        "confirmed2027": {f: focus_2027_split(df_deck, f) for f in FOCUS_ORDER},
+        "unit_events_2027": unit_events(df_deck, year=2027, type_filter="PLANNED"),
+        "exxon_verify": exxon_ver,
+        "deck_excluded": (exxon_ver["flagged"][["plant", "unit_name", "kbd", "span", "note"]]
+                          .to_dict("records") if not exxon_ver["flagged"].empty else []),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),
