@@ -116,7 +116,8 @@ Mogas · Naphtha · Margin Context · Events & TAs · Scenario Analysis`
   **month-by-month YoY%** grids (Planned shows 2027; Unplanned/Total n/a for 2027).
 - **PADD** — per-PADD **two-axis** combo charts (2026 plan + unplanned-with-
   forecast-tail bars on the left axis; prior-year totals & 2027 plan lines on the
-  right) and PADD×year matrices.
+  right), laid out **two-per-row**, and the Total / Unplanned / Planned PADD×year
+  matrices in a **2×2 grid** — so the sheet reads across, not just down.
 - **Units & Refineries** — unit mix (share + YoY%), top refineries (autofiltered),
   operators and the event scatter.
 - **Mogas** — gasoline-yield-weighted offline: yield map, annual + YoY%, and a

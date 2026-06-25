@@ -868,10 +868,13 @@ class Build:
         ws.set_column("A:A", 2)
         ws.set_column("B:B", 16)
         ws.set_column("C:N", 7.5)
+        ws.set_column("O:O", 2)            # gap between the two column-blocks
+        ws.set_column("P:P", 16)           # right-block row labels
+        ws.set_column("Q:AB", 7.5)         # right-block month columns
         ws.merge_range("B2:N2", "PADD Detail & Charts", self.f["title"])
         ws.merge_range("B3:N3",
-                       "Per-PADD combo charts (2026 plan+unplanned bars vs prior-year totals & 2027 plan) "
-                       "and PADD x year matrices.", self.f["subtitle"])
+                       "Per-PADD combo charts (2026 plan+unplanned bars vs prior-year totals & 2027 plan), "
+                       "two per row; then PADD x year matrices side-by-side.", self.f["subtitle"])
         pm = self.ctx["padd_month"]
         CUR = 2026
         # per-PADD share of the national unplanned forecast, to fill 2026's tail
@@ -879,18 +882,19 @@ class Build:
         nat_fc = self.ctx["scenario"]["monthly_unplanned"]
         fc_from = self.ctx["completed_unplanned"][2026]["fc_from"]
         tot_base = sum(float(sp[q]["baseline_annual"]) for q in PADDS) or 1.0
-        r = 5
-        for p in PADDS:
-            r = self._band(ws, r, 1, 13, f"{p} - {CUR} plan + unplanned (incl. forecast tail) vs 2023-25 totals & 2027 plan", "h_green")
-            hdr = r
-            ws.write(r, 1, "Series", self.f["colhdr_l"])
-            for j, m in enumerate(MONTHS):
-                ws.write(r, 2 + j, m, self.f["colhdr"])
-            r += 1
 
-            def row_of(mat, yr):
-                return [float(mat.loc[yr, m]) if yr in mat.index else 0.0 for m in MONTHS]
-            # 2026 unplanned: actuals, then forecast tail = national forecast x PADD share
+        def row_of(mat, yr):
+            return [float(mat.loc[yr, m]) if yr in mat.index else 0.0 for m in MONTHS]
+
+        def padd_block(top, c0, p):
+            """One PADD's table + combo chart anchored at (top, c0)."""
+            rr = self._band(ws, top, c0, c0 + 12,
+                            f"{p} - {CUR} plan+unplanned (+forecast tail) vs 2023-25 totals & 2027 plan", "h_green")
+            hdr = rr
+            ws.write(rr, c0, "Series", self.f["colhdr_l"])
+            for j, m in enumerate(MONTHS):
+                ws.write(rr, c0 + 1 + j, m, self.f["colhdr"])
+            rr += 1
             share = float(sp[p]["baseline_annual"]) / tot_base
             unpl26 = row_of(pm[p]["unplanned"], CUR)
             for j in range(fc_from, 12):
@@ -901,57 +905,66 @@ class Build:
                       ("2024 Total", row_of(pm[p]["total"], 2024)),
                       ("2023 Total", row_of(pm[p]["total"], 2023)),
                       ("2027 Planned", row_of(pm[p]["planned"], 2027))]
-            data_first = r
+            data_first = rr
             for name, vals in series:
-                ws.write(r, 1, name, self.f["rowlab"])
+                ws.write(rr, c0, name, self.f["rowlab"])
                 for j, v in enumerate(vals):
-                    ws.write_number(r, 2 + j, v, self.f["kbd"])
-                r += 1
+                    ws.write_number(rr, c0 + 1 + j, v, self.f["kbd"])
+                rr += 1
             col = self.wb.add_chart({"type": "column", "subtype": "stacked"})
-            col.add_series({"name": ["PADD", data_first, 1], "categories": ["PADD", hdr, 2, hdr, 13],
-                            "values": ["PADD", data_first, 2, data_first, 13], "fill": {"color": GOLD}})
-            col.add_series({"name": ["PADD", data_first + 1, 1], "categories": ["PADD", hdr, 2, hdr, 13],
-                            "values": ["PADD", data_first + 1, 2, data_first + 1, 13], "fill": {"color": ORANGE}})
+            col.add_series({"name": ["PADD", data_first, c0], "categories": ["PADD", hdr, c0 + 1, hdr, c0 + 12],
+                            "values": ["PADD", data_first, c0 + 1, data_first, c0 + 12], "fill": {"color": GOLD}})
+            col.add_series({"name": ["PADD", data_first + 1, c0], "categories": ["PADD", hdr, c0 + 1, hdr, c0 + 12],
+                            "values": ["PADD", data_first + 1, c0 + 1, data_first + 1, c0 + 12], "fill": {"color": ORANGE}})
             ln = self.wb.add_chart({"type": "line"})
             for k, (yr, c) in enumerate([(2025, RED), (2024, BLUE), (2023, GRAY), (2027, GREEN)]):
-                rr = data_first + 2 + k
-                ln.add_series({"name": ["PADD", rr, 1], "categories": ["PADD", hdr, 2, hdr, 13],
-                               "values": ["PADD", rr, 2, rr, 13],
-                               "line": {"color": c, "width": 2.25}, "y2_axis": True})  # lines on 2nd axis
+                rrr = data_first + 2 + k
+                ln.add_series({"name": ["PADD", rrr, c0], "categories": ["PADD", hdr, c0 + 1, hdr, c0 + 12],
+                               "values": ["PADD", rrr, c0 + 1, rrr, c0 + 12],
+                               "line": {"color": c, "width": 2.0}, "y2_axis": True})
             col.combine(ln)
             col.set_title({"name": f"{p} Planned & Unplanned Offline (kbd)"})
-            col.set_y_axis({"name": "2026 plan/unplanned (kbd)"})
-            col.set_y2_axis({"name": "Prior-yr total / 2027 plan (kbd)"})
+            col.set_y_axis({"name": "2026 (kbd)"})
+            col.set_y2_axis({"name": "prior-yr / 2027 (kbd)"})
             col.set_legend({"position": "top"})
-            col.set_size({"width": 840, "height": 320}); col.set_chartarea({"border": {"none": True}})
-            self._tip(ws, hdr, 1, f"Bars on the left axis (2026 plan + unplanned, with the post-actual tail "
-                      f"filled by this PADD's {share:.0%} share of the national unplanned forecast); prior-year "
-                      "totals & 2027 plan on the right axis so the small bars stay readable.")
-            ws.insert_chart(r, 1, col)
-            r += 17
+            col.set_size({"width": 500, "height": 300}); col.set_chartarea({"border": {"none": True}})
+            self._tip(ws, hdr, c0, f"Bars = 2026 plan + unplanned (post-actual tail filled by this PADD's "
+                      f"{share:.0%} share of the national forecast); prior-year totals & 2027 plan on the right axis.")
+            ws.insert_chart(rr, c0, col)
 
-        # PADD x year matrices (Total / Unplanned / Planned) + YoY%
-        for title, mat, band in [("Total Offline", self.ctx["padd_total"], "h_navy"),
-                                 ("Unplanned", self.ctx["padd_unplanned"], "h_red"),
-                                 ("Planned", self.ctx["padd_planned"], "h_blue")]:
+        # 5 combo charts, two per row (left block at col B, right block at col P)
+        start, BLOCK_H = 5, 24
+        for i, p in enumerate(PADDS):
+            padd_block(start + (i // 2) * BLOCK_H, 1 if i % 2 == 0 else 15, p)
+        r = start + ((len(PADDS) + 1) // 2) * BLOCK_H + 1
+
+        # PADD x year matrices (Total / Unplanned / Planned) in a 2x2 grid
+        def matrix(top, c0, title, mat, band):
             years = [y for y in mat.columns if 2018 <= y <= 2027]
-            r = self._band(ws, r, 1, 1 + len(years), f"{title} - PADD x Year (kbd)", band)
-            ws.write(r, 1, "PADD", self.f["colhdr_l"])
+            rr = self._band(ws, top, c0, c0 + 1 + len(years), f"{title} - PADD x Year (kbd)", band)
+            ws.write(rr, c0, "PADD", self.f["colhdr_l"])
             for j, y in enumerate(years):
-                ws.write_number(r, 2 + j, y, self._yr(y));
-            r += 1
-            blk = r
+                ws.write_number(rr, c0 + 1 + j, y, self._yr(y))
+            rr += 1
+            blk = rr
             for p in PADDS:
-                ws.write(r, 1, p, self.f["rowlab"])
+                ws.write(rr, c0, p, self.f["rowlab"])
                 for j, y in enumerate(years):
-                    ws.write_number(r, 2 + j, float(mat.loc[p, y]),
+                    ws.write_number(rr, c0 + 1 + j, float(mat.loc[p, y]),
                                     self.f["kbd_p"] if y in PARTIAL else self.f["kbd"])
-                r += 1
-            ws.write(r, 1, "Total US", self.f["rowlab_b"])
+                rr += 1
+            ws.write(rr, c0, "Total US", self.f["rowlab_b"])
             for j, y in enumerate(years):
-                ws.write_formula(r, 2 + j, f"=SUM({A1(blk,2+j)}:{A1(r-1,2+j)})",
+                ws.write_formula(rr, c0 + 1 + j, f"=SUM({A1(blk, c0 + 1 + j)}:{A1(rr - 1, c0 + 1 + j)})",
                                  self.f["kbd_p"] if y in PARTIAL else self.f["kbd_b"])
-            r += 2
+            return rr
+
+        mats = [("Total Offline", self.ctx["padd_total"], "h_navy"),
+                ("Unplanned", self.ctx["padd_unplanned"], "h_red"),
+                ("Planned", self.ctx["padd_planned"], "h_blue")]
+        b1 = matrix(r, 1, *mats[0])         # top-left
+        matrix(r, 15, *mats[1])             # top-right
+        matrix(b1 + 2, 1, *mats[2])         # bottom-left
         ws.freeze_panes(6, 2)
 
     # ====================================================== UNITS & REFINERIES

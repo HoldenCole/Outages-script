@@ -93,15 +93,15 @@ ws = wb["PADD"]
 for title, frame in [("Total Offline - PADD x Year", ctx["padd_total"]),
                      ("Unplanned - PADD x Year", ctx["padd_unplanned"]),
                      ("Planned - PADD x Year", ctx["padd_planned"])]:
-    br, _ = band_row(ws, title)
+    br, bcol = band_row(ws, title)          # matrices now sit in a 2x2 grid; use the band's column
     hdr = br + 1
-    years = [ws.cell(row=hdr, column=3 + j).value for j in range(12)]
+    years = [ws.cell(row=hdr, column=bcol + 1 + j).value for j in range(12)]
     years = [int(y) for y in years if isinstance(y, (int, float))]
     miss = 0; n = 0
     for pi, p in enumerate(PADDS):
         r = hdr + 1 + pi
         for j, y in enumerate(years):
-            v = num(ws, r, 3 + j); exp = float(frame.loc[p, y])
+            v = num(ws, r, bcol + 1 + j); exp = float(frame.loc[p, y])
             n += 1
             if not close(v, exp): miss += 1
     check(miss == 0, f"PADD [{title}] {n} cells match engine", f"{miss} mismatches")
@@ -112,7 +112,7 @@ sp = ctx["scenario_padd"]; nat_fc = ctx["scenario"]["monthly_unplanned"]
 fc_from = ctx["completed_unplanned"][2026]["fc_from"]
 tot_base = sum(float(sp[q]["baseline_annual"]) for q in PADDS) or 1.0
 for p in PADDS:
-    br, _ = band_row(ws, f"{p} - 2026 plan")
+    br, bcol = band_row(ws, f"{p} - 2026 plan")   # combo blocks now two-per-row; use the band's column
     hdr = br + 1; first = hdr + 1
     share = float(sp[p]["baseline_annual"]) / tot_base
     # row order: 2026 Planned, 2026 Unplanned(+fcst), 2025 Total, 2024 Total, 2023 Total, 2027 Planned
@@ -121,7 +121,7 @@ for p in PADDS:
     miss = 0
     for k, (key, yr) in enumerate(specs):
         for j, m in enumerate(MONTHS):
-            v = num(ws, first + k, 3 + j)
+            v = num(ws, first + k, bcol + 1 + j)
             exp = float(pm[p][key].loc[yr, m]) if yr in pm[p][key].index else 0.0
             if key == "unplanned" and yr == 2026 and j >= fc_from:
                 exp = float(nat_fc[m]) * share      # forecast-filled tail
