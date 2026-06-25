@@ -24,7 +24,8 @@ import build_slides
 import build_dashboard
 
 _ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
-DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
+DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")   # deck + dashboard
+LEGACY_INPUT = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")        # full-history Snowflake (workbook)
 DEFAULT_OUTDIR = str(_ROOT / "output")
 
 
@@ -44,7 +45,13 @@ def main():
 
     print("[2/4] Excel workbook ...")
     wb_path = out("outage_workbook.xlsx")
-    build_workbook.Build(ctx, wb_path).run()
+    # the workbook still expects full-history data; build it from the legacy
+    # Snowflake export when the main input is the short-history Enhanced file.
+    wb_ctx = ctx
+    if Path(args.excel).resolve() == Path(DEFAULT_INPUT).resolve() and Path(LEGACY_INPUT).exists():
+        print(f"      (legacy full-history data for the workbook: {Path(LEGACY_INPUT).name})")
+        wb_ctx = engine.build_context(LEGACY_INPUT)
+    build_workbook.Build(wb_ctx, wb_path).run()
     print(f"      -> {wb_path}")
 
     print("[3/4] Slide deck ...")

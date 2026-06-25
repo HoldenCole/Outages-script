@@ -2,8 +2,10 @@
 engine.py
 Reusable aggregation core for the refinery-outage analysis suite.
 
-Turns the raw Snowflake export (Refinery_Outages_Data.xlsx / Query1) into clean,
-analysis-ready frames, pivots and a single `build_context()` bundle. Every
+Turns an outage export -- either the cleaned "Refinery Outages Enhanced"
+breakdown (one row per event; the primary source) or the legacy Snowflake export
+(Refinery_Outages_Data.xlsx / Query1) -- into clean, analysis-ready frames,
+pivots and a single `build_context()` bundle. The schema is auto-detected. Every
 downstream deliverable -- the Excel workbook, the PowerPoint deck and the HTML
 dashboard -- is built on top of what this module returns, so a data refresh
 only ever touches inputs here.
@@ -181,6 +183,117 @@ def _read_table(path):
 ESSENTIAL_SRC = ["CAP_OFFLINE_ADJUSTED_KBD", "OUTAGE_YEAR", "OUTAGE_MONTH"]
 
 
+# --------------------------------------------------------------- "Enhanced" breakdown schema
+def _detect_schema(cols):
+    """Snowflake export (OUTAGE_YEAR/CAP_OFFLINE_ADJUSTED_KBD) vs the cleaned
+    'Refinery Outages Enhanced' breakdown (Unit Name / Start Date / Offline
+    Capacity (KBD), one row per outage event)."""
+    cols = {str(c).strip() for c in cols}
+    if "OUTAGE_YEAR" in cols or "CAP_OFFLINE_ADJUSTED_KBD" in cols:
+        return "snowflake"
+    if {"Unit Name", "Outage Type", "Start Date"} <= cols or any("Offline Capacity" in c for c in cols):
+        return "enhanced"
+    return "snowflake"
+
+
+def _unit_cat_from_name(name):
+    """Map an Enhanced free-text Unit Name to a canonical UNIT_CATEGORY so the same
+    focus/bucket maps work. Order matters: hydro-words are checked before the
+    plain crude/FCC keywords (e.g. 'Selective Hydrogenation (FCCU)' is a
+    hydrotreater; 'Reformer Feed Hydrotreater' is a hydrotreater, not a reformer)."""
+    s = str(name).upper()
+    H = lambda *k: any(x in s for x in k)
+    if H("VACUUM", "VPS", "VDU"):
+        return "VACUUM DISTILLATION"
+    if H("HYDROCRACK", "ULTRACRACK", "ISOCRACK", "ISOMAX", "HEAVY OIL CRACK") or "(HCU)" in s or s.startswith("HCU"):
+        return "HYDROCRACKING"
+    if (H("HYDROTREAT", "HYDROFIN", "HYDROGENATION", "DESULF", "UNIFINER", "GULFINER", "GOFINER",
+          "UNIBON", "HDS", "HDT", "DHT", " HT ", "HTU", "CHD", "ULSD", "NHT", "CGH", "CFH", "GFH",
+          "CAT FEED", "GAS OIL HYDRO", "DIESEL HT") or s.startswith("HT ")):
+        return "HYDROTREATING"
+    if H("FCC", "CAT CRACK", "CATALYTIC CRACK", "FLUID CAT", "CCU"):
+        return "FLUID CAT CRACKING"
+    if H("COKER", "COKING", "FLEXICOK"):
+        return "COKING"
+    if H("REFORMER", "PLATFORMER", "ULTRAFORMER", "POWERFORMER", "REFORMING", "REFINING UNIT") \
+            or "CRU " in s or "CRU(" in s:
+        return "REFORMING"
+    if H("CRUDE", "PIPESTILL", "PIPE STILL", "PSLA", "CTU", "ACU", "AVU", "TOPPING", "DISTILLING",
+         "ATMOS", "COMBO", "CDU", "DU-", "CONDENSATE SPLIT"):
+        return "ATMOS DISTILLATION"
+    if H("ALKYLATION", "ALKY"):
+        return "ALKYLATION"
+    if H("ISOMER", "PENEX", "PENTANE"):
+        return "ISOMERIZATION"
+    if H("MTBE"):
+        return "MTBE"
+    if H("NAPHTHA"):
+        return "HYDROTREATING"
+    if H("DISTILLATION", "LIGHT ENDS"):
+        return "ATMOS DISTILLATION"
+    return "OTHER"
+
+
+ENHANCED_MAX_SPAN_DAYS = 500     # drop obvious placeholder/error spans (e.g. an outage 'ending' 2031)
+
+
+def _load_enhanced(raw):
+    """Load the cleaned 'Refinery Outages Enhanced' breakdown (one row per outage
+    event, with start/end dates and nameplate capacity) into the same long-form
+    frame the rest of the engine expects -- expanding each event to the calendar
+    months it spans (cap_kbd = nameplate x days-down / days-in-month, cap_raw =
+    full nameplate). Source is kept so callers can filter by data provider."""
+    raw = raw.rename(columns=lambda c: str(c).strip())
+    capcol = next((c for c in raw.columns if "Offline Capacity" in c), None)
+    rows = []
+    for i, r in raw.iterrows():
+        s = pd.to_datetime(r.get("Start Date"), errors="coerce")
+        e = pd.to_datetime(r.get("End Date"), errors="coerce")
+        if pd.isna(s):
+            continue
+        if pd.isna(e) or e < s:
+            e = s
+        if (e - s).days > ENHANCED_MAX_SPAN_DAYS and e.year >= 2029:
+            continue                       # run-off placeholder / data error (e.g. Anacortes -> 2031)
+        cap = pd.to_numeric(r.get(capcol), errors="coerce")
+        cap = float(cap) if pd.notna(cap) else 0.0
+        otype = str(r.get("Outage Type", "")).strip().upper()
+        typ = "PLANNED" if otype == "PLANNED" else "UNPLANNED"   # UNKNOWN folds into UNPLANNED
+        uname = str(r.get("Unit Name", "")).strip()
+        region = r.get("Country/Region")
+        oid = f"ENH{i}"
+        for per in pd.period_range(s.to_period("M"), e.to_period("M"), freq="M"):
+            mstart, mend = max(s, per.start_time), min(e, per.end_time)
+            days_down = (mend.normalize() - mstart.normalize()).days + 1
+            frac = min(1.0, max(0.0, days_down / per.days_in_month))
+            rows.append({
+                "year": int(per.year), "month": int(per.month),
+                "month_date": per.start_time, "start": s, "end": e,
+                "cap_raw": cap, "cap_kbd": cap * frac, "unit_cap": np.nan,
+                "duration": int((e - s).days), "operator": str(r.get("Owner", "")).strip(),
+                "plant": str(r.get("Plant", "")).strip(), "otype": typ, "otype2": np.nan,
+                "unit_name": uname, "unit_cat": _unit_cat_from_name(uname),
+                "pad_dist": region, "padd": _to_padd_from_roman(region),
+                "outage_id": oid, "source": str(r.get("Source", "")).strip(),
+                "country": np.nan, "state": np.nan, "city": np.nan, "cause": np.nan,
+            })
+    out = pd.DataFrame(rows)
+    if out.empty:
+        raise ValueError("The Enhanced export produced no usable rows (check Start Date / Unit Name).")
+    out["year"] = out["year"].astype("Int64")
+    out["month"] = out["month"].astype("Int64")
+    out["type"] = out["otype"]
+    out["padd_source"] = np.where(out["padd"].notna(), "PAD_DIST", "UNRESOLVED")
+    out["bucket"] = out["unit_cat"].map(UNITCAT_TO_BUCKET).fillna("Other")
+    out["focus"] = out["unit_cat"].map(UNITCAT_TO_FOCUS)
+    out["is_exxon"] = out["operator"].astype(str).str.upper().str.contains("EXXON", na=False)
+    out["mogas_kbd"] = out["cap_kbd"] * out["bucket"].map(YIELD_FACTOR).fillna(0.0)
+    out["month_name"] = out["month"].map(
+        lambda m: MONTHS[int(m) - 1] if pd.notna(m) and 1 <= int(m) <= 12 else None)
+    out["schema"] = "enhanced"
+    return out
+
+
 def load(path):
     """Load the raw export, return a cleaned long-form dataframe.
 
@@ -189,6 +302,8 @@ def load(path):
     columns are absent rather than silently producing an empty analysis.
     """
     df = _read_table(path)
+    if _detect_schema(df.columns) == "enhanced":
+        return _load_enhanced(df)
     missing = [c for c in ESSENTIAL_SRC if c not in df.columns]
     if missing:
         shown = ", ".join(map(str, list(df.columns)[:25])) + (" ..." if len(df.columns) > 25 else "")
@@ -230,6 +345,7 @@ def load(path):
 
     out["month_name"] = out["month"].map(
         lambda m: MONTHS[int(m) - 1] if pd.notna(m) and 1 <= int(m) <= 12 else None)
+    out["schema"] = "snowflake"
     return out
 
 
@@ -313,9 +429,11 @@ def seasonality(df, years, type_filter="UNPLANNED", padd=None, value="cap_kbd"):
         sub = sub[sub["padd"].eq(padd)]
     by_ym = (sub.groupby(["year", "month"])[value].sum()
              .unstack("month").reindex(columns=range(1, 13)).fillna(0.0))
-    # reindex rows so windows with a missing year still divide by len(years)
-    by_ym = by_ym.reindex(years).fillna(0.0)
-    prof = by_ym.mean(axis=0)
+    # average over the window years actually present in the data (so a dataset
+    # that only reaches back to 2024 isn't diluted by dividing over empty years)
+    present = [y for y in years if y in by_ym.index]
+    prof = (by_ym.reindex(present).mean(axis=0) if present
+            else pd.Series(0.0, index=range(1, 13)))
     prof.index = MONTHS
     return prof
 
@@ -1251,20 +1369,33 @@ def build_context(path):
     interactive scenario/sensitivity cells are live formulas, not these values).
     """
     df = load(path)
-    # The model EXCLUDES the ExxonMobil records that fail the corporate-plan check
-    # (the Joliet Sep-Oct 'Crude' duplicate + the 2027 FCC the plan books in
-    # 2026/2030) from EVERY deliverable - matching the cleaned source dashboard.
-    _ver0 = verify_exxon(df, 2027)
-    _excluded = (_ver0["flagged"][["plant", "unit_name", "kbd", "span", "note"]].to_dict("records")
-                 if not _ver0["flagged"].empty else [])
-    _bad = ({str(x) for x in _ver0["flagged"]["outage_id"].dropna()}
-            if not _ver0["flagged"].empty else set())
-    if _bad:
-        df = df[~df["outage_id"].astype(str).isin(_bad)].copy()
+    _enhanced = ("schema" in df.columns and len(df) and df["schema"].iloc[0] == "enhanced")
+    if _enhanced:
+        # The Enhanced file is the user's already-reconciled book -> trust it as-is
+        # (don't re-flag/drop records the curated source chose to keep).
+        _excluded = []
+        exxon_ver = verify_exxon(df, 2027)
+        _ev = exxon_ver["events"]
+        if "verified" in _ev.columns:
+            _ev = _ev.assign(verified=_ev["verified"].map(lambda v: True if v is False else v))
+        exxon_ver = {"events": _ev, "flagged": _ev.iloc[0:0],
+                     "confirmed_kbd": exxon_ver.get("confirmed_kbd", 0.0),
+                     "flagged_kbd": 0.0, "plan_year": exxon_ver.get("plan_year")}
+    else:
+        # Legacy Snowflake export: EXCLUDE the ExxonMobil records that fail the
+        # corporate-plan check (Joliet Sep-Oct 'Crude' duplicate + the 2027 FCC the
+        # plan books in 2026/2030) from every deliverable.
+        _ver0 = verify_exxon(df, 2027)
+        _excluded = (_ver0["flagged"][["plant", "unit_name", "kbd", "span", "note"]].to_dict("records")
+                     if not _ver0["flagged"].empty else [])
+        _bad = ({str(x) for x in _ver0["flagged"]["outage_id"].dropna()}
+                if not _ver0["flagged"].empty else set())
+        if _bad:
+            df = df[~df["outage_id"].astype(str).isin(_bad)].copy()
+        exxon_ver = verify_exxon(df, 2027)
 
     diag = diagnostics(df)
     summary = yoy_delta(df)
-    exxon_ver = verify_exxon(df, 2027)          # on the cleaned df -> clean slate, no flags
 
     ctx = {
         "df": df,
@@ -1341,6 +1472,6 @@ if __name__ == "__main__":
     import json
     import sys
     from pathlib import Path
-    default = str(Path(__file__).resolve().parent.parent / "data" / "Refinery_Outages_Data.xlsx")
+    default = str(Path(__file__).resolve().parent.parent / "data" / "Refinery_Outages_Enhanced.xlsx")
     df = load(sys.argv[1] if len(sys.argv) > 1 else default)
     print(json.dumps(diagnostics(df), indent=2, default=str))

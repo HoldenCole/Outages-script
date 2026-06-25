@@ -35,7 +35,7 @@ import engine
 import charts
 
 _ROOT = Path(__file__).resolve().parent.parent
-INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
+INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_deck.pptx")
 
 BRAND_TEXT = "Products Trading"

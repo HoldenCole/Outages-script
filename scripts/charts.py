@@ -1006,7 +1006,7 @@ def _render_all_legacy(ctx, outdir):
 if __name__ == "__main__":
     import sys
     from pathlib import Path
-    default = str(Path(__file__).resolve().parent.parent / "data" / "Refinery_Outages_Data.xlsx")
+    default = str(Path(__file__).resolve().parent.parent / "data" / "Refinery_Outages_Enhanced.xlsx")
     ctx = engine.build_context(sys.argv[1] if len(sys.argv) > 1 else default)
     paths = render_all(ctx, "scratch_charts")
     for k, v in paths.items():
