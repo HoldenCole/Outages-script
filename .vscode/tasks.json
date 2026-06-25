@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build all deliverables",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} scripts/build_all.py",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Build workbook only",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} scripts/build_workbook.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build deck only",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} scripts/build_slides.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "QA workbook",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} scripts/qa_workbook.py",
+      "problemMatcher": []
+    }
+  ]
+}

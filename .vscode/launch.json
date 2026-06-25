@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Build all deliverables",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/build_all.py",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Build all - pick a data file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/build_all.py",
+      "args": ["${input:dataFile}"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "dataFile",
+      "type": "promptString",
+      "description": "Path to your outage export (.xlsx or .csv)",
+      "default": "data/Refinery_Outages_Data.xlsx"
+    }
+  ]
+}

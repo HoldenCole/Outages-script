@@ -42,8 +42,17 @@ python scripts/build_all.py
 
 That reads `data/Refinery_Outages_Data.xlsx` and writes the workbook, deck and
 dashboard to `output/`. Paths resolve relative to the repo root, so it runs from
-any directory — in VS Code, opening any script and hitting **▶ Run** just works.
-**No network is required** to build (a market-crack CSV is vendored in `data/`).
+any directory. **No network is required** to build (a market-crack CSV is
+vendored in `data/`).
+
+In **VS Code**, the committed `.vscode/` configs give you three one-click paths
+(on first open it offers to install the recommended Python + Debugpy extensions):
+
+* open any script and hit **▶ Run**;
+* press **F5** → *Run and Debug → "Build all deliverables"* (or *"…pick a data
+  file"* to be prompted for an export path);
+* run the default build task — *Terminal → Run Build Task…* (`⌘⇧B` /
+  `Ctrl+Shift+B`) — which also lists workbook-only, deck-only and QA tasks.
 
 Build a single deliverable, or point at a refreshed export / different output dir:
 
