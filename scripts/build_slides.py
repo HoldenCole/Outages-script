@@ -278,12 +278,14 @@ class Deck:
         for _, r in flag.iterrows():
             bullets.append(f"- Flagged: {str(r.plant).replace(' Refinery','')} {str(r.unit_name)[:16]} "
                            f"(~{kbd(r.kbd)} kbd, {r.span}) - not in Exxon's plan.")
+        nexcl = len(self.ctx.get("deck_excluded", []))
         self.wide_chart_slide(
             "ExxonMobil 2027 - Per Unit, Verified vs Their Plan",
-            "Each unit's turnaround as its own bar; red-hatched = no match in Exxon's corporate schedule",
+            "Each unit's turnaround as its own bar, reconciled to Exxon's corporate schedule",
             self.a["exxon_gantt"], bullets,
-            foot="Cross-checked against ExxonMobil's corporate turnaround plan (data/exxon_ta_plan.csv). "
-                 "Match = same refinery + unit class overlapping the same months.")
+            foot=("Reconciled to ExxonMobil's corporate turnaround plan (data/exxon_ta_plan.csv)"
+                  + (f"; {nexcl} records not in the plan removed" if nexcl else "")
+                  + ". Match = same refinery + unit class, overlapping months."))
 
     def scenario_slide(self):
         sc = self.ctx["scenario"]

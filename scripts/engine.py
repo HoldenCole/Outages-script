@@ -1251,16 +1251,20 @@ def build_context(path):
     interactive scenario/sensitivity cells are live formulas, not these values).
     """
     df = load(path)
+    # The model EXCLUDES the ExxonMobil records that fail the corporate-plan check
+    # (the Joliet Sep-Oct 'Crude' duplicate + the 2027 FCC the plan books in
+    # 2026/2030) from EVERY deliverable - matching the cleaned source dashboard.
+    _ver0 = verify_exxon(df, 2027)
+    _excluded = (_ver0["flagged"][["plant", "unit_name", "kbd", "span", "note"]].to_dict("records")
+                 if not _ver0["flagged"].empty else [])
+    _bad = ({str(x) for x in _ver0["flagged"]["outage_id"].dropna()}
+            if not _ver0["flagged"].empty else set())
+    if _bad:
+        df = df[~df["outage_id"].astype(str).isin(_bad)].copy()
+
     diag = diagnostics(df)
     summary = yoy_delta(df)
-
-    # Deck numbers use a cleaned 2027: drop the ExxonMobil 2027 records that fail
-    # the corporate-plan check (the Joliet Sep-Oct 'Crude' duplicate + the 2027
-    # FCC the plan books in 2026/2030), so per-unit 2027 is the verified picture.
-    exxon_ver = verify_exxon(df, 2027)
-    _bad = ({str(x) for x in exxon_ver["flagged"]["outage_id"].dropna()}
-            if not exxon_ver["flagged"].empty else set())
-    df_deck = df[~df["outage_id"].astype(str).isin(_bad)].copy() if _bad else df
+    exxon_ver = verify_exxon(df, 2027)          # on the cleaned df -> clean slate, no flags
 
     ctx = {
         "df": df,
@@ -1308,18 +1312,17 @@ def build_context(path):
         "crack_corr": crack_outage_relationship(df, load_crack()),
         "period_change": period_change(df),
         # --- per-unit capacity offline (2021+), the focus of the deck ---
-        #     built on df_deck (verified-clean 2027); 2027 = Exxon full-year +
-        #     non-Exxon H1 confirmed, non-Exxon H2 indicative (see confirmed2027).
-        "focus_monthly": focus_unit_monthly(df_deck),                  # all outages
-        "focus_planned": focus_unit_monthly(df_deck, type_filter="PLANNED"),
-        "focus_peak": focus_annual_peak(df_deck),
-        "focus_padd": {y: {f: focus_unit_padd_month(df_deck, f, y) for f in FOCUS_ORDER}
+        #     df is already plan-cleaned above; 2027 = Exxon full-year + non-Exxon
+        #     H1 confirmed, non-Exxon H2 indicative (see confirmed2027).
+        "focus_monthly": focus_unit_monthly(df),                       # all outages
+        "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
+        "focus_peak": focus_annual_peak(df),
+        "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
                        for y in (2026, 2027)},
-        "confirmed2027": {f: focus_2027_split(df_deck, f) for f in FOCUS_ORDER},
-        "unit_events_2027": unit_events(df_deck, year=2027, type_filter="PLANNED"),
+        "confirmed2027": {f: focus_2027_split(df, f) for f in FOCUS_ORDER},
+        "unit_events_2027": unit_events(df, year=2027, type_filter="PLANNED"),
         "exxon_verify": exxon_ver,
-        "deck_excluded": (exxon_ver["flagged"][["plant", "unit_name", "kbd", "span", "note"]]
-                          .to_dict("records") if not exxon_ver["flagged"].empty else []),
+        "deck_excluded": _excluded,
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),
