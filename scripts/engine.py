@@ -109,7 +109,7 @@ BASELINE_WINDOWS = {
     "All ex-2020/21": [2014, 2015, 2016, 2017, 2018, 2019,
                        2022, 2023, 2024, 2025],
 }
-DEFAULT_WINDOW = "2022-2025"
+DEFAULT_WINDOW = "2023-2025"   # 2022 unplanned coverage is sparse; 2023-25 are the robust years
 
 # Focus units, in the priority order the desk reads them (CDU first, then FCC,
 # hydrocracker, reformer). These four are reported per-unit; everything else is
@@ -235,6 +235,7 @@ def _unit_cat_from_name(name):
 
 
 ENHANCED_MAX_SPAN_DAYS = 500     # drop obvious placeholder/error spans (e.g. an outage 'ending' 2031)
+ENHANCED_MIN_YEAR = 2023         # only 2023+ is verified data -- 2021/2022 are dropped entirely
 
 
 def _load_enhanced(raw):
@@ -243,7 +244,7 @@ def _load_enhanced(raw):
     frame the rest of the engine expects -- expanding each event to the calendar
     months it spans (cap_kbd = nameplate x days-down / days-in-month, cap_raw =
     full nameplate). Source is kept so callers can filter by data provider."""
-    raw = raw.rename(columns=lambda c: str(c).strip())
+    raw = raw.rename(columns=lambda c: str(c).strip()).drop_duplicates()
     capcol = next((c for c in raw.columns if "Offline Capacity" in c), None)
     rows = []
     for i, r in raw.iterrows():
@@ -280,6 +281,7 @@ def _load_enhanced(raw):
     out = pd.DataFrame(rows)
     if out.empty:
         raise ValueError("The Enhanced export produced no usable rows (check Start Date / Unit Name).")
+    out = out[out["year"] >= ENHANCED_MIN_YEAR].copy()     # 2021/2022 not verified -> drop entirely
     out["year"] = out["year"].astype("Int64")
     out["month"] = out["month"].astype("Int64")
     out["type"] = out["otype"]
