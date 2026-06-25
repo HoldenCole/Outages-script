@@ -769,16 +769,18 @@ class Build:
         for i, p in enumerate(PADDS):
             ws.write(sh0 + i, 1, p, self.f["rowlab"])
             ws.write_number(sh0 + i, 2, float(padd_un.loc[p, ly]), self.f["kbd"])
-        donut = self.wb.add_chart({"type": "doughnut"})
-        donut.add_series({"name": f"Unplanned share {ly}",
-                          "categories": ["Dashboard", sh0, 1, sh0 + 4, 1],
-                          "values": ["Dashboard", sh0, 2, sh0 + 4, 2],
-                          "points": [{"fill": {"color": c}} for c in [NAVY, BLUE, GOLD, GREEN, ORANGE]],
-                          "data_labels": {"percentage": True, "font": {"color": WHITE, "bold": True, "size": 9}}})
-        donut.set_title({"name": f"Unplanned Share by PADD ({ly})"})
-        donut.set_legend({"position": "right"}); donut.set_hole_size(55)
-        donut.set_size({"width": 430, "height": 290}); donut.set_chartarea({"border": {"none": True}})
-        ws.insert_chart("B27", donut)
+        barp = self.wb.add_chart({"type": "bar"})       # ranked bar (clearer than a pie)
+        barp.add_series({"name": f"Unplanned {ly}",
+                         "categories": ["Dashboard", sh0, 1, sh0 + 4, 1],
+                         "values": ["Dashboard", sh0, 2, sh0 + 4, 2],
+                         "points": [{"fill": {"color": c}} for c in [NAVY, BLUE, GOLD, GREEN, ORANGE]],
+                         "data_labels": {"value": True, "num_format": "#,##0",
+                                         "font": {"size": 9, "bold": True}}})
+        barp.set_title({"name": f"Unplanned Offline by PADD ({ly}, kbd)"})
+        barp.set_x_axis({"name": "kbd"}); barp.set_y_axis({"reverse": True})
+        barp.set_legend({"none": True})
+        barp.set_size({"width": 430, "height": 290}); barp.set_chartarea({"border": {"none": True}})
+        ws.insert_chart("B27", barp)
         # seasonality band-ish: unplanned by month recent years
         mu = self.ctx["monthly_unplanned"]
         m0 = sh0
@@ -1455,7 +1457,7 @@ class Build:
         SHEET = "Scenario Analysis"
         ws.merge_range("B2:N2", "2027 Scenario & Sensitivity (Live Model)", self.f["title"])
         ws.merge_range("B3:N3",
-                       "Edit the yellow inputs - the forecast, per-PADD split, heatmap and tornado all recompute.",
+                       "Edit the yellow inputs - the forecast, per-PADD split, heatmap and scenario summary all recompute.",
                        self.f["subtitle"])
         windows = list(engine.BASELINE_WINDOWS.keys())
         df = self.ctx["df"]
@@ -1664,36 +1666,39 @@ class Build:
                                "mid_color": "#FFEB84", "max_color": "#F8696B"})
         r += 1
 
-        # --- driver sensitivity (readable horizontal bars, sorted by total swing) ---
-        # Replaces the old centred stacked "tornado" (labels were unreadable). We
-        # show each driver's full Low->High swing as one sorted bar with the kbd
-        # value labelled, plus the Low/Base/High detail table beside it.
-        torn = sorted(self.ctx["tornado"], key=lambda d: abs(d["high"] - d["low"]))  # asc -> biggest on top in a bar chart
-        r = self._band(ws, r, 1, 7, "Driver Sensitivity - 2027 Unplanned (kbd): each driver's Low -> High swing", "h_orange")
-        self._tip(ws, r - 1, 1, "Sorted by impact: the longest bar is the driver that moves the 2027 unplanned "
-                  "number most when flexed across its plausible range. Width = High minus Low (kbd).")
-        ws.set_column("B:B", 24)   # widen so driver names are fully readable
-        for j, h in enumerate(["Driver", "Low", "Base", "High", "Swing", "% of Base"]):
+        # --- scenario summary (replaces the old driver "tornado") ---
+        # The actionable read: each scenario's unplanned path + the booked planned
+        # book = the implied total capacity offline in 2027.
+        r = self._band(ws, r, 1, 5, "Scenario Summary - 2027 Implied Total Offline "
+                       "(booked planned + scenario unplanned, kbd)", "h_orange")
+        self._tip(ws, r - 1, 1, "Conservative / Average / Active flex the unplanned baseline x0.8 / x1.0 / "
+                  "x1.3. Add the booked 2027 planned book for the implied total offline - Active vs "
+                  "Conservative is the range to hedge.")
+        multfmt = self.wb.add_format({"font_name": "Arial", "num_format": '0.0"x"',
+                                      "align": "center", "border": 1})
+        for j, h in enumerate(["Scenario", "Mult", "Unplanned", "Booked planned", "Implied total"]):
             ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
         r += 1
-        tf = r
-        for row in torn:
-            ws.write(r, 1, row["driver"], self.f["rowlab"])
-            ws.write_number(r, 2, row["low"], self.f["kbd"]); ws.write_number(r, 3, row["base"], self.f["kbd"])
-            ws.write_number(r, 4, row["high"], self.f["kbd"])
-            ws.write_formula(r, 5, f"=ABS({A1(r,4)}-{A1(r,2)})", self.f["kbd_b"])
-            ws.write_formula(r, 6, f"=IF({A1(r,3)}=0,0,{A1(r,5)}/{A1(r,3)})", self.f["pcts"])
+        sf = r
+        for name, mlt, unpl in [("Conservative", 0.8, cons_t), ("Average", 1.0, avg_t),
+                                ("Active", 1.3, act_t)]:
+            ws.write(r, 1, name, self.f["rowlab"])
+            ws.write_number(r, 2, mlt, multfmt)
+            ws.write_number(r, 3, unpl, self.f["kbd"])
+            ws.write_number(r, 4, pl27, self.f["kbd"])
+            ws.write_formula(r, 5, f"={A1(r, 3)}+{A1(r, 4)}", self.f["kbd_b"], unpl + pl27)
             r += 1
-        tl = r - 1
-        tch = self.wb.add_chart({"type": "bar"})
-        tch.add_series({"name": "Low -> High swing (kbd)",
-                        "categories": [SHEET, tf, 1, tl, 1],
-                        "values": [SHEET, tf, 5, tl, 5], "fill": {"color": ORANGE},
+        sl = r - 1
+        sch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
+        sch.add_series({"name": "Booked planned", "categories": [SHEET, sf, 1, sl, 1],
+                        "values": [SHEET, sf, 4, sl, 4], "fill": {"color": NAVY}})
+        sch.add_series({"name": "Scenario unplanned", "categories": [SHEET, sf, 1, sl, 1],
+                        "values": [SHEET, sf, 3, sl, 3], "fill": {"color": GOLD},
                         "data_labels": {"value": True, "num_format": "#,##0", "font": {"size": 8}}})
-        tch.set_title({"name": "Driver Sensitivity - swing in 2027 unplanned (kbd)"})
-        tch.set_x_axis({"name": "kbd swing"}); tch.set_legend({"none": True})
-        tch.set_size({"width": 720, "height": 300}); tch.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(tl + 2, 1, tch)
+        sch.set_title({"name": "2027 Implied Total Offline by Scenario (kbd)"})
+        sch.set_y_axis({"name": "kbd"}); sch.set_legend({"position": "bottom"})
+        sch.set_size({"width": 620, "height": 300}); sch.set_chartarea({"border": {"none": True}})
+        ws.insert_chart(sl + 2, 1, sch)
 
     # ===================================================================== run
     def run(self):

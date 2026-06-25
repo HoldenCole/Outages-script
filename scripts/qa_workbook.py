@@ -235,19 +235,22 @@ for pi, p in enumerate(PADDS):
     r = hdr + 1 + pi
     if not close(num(ws, r, 3), float(sp[p]["baseline_annual"])): miss += 1
 check(miss == 0, "Model per-PADD baseline matches engine", f"{miss} mismatches")
-# driver sensitivity (rows sorted by swing; match by driver name, not order)
-tor = {d["driver"]: d for d in ctx["tornado"]}
-br, _ = band_row(ws, "Driver Sensitivity - 2027 Unplanned")
+# scenario summary (replaces the old tornado): implied total = unplanned + booked planned
+fan = ctx["scenario_fan"]
+pl27 = float(ctx["summary"].loc[2027, "Planned"]) if 2027 in ctx["summary"].index else 0.0
+exp = {"Conservative": float(fan["Conservative"].sum()), "Average": float(fan["Average"].sum()),
+       "Active": float(fan["Active"].sum())}
+br, _ = band_row(ws, "Scenario Summary")
 hdr = br + 1; miss = 0; seen = 0
-for i in range(20):
+for i in range(6):
     r = hdr + 1 + i
-    drv = ws.cell(row=r, column=2).value
-    if not isinstance(drv, str) or drv not in tor: break
+    nm = ws.cell(row=r, column=2).value
+    if nm not in exp: break
     seen += 1
-    d = tor[drv]
-    if not close(num(ws, r, 3), d["low"]) or not close(num(ws, r, 5), d["high"]): miss += 1
-check(miss == 0 and seen == len(tor), "Model driver-sensitivity low/high match engine",
-      f"{miss} mismatches, {seen}/{len(tor)} rows")
+    if not close(num(ws, r, 4), exp[nm]): miss += 1               # unplanned (literal)
+    if not close(num(ws, r, 5), pl27): miss += 1                  # booked planned (literal)
+check(miss == 0 and seen == 3, "Model scenario-summary unplanned + booked planned match engine",
+      f"{miss} mismatches, {seen}/3 rows")
 
 # ============================================================ MARGIN CONTEXT
 ws = wb["Margin Context"]

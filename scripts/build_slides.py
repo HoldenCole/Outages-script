@@ -398,7 +398,7 @@ class Deck:
         self.charts_bullets_slide(
             "2027 Potential Unplanned - Scenario Fan",
             "Conservative / Average / Active paths off the 2022-25 seasonal baseline",
-            [a["fan"], a["tornado"]],
+            [a["fan"], a["scenario_total"]],
             [f"Average case ~{kbd(avg)} kbd unplanned; Conservative ~{kbd(cons)} (calm year, x0.8), "
              f"Active ~{kbd(act)} (heavy year, x1.3).",
              f"On top of {kbd(sc['planned_2027'])} kbd booked planned, that's an implied total of "

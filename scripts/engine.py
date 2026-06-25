@@ -399,36 +399,6 @@ def padd_unplanned_share(df, window_key=DEFAULT_WINDOW):
     return (by_padd / total) if total else by_padd
 
 
-def tornado(df, window_key=DEFAULT_WINDOW):
-    """Low / Base / High swing for each scenario driver, sorted by swing.
-
-    Used by the Sensitivity sheet's tornado diagram. Base case is
-    growth=0, multiplier=1.0, no one-off.
-    """
-    base_annual = float(baseline_profile(df, window_key).sum())
-    drivers = []
-
-    # unplanned multiplier +/-30%
-    drivers.append(("Unplanned rate multiplier (0.7x / 1.3x)",
-                    base_annual * 0.7, base_annual, base_annual * 1.3))
-    # production growth +/-10%
-    drivers.append(("Production growth (-10% / +10%)",
-                    base_annual * 0.9, base_annual, base_annual * 1.1))
-    # baseline-window swing +/-15% (proxy for window choice)
-    drivers.append(("Baseline window swing (+/-15%)",
-                    base_annual * 0.85, base_annual, base_annual * 1.15))
-    # one-off event +300 kbd (one-sided)
-    drivers.append(("One-off event (+300 kbd)",
-                    base_annual, base_annual, base_annual + 300.0))
-
-    rows = []
-    for name, low, base, high in drivers:
-        rows.append({"driver": name, "low": low, "base": base, "high": high,
-                     "swing": abs(high - low)})
-    rows.sort(key=lambda r: r["swing"], reverse=True)
-    return rows
-
-
 # ----------------------------------------------------------------------------- back-to-back clusters
 def _span(months):
     return f"{MONTHS[months[0] - 1]}-{MONTHS[months[-1] - 1]}" if len(months) > 1 \
@@ -912,7 +882,6 @@ def build_context(path):
         "scenario": scenario_forecast(df),
         "scenario_padd": scenario_by_padd(df),
         "padd_share": padd_unplanned_share(df),
-        "tornado": tornado(df),
         "clusters": consecutive_runs(df, min_len=4, exclude_years=OUTLIER_YEARS),
         "fcc_exxon": fcc_exxon_clusters(df),
         "fcc_grid": exxon_fcc_month_grid(df, [2022, 2023, 2024, 2025, 2026]),

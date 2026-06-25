@@ -6,13 +6,13 @@ deliverables from one data pipeline:
 1. **Excel workbook** (`outage_workbook.xlsx`) — 12 visible sheets (incl. an
    **Assumptions & Methodology** source-of-truth sheet and dedicated **Mogas**,
    **Naphtha** and **Margin Context** sheets), native charts,
-   a two-way sensitivity heatmap, a sorted driver-sensitivity bar, and a **live**
+   a two-way sensitivity heatmap, a 2027 implied-total-by-scenario chart, and a **live**
    2027 **Scenario Analysis** model (Conservative/Average/Active fan) driven by
    data-validation dropdowns. *(Priority 1.)*
 2. **Slide deck** (`outage_deck.pptx`) — tight 8-slide 16:9 deck, two charts per
    content slide, mirroring the workbook's charts with data-driven takeaways; the
    planned slide leads with the H1-vs-H1 like-for-like, the scenario slide pairs the
-   Conservative/Average/Active fan with a driver tornado, and the regional view is a
+   Conservative/Average/Active fan with a 2027 implied-total-by-scenario chart, and the regional view is a
    five-PADD small-multiples + a national turnaround table. *(Priority 2.)*
 3. **HTML dashboard** (`outage_dashboard.html`) — a single self-contained file
    with a **dynamic focus-year selector** (KPIs show the picked year vs the prior
@@ -133,7 +133,8 @@ Mogas · Naphtha · Margin Context · Events & TAs · Scenario Analysis`
   / by unit + a refinery×month chart), and the 2026 & 2027 planned TA schedules.
 - **Scenario Analysis** — live 2027 scenario (dropdown inputs → cascade → per-PADD
   split → **P25/P50/P90 bands**), the **Conservative/Average/Active fan** chart,
-  the sensitivity heatmap, and a sorted, data-labelled **driver-sensitivity** bar.
+  the sensitivity heatmap, and a **scenario-summary** table + stacked column
+  (booked planned + scenario unplanned = 2027 implied total).
 
 Every sheet has a **Home** link and a data-vintage stamp. The build is
 re-runnable and idempotent.

@@ -102,23 +102,6 @@ def padd_clustered(ctx, path):
     return _save(fig, path)
 
 
-def padd_donut(ctx, path):
-    m = ctx["padd_unplanned"]
-    ly = max(y for y in m.columns if y not in engine.PARTIAL_YEARS
-             and y <= 2025 and m[y].sum() > 0)
-    vals = [m.loc[p, ly] for p in PADDS]
-    fig, ax = plt.subplots(figsize=(5.2, 4.3))
-    cols = [NAVY, BLUE, GOLD, GREEN, ORANGE]
-    w, _, auto = ax.pie(vals, colors=cols, startangle=90,
-                        wedgeprops=dict(width=0.42, edgecolor="white"),
-                        autopct=lambda p: f"{p:.0f}%" if p > 4 else "",
-                        pctdistance=0.78, textprops=dict(color="white", fontsize=10,
-                                                         fontweight="bold"))
-    ax.legend(PADDS, loc="center", frameon=False, fontsize=9)
-    ax.set_title(f"Unplanned Share by PADD ({ly})")
-    return _save(fig, path)
-
-
 def seasonality(ctx, path):
     mu = ctx["monthly_unplanned"]
     fig, ax = plt.subplots(figsize=(10, 4.6))
@@ -289,26 +272,31 @@ def sensitivity_heatmap(ctx, path):
     return _save(fig, path)
 
 
-def tornado(ctx, path):
-    rows = sorted(ctx["tornado"], key=lambda r: r["swing"])  # smallest first -> bottom
-    base = rows[0]["base"]
-    fig, ax = plt.subplots(figsize=(8.4, 4.2))
-    y = np.arange(len(rows))
-    for i, r in enumerate(rows):
-        ax.barh(i, r["low"] - base, left=base, color=BLUE, zorder=3)
-        ax.barh(i, r["high"] - base, left=base, color=ORANGE, zorder=3)
-    ax.axvline(base, color=NAVY, lw=1.5)
-    ax.set_yticks(y, [r["driver"].split(" (")[0] for r in rows], fontsize=9)
-    ax.xaxis.set_major_formatter(_thousands)
-    ax.set_xlabel("2027 Unplanned (kbd)")
-    ax.set_title("Tornado - Driver Sensitivity (centered on base case)")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.grid(axis="x", zorder=0)
-    ax.grid(axis="y", visible=False)
-    ax.tick_params(length=0)
-    handles = [plt.Rectangle((0, 0), 1, 1, color=BLUE), plt.Rectangle((0, 0), 1, 1, color=ORANGE)]
-    ax.legend(handles, ["Downside", "Upside"], frameon=False, ncol=2, loc="lower right")
+def scenario_total_bars(ctx, path):
+    """2027 implied total offline by scenario: booked planned (constant) plus the
+    Conservative / Average / Active unplanned path. Replaces the old tornado -
+    shows the actual outcome range, not abstract driver swings."""
+    fan = ctx["scenario_fan"]
+    pl = float(ctx["summary"].loc[2027, "Planned"]) if 2027 in ctx["summary"].index else 0.0
+    names = ["Conservative", "Average", "Active"]
+    mult = {"Conservative": 0.8, "Average": 1.0, "Active": 1.3}
+    unpl = [float(fan[n].sum()) for n in names]
+    fig, ax = plt.subplots(figsize=(9.6, 3.5))
+    x = np.arange(3)
+    ax.bar(x, [pl] * 3, color=NAVY, label="Booked planned", zorder=3)
+    ax.bar(x, unpl, bottom=[pl] * 3, color=GOLD, label="Scenario unplanned", zorder=3)
+    for i, u in enumerate(unpl):
+        ax.text(i, pl + u, f"{pl + u:,.0f}", ha="center", va="bottom", fontsize=9.5,
+                fontweight="bold", color=NAVY)
+        ax.text(i, pl + u / 2, f"+{u:,.0f}", ha="center", va="center", fontsize=8, color="white")
+        ax.text(i, pl / 2, f"{pl:,.0f}", ha="center", va="center", fontsize=8, color="white")
+    ax.set_xticks(x, [f"{n}\n(x{mult[n]})" for n in names])
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_ylim(top=(pl + max(unpl)) * 1.16)
+    ax.set_title("2027 Implied Total Offline by Scenario (kbd)")
+    ax.legend(frameon=False, ncol=2, loc="upper left", fontsize=8.5)
+    _clean(ax)
     return _save(fig, path)
 
 
@@ -673,7 +661,6 @@ def render_all(ctx, outdir):
     out = {
         "annual": annual_stack(ctx, p("annual.png")),
         "padd_clustered": padd_clustered(ctx, p("padd_clustered.png")),
-        "padd_donut": padd_donut(ctx, p("padd_donut.png")),
         "seasonality": seasonality(ctx, p("seasonality.png")),
         "padd3": padd_combo(ctx, "PADD 3", p("padd3.png")),
         "padd_sm": padd_small_multiples(ctx, ["PADD 1", "PADD 2", "PADD 4", "PADD 5"],
@@ -683,7 +670,7 @@ def render_all(ctx, outdir):
         "scenario": scenario_lines(ctx, p("scenario.png")),
         "scenario_padd": scenario_by_padd(ctx, p("scenario_padd.png")),
         "heatmap": sensitivity_heatmap(ctx, p("heatmap.png")),
-        "tornado": tornado(ctx, p("tornado.png")),
+        "scenario_total": scenario_total_bars(ctx, p("scenario_total.png")),
         "season_band": seasonality_band(ctx, p("season_band.png")),
         "yoy_month": monthly_yoy_bars(ctx, p("yoy_month.png")),
         "mogas": mogas_annual_chart(ctx, p("mogas.png")),
