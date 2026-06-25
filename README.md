@@ -36,14 +36,13 @@ source .venv/bin/activate            # macOS/Linux
 # 2. install dependencies
 pip install -r requirements.txt
 
-# 3. build all three deliverables
+# 3. build both deliverables (deck + dashboard)
 python scripts/build_all.py
 ```
 
-That reads `data/Refinery_Outages_Data.xlsx` and writes the workbook, deck and
+That reads `data/Refinery_Outages_Enhanced.xlsx` and writes the deck and
 dashboard to `output/`. Paths resolve relative to the repo root, so it runs from
-any directory. **No network is required** to build (a market-crack CSV is
-vendored in `data/`).
+any directory. **No network is required** to build.
 
 In **VS Code**, the committed `.vscode/` configs give you three one-click paths
 (on first open it offers to install the recommended Python + Debugpy extensions):
@@ -52,12 +51,11 @@ In **VS Code**, the committed `.vscode/` configs give you three one-click paths
 * press **F5** → *Run and Debug → "Build all deliverables"* (or *"…pick a data
   file"* to be prompted for an export path);
 * run the default build task — *Terminal → Run Build Task…* (`⌘⇧B` /
-  `Ctrl+Shift+B`) — which also lists workbook-only, deck-only and QA tasks.
+  `Ctrl+Shift+B`) — which also lists deck-only and dashboard-only tasks.
 
 Build a single deliverable, or point at a refreshed export / different output dir:
 
 ```bash
-python scripts/build_workbook.py                       # -> output/outage_workbook.xlsx
 python scripts/build_slides.py                         # -> output/outage_deck.pptx
 python scripts/build_dashboard.py                      # -> output/outage_dashboard.html
 python scripts/build_all.py path/to/export.xlsx --outdir dist/
@@ -65,22 +63,21 @@ python scripts/build_all.py path/to/export.xlsx --outdir dist/
 
 ### Run it on your own data
 
-Drop your export in `data/`, pass its path, and rebuild. The loader is forgiving:
+Drop your export in `data/`, pass its path, and rebuild. The engine
+**auto-detects the schema** — no flag needed:
 
-* **Excel or CSV** — `.xlsx`/`.xls` (the right worksheet is auto-detected,
-  preferring one named `Query1`) or `.csv`.
-* **Required columns** — `CAP_OFFLINE_ADJUSTED_KBD`, `OUTAGE_YEAR`, `OUTAGE_MONTH`.
-  Missing any of these stops with a clear message rather than a silent empty run.
-* **Used when present** (gracefully skipped otherwise) — `OUTAGE_TYPE`
-  (PLANNED/UNPLANNED; UNKNOWN folds into UNPLANNED), `PAD_DIST`, `REFINERY_STATE`,
-  `UNIT_CATEGORY`, `REFINERY_OPERATOR`, `PLANT_NAME`, `OUTAGE_ID`,
-  `OUTAGE_START_DATE` / `OUTAGE_END_DATE`.
-* The deck's **month-over-month section appears automatically** once the data has
-  two comparable months; it anchors on the latest *substantially-reported* month,
-  so a still-filling-in tail won't show up as a fake cliff.
-* Market crack ($-at-risk) is optional — refresh with
-  `python scripts/fetch_market_data.py` (EIA) or paste your own into
-  `data/market_crack.csv`.
+* **"Refinery Outages Enhanced" breakdown (primary)** — one row per outage event
+  with columns `Source`, `Country/Region`, `Owner`, `Plant`, `Start Date`,
+  `End Date`, `Unit Name`, `Outage Type`, `Offline Capacity (KBD)`. Each event is
+  expanded to the calendar months it spans, and the free-text `Unit Name` is
+  mapped to a unit class (CDU / FCC / hydrocracker / reformer / …). Only verified
+  years (2023+) are kept and obvious placeholder spans are dropped.
+* **Legacy Snowflake `Query1` export** — also recognised automatically
+  (`CAP_OFFLINE_ADJUSTED_KBD`, `OUTAGE_YEAR`, `OUTAGE_MONTH`, plus the usual
+  `OUTAGE_TYPE` / `PAD_DIST` / `UNIT_CATEGORY` / `REFINERY_OPERATOR` columns).
+* `OUTAGE_TYPE` `PLANNED` / `UNPLANNED` (and `UNKNOWN`, folded into unplanned)
+  drives the split; the 2027 unplanned scenario extrapolates off the 2023–2025
+  baseline of actual unplanned offline.
 
 ---
 
@@ -91,12 +88,11 @@ Drop your export in `data/`, pass its path, and rebuild. The loader is forgiving
 ├── scripts/      pipeline code (run these)
 │   ├── engine.py            data core — the only place raw data is touched
 │   ├── charts.py            matplotlib renderers (shared by the deck)
-│   ├── build_workbook.py    Excel workbook (XlsxWriter) — 11-sheet deliverable
 │   ├── build_slides.py      PowerPoint deck (python-pptx)
 │   ├── build_dashboard.py   self-contained HTML dashboard (Chart.js inlined)
-│   ├── fetch_market_data.py vendors the gasoline crack (EIA) -> market_crack.csv
-│   └── build_all.py         orchestrator — loads once, builds all three
-├── data/         live input: Refinery_Outages_Data.xlsx  ·  market_crack.csv
+│   ├── audit_exxon.py       reconcile the Exxon slate vs the corporate plan
+│   └── build_all.py         orchestrator — loads once, builds deck + dashboard
+├── data/         live input: Refinery_Outages_Enhanced.xlsx
 ├── output/       generated deliverables (.xlsx / .pptx / .html)
 ├── reference/    mogas & ethylene-margins workbooks, gasoline-weekly PDF, Yields.txt
 ├── docs/         CLAUDE_CODE_BUILD_SPEC.md, "What good output looks like"
@@ -237,15 +233,10 @@ implied total  = 2027 unplanned + 2027 planned (booked)
 
 ## QA notes
 
-- **`python scripts/qa_workbook.py`** runs a full regression check: every data
-  table is cross-checked against the engine's source aggregations, the live
-  formulas (YoY%, SUMIFS, scenario, sensitivity) are replicated, and all charts
-  are validated (populated ranges, aligned categories, combos have bar+line).
-  Exits non-zero on any failure — run it after a rebuild or a data refresh.
-- Open `outage_workbook.xlsx` in **real Excel** (not LibreOffice) for final
-  visual QA — confirm the combo charts show columns *and* lines, the heatmap
-  shows a green→red gradient with the base case outlined, and changing a
-  scenario dropdown recalculates the forecast, chart, heatmap and PADD split.
-- The deck and dashboard are self-contained; just open them.
+- The deck and dashboard are **self-contained** — just open them; no external
+  files or network are needed at view time.
+- **`python scripts/audit_exxon.py`** reconciles the ExxonMobil slate against the
+  vendored corporate turnaround plan (`data/exxon_ta_plan.csv`) and writes a
+  per-unit report to `output/`.
 - The build is idempotent — re-running reproduces the same outputs from the same
   input.

@@ -24,7 +24,7 @@
       "id": "dataFile",
       "type": "promptString",
       "description": "Path to your outage export (.xlsx or .csv)",
-      "default": "data/Refinery_Outages_Data.xlsx"
+      "default": "data/Refinery_Outages_Enhanced.xlsx"
     }
   ]
 }

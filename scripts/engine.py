@@ -2,10 +2,10 @@
 engine.py
 Reusable aggregation core for the refinery-outage analysis suite.
 
-Turns an outage export -- either the cleaned "Refinery Outages Enhanced"
-breakdown (one row per event; the primary source) or the legacy Snowflake export
-(Refinery_Outages_Data.xlsx / Query1) -- into clean, analysis-ready frames,
-pivots and a single `build_context()` bundle. The schema is auto-detected. Every
+Turns an outage export -- the cleaned "Refinery Outages Enhanced" breakdown
+(one row per event; the primary and only required input) or, optionally, a legacy
+Snowflake 'Query1' export -- into clean, analysis-ready frames, pivots and a
+single `build_context()` bundle. The schema is auto-detected. Every
 downstream deliverable -- the Excel workbook, the PowerPoint deck and the HTML
 dashboard -- is built on top of what this module returns, so a data refresh
 only ever touches inputs here.

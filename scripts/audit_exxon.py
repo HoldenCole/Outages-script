@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import engine
 
 _ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
+DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
 OUTDIR = _ROOT / "output"
 YEARS = (2026, 2027)
 

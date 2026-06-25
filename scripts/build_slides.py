@@ -262,30 +262,25 @@ class Deck:
                  "P4 Rockies, P5 West.")
 
     def exxon_slide(self):
-        ver = self.ctx["exxon_verify"]
-        ev = ver["events"]
-        foc = ev[ev["focus"].isin(engine.FOCUS_ORDER)]
-        conf = foc[foc["verified"] == True]                       # noqa: E712
-        flag = foc[foc["verified"] == False]                      # noqa: E712
+        ev = self.ctx["exxon_verify"]["events"]
+        conf = ev[ev["focus"].isin(engine.FOCUS_ORDER) & (ev["verified"] == True)]   # noqa: E712
+        has_plan = len(conf) > 0          # corporate-plan reconciliation available (optional)
         bullets = [
             "ExxonMobil is the only operator with a full-year 2027 plan - so it's the one refiner whose H2 "
             "we can confirm. Everyone else is H1-only.",
             "Per unit, never summed - the 'Exxon ~700 kbd' figure was 8 Joliet units in one April "
             "turnaround added together; it's really ~250 kbd of crude.",
-            f"Confirmed vs Exxon's own plan ({len(conf)} units): Baytown & Beaumont FCC in Q1, Joliet "
-            "crude+vacuum Apr-May, Baton Rouge crude in autumn.",
+            (f"Reconciled to Exxon's own corporate plan ({len(conf)} units): " if has_plan
+             else "Exxon's verified 2027 slate: ")
+            + "Baytown & Beaumont FCC in Q1, Joliet crude+vacuum Apr-May, Baton Rouge crude in autumn.",
         ]
-        for _, r in flag.iterrows():
-            bullets.append(f"- Flagged: {str(r.plant).replace(' Refinery','')} {str(r.unit_name)[:16]} "
-                           f"(~{kbd(r.kbd)} kbd, {r.span}) - not in Exxon's plan.")
-        nexcl = len(self.ctx.get("deck_excluded", []))
         self.wide_chart_slide(
-            "ExxonMobil 2027 - Per Unit, Verified vs Their Plan",
-            "Each unit's turnaround as its own bar, reconciled to Exxon's corporate schedule",
+            "ExxonMobil 2027 - Per Unit",
+            "Each unit's turnaround as its own bar, nameplate capacity offline (kbd)",
             self.a["exxon_gantt"], bullets,
-            foot=("Reconciled to ExxonMobil's corporate turnaround plan (data/exxon_ta_plan.csv)"
-                  + (f"; {nexcl} records not in the plan removed" if nexcl else "")
-                  + ". Match = same refinery + unit class, overlapping months."))
+            foot=("Cross-checked against ExxonMobil's corporate turnaround plan; match = same refinery + "
+                  "unit class, overlapping months." if has_plan
+                  else "Per-unit nameplate offline from the verified outage book."))
 
     def scenario_slide(self):
         sc = self.ctx["scenario"]
