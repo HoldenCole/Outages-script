@@ -229,11 +229,11 @@ for wi, w in enumerate(windows):
 check(miss == 0, "Model baseline-window profiles match engine", f"{miss} mismatches")
 # per-PADD scenario baseline
 sp = ctx["scenario_padd"]
-br, _ = band_row(ws, "2027 Scenario by PADD")
+br, bcol = band_row(ws, "2027 Scenario by PADD")   # now sits to the right of Scenario Outputs
 hdr = br + 1; miss = 0
 for pi, p in enumerate(PADDS):
     r = hdr + 1 + pi
-    if not close(num(ws, r, 3), float(sp[p]["baseline_annual"])): miss += 1
+    if not close(num(ws, r, bcol + 1), float(sp[p]["baseline_annual"])): miss += 1
 check(miss == 0, "Model per-PADD baseline matches engine", f"{miss} mismatches")
 # scenario summary (replaces the old tornado): implied total = unplanned + booked planned
 fan = ctx["scenario_fan"]

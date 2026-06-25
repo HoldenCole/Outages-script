@@ -1537,6 +1537,8 @@ class Build:
             ws.write_formula(r, 2 + j, f"={bc}*(1+{c_g})*{c_m}+IF({c_s}={mc},{c_o},0)", self.f["calc_b"])
         r += 2
 
+        # Scenario Outputs (left) and 2027 Scenario by PADD (right) - side by side
+        op_top = r
         r = self._band(ws, r, 1, 4, "Scenario Outputs", "h_orange")
         ws.write(r, 1, "Baseline annual (pre-shock)", self.f["rowlab"]); anchor = A1(r, 2, row_abs=True, col_abs=True)
         ws.write_formula(r, 2, f"=SUM({A1(brow,2)}:{A1(brow,13)})", self.f["calc"]); r += 1
@@ -1555,26 +1557,28 @@ class Build:
         r += 1
         ws.write(r, 1, "Implied total (P50 / P90)", self.f["rowlab"])
         ws.write_formula(r, 2, f"={A1(r-1,3)}+{pcell}", self.f["calc"])
-        ws.write_formula(r, 3, f"={A1(r-1,4)}+{pcell}", self.f["calc"]); r += 2
+        ws.write_formula(r, 3, f"={A1(r-1,4)}+{pcell}", self.f["calc"])
+        outputs_bottom = r
 
-        # per-PADD scenario (live)
+        # per-PADD scenario (live) - to the right of the outputs
         sp = self.ctx["scenario_padd"]
-        r = self._band(ws, r, 1, 4, "2027 Scenario by PADD (each PADD's own seasonality, live)", "h_green")
+        pc = 6
+        pr = self._band(ws, op_top, pc, pc + 3, "2027 Scenario by PADD (live)", "h_green")
         for j, h in enumerate(["PADD", "Baseline", "Scenario", "Share"]):
-            ws.write(r, 1 + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
-        r += 1
-        spf = r
+            ws.write(pr, pc + j, h, self.f["colhdr_l"] if j == 0 else self.f["colhdr"])
+        pr += 1
+        spf = pr
         for p in PADDS:
-            ws.write(r, 1, p, self.f["rowlab"]); ws.write_number(r, 2, float(sp[p]["baseline_annual"]), self.f["calc"])
-            ws.write_formula(r, 3, f"={A1(r,2)}*(1+{c_g})*{c_m}", self.f["calc_b"]); r += 1
-        spl = r - 1
-        ws.write(r, 1, "Total US", self.f["rowlab_b"])
-        ws.write_formula(r, 2, f"=SUM({A1(spf,2)}:{A1(spl,2)})", self.f["calc_b"])
-        ws.write_formula(r, 3, f"=SUM({A1(spf,3)}:{A1(spl,3)})", self.f["calc_b"])
-        tot_scn = A1(r, 3, row_abs=True, col_abs=True)
+            ws.write(pr, pc, p, self.f["rowlab"]); ws.write_number(pr, pc + 1, float(sp[p]["baseline_annual"]), self.f["calc"])
+            ws.write_formula(pr, pc + 2, f"={A1(pr,pc+1)}*(1+{c_g})*{c_m}", self.f["calc_b"]); pr += 1
+        spl = pr - 1
+        ws.write(pr, pc, "Total US", self.f["rowlab_b"])
+        ws.write_formula(pr, pc + 1, f"=SUM({A1(spf,pc+1)}:{A1(spl,pc+1)})", self.f["calc_b"])
+        ws.write_formula(pr, pc + 2, f"=SUM({A1(spf,pc+2)}:{A1(spl,pc+2)})", self.f["calc_b"])
+        tot_scn = A1(pr, pc + 2, row_abs=True, col_abs=True)
         for i in range(len(PADDS)):
-            ws.write_formula(spf + i, 4, f"=IF({tot_scn}=0,0,{A1(spf+i,3)}/{tot_scn})", self.f["pct_g"])
-        r += 2
+            ws.write_formula(spf + i, pc + 3, f"=IF({tot_scn}=0,0,{A1(spf+i,pc+2)}/{tot_scn})", self.f["pct_g"])
+        r = max(outputs_bottom, pr) + 2
 
         # forecast vs actuals chart data
         r = self._band(ws, r, 1, 13, "Forecast vs Actuals (chart data)", "h_navy")
@@ -1652,39 +1656,10 @@ class Build:
                        f"Active vs Conservative spans ~{act_t-cons_t:,.0f} kbd ({(act_t/cons_t-1):+.0%}) - the risk range to hedge.",
                        self.f["note"]); ws.set_row(r, 30); r += 2
 
-        # --- sensitivity heatmap ---
-        growths = [-0.10, -0.05, 0.0, 0.05, 0.10, 0.15]
-        mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
-        r = self._band(ws, r, 1, 1 + len(mults), "Sensitivity - 2027 Unplanned (kbd): Growth (rows) x Multiplier (cols)", "h_orange")
-        ws.write(r, 1, "Growth \\ Mult", self.wb.add_format(
-            {"font_name": "Arial", "bold": True, "font_color": WHITE, "bg_color": NAVY,
-             "align": "center", "valign": "vcenter", "border": 1}))
-        for j, m in enumerate(mults):
-            ws.write_number(r, 2 + j, m, self.wb.add_format(
-                {"font_name": "Arial", "bold": True, "font_color": WHITE, "bg_color": NAVY,
-                 "align": "center", "valign": "vcenter", "border": 1, "num_format": MULT}))
-        top = r; r += 1
-        bf = r
-        for gi, g in enumerate(growths):
-            ws.write_number(r, 1, g, self.wb.add_format(
-                {"font_name": "Arial", "bold": True, "font_color": WHITE, "bg_color": NAVY,
-                 "align": "center", "valign": "vcenter", "border": 1, "num_format": PCT}))
-            for mj, m in enumerate(mults):
-                isbase = abs(g) < 1e-9 and abs(m - 1.0) < 1e-9
-                fmt = self.f["hm_base"] if isbase else self.f["hm_cell"]
-                gref = A1(top + 1 + gi, 1, col_abs=True); mref = A1(top, 2 + mj, row_abs=True)
-                ws.write_formula(r, 2 + mj, f"={anchor}*(1+{gref})*{mref}", fmt)
-            r += 1
-        ws.conditional_format(bf, 2, r - 1, 1 + len(mults),
-                              {"type": "3_color_scale", "min_color": "#63BE7B",
-                               "mid_color": "#FFEB84", "max_color": "#F8696B"})
-        r += 1
-
-        # --- scenario summary (replaces the old driver "tornado") ---
-        # The actionable read: each scenario's unplanned path + the booked planned
-        # book = the implied total capacity offline in 2027.
-        r = self._band(ws, r, 1, 5, "Scenario Summary - 2027 Implied Total Offline "
-                       "(booked planned + scenario unplanned, kbd)", "h_orange")
+        # Scenario Summary (left) and sensitivity heatmap (right) - the two
+        # "what-if" views, side by side; the summary chart sits below both.
+        grid_top = r
+        r = self._band(ws, r, 1, 5, "Scenario Summary - 2027 Implied Total Offline (kbd)", "h_orange")
         self._tip(ws, r - 1, 1, "Conservative / Average / Active flex the unplanned baseline x0.8 / x1.0 / "
                   "x1.3. Add the booked 2027 planned book for the implied total offline - Active vs "
                   "Conservative is the range to hedge.")
@@ -1703,6 +1678,37 @@ class Build:
             ws.write_formula(r, 5, f"={A1(r, 3)}+{A1(r, 4)}", self.f["kbd_b"], unpl + pl27)
             r += 1
         sl = r - 1
+        summary_bottom = r
+
+        # --- sensitivity heatmap (right of the summary) ---
+        growths = [-0.10, -0.05, 0.0, 0.05, 0.10, 0.15]
+        mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
+        hc = 7
+        navyf = self.wb.add_format({"font_name": "Arial", "bold": True, "font_color": WHITE,
+                                    "bg_color": NAVY, "align": "center", "valign": "vcenter", "border": 1})
+        navym = self.wb.add_format({"font_name": "Arial", "bold": True, "font_color": WHITE, "bg_color": NAVY,
+                                    "align": "center", "valign": "vcenter", "border": 1, "num_format": MULT})
+        navyp = self.wb.add_format({"font_name": "Arial", "bold": True, "font_color": WHITE, "bg_color": NAVY,
+                                    "align": "center", "valign": "vcenter", "border": 1, "num_format": PCT})
+        hr = self._band(ws, grid_top, hc, hc + len(mults),
+                        "Sensitivity - 2027 Unplanned (kbd): Growth x Mult", "h_orange")
+        ws.write(hr, hc, "Grw \\ Mult", navyf)
+        for j, m in enumerate(mults):
+            ws.write_number(hr, hc + 1 + j, m, navym)
+        htop = hr; hr += 1
+        hbf = hr
+        for gi, g in enumerate(growths):
+            ws.write_number(hr, hc, g, navyp)
+            for mj, m in enumerate(mults):
+                isbase = abs(g) < 1e-9 and abs(m - 1.0) < 1e-9
+                fmt = self.f["hm_base"] if isbase else self.f["hm_cell"]
+                gref = A1(htop + 1 + gi, hc, col_abs=True); mref = A1(htop, hc + 1 + mj, row_abs=True)
+                ws.write_formula(hr, hc + 1 + mj, f"={anchor}*(1+{gref})*{mref}", fmt)
+            hr += 1
+        ws.conditional_format(hbf, hc + 1, hr - 1, hc + len(mults),
+                              {"type": "3_color_scale", "min_color": "#63BE7B",
+                               "mid_color": "#FFEB84", "max_color": "#F8696B"})
+
         sch = self.wb.add_chart({"type": "column", "subtype": "stacked"})
         sch.add_series({"name": "Booked planned", "categories": [SHEET, sf, 1, sl, 1],
                         "values": [SHEET, sf, 4, sl, 4], "fill": {"color": NAVY}})
@@ -1712,7 +1718,7 @@ class Build:
         sch.set_title({"name": "2027 Implied Total Offline by Scenario (kbd)"})
         sch.set_y_axis({"name": "kbd"}); sch.set_legend({"position": "bottom"})
         sch.set_size({"width": 620, "height": 300}); sch.set_chartarea({"border": {"none": True}})
-        ws.insert_chart(sl + 2, 1, sch)
+        ws.insert_chart(max(summary_bottom, hr) + 1, 1, sch)   # below both the summary and the heatmap
 
     # ===================================================================== run
     def run(self):
