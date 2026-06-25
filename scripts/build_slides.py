@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
 build_slides.py
-Sell-side "weekly meeting" deck (python-pptx), built around PER-UNIT capacity
-offline. The desk reads refinery outages one unit at a time -- CDU first, then
-FCC, hydrocracker, reformer -- never as a single summed "total offline" (adding a
-crude unit to an FCC to a coker is meaningless). Every figure is concurrent
-capacity offline by month, 2021 onward, kept separate by unit and PADD.
+Trading-desk deck (python-pptx): four things a trader needs, kept simple --
+    1. Total 2027 outages by unit  (and what each unit tightens)
+    2. Outages by PADD by unit     (where it tightens)
+    3. ExxonMobil outages          (per unit, verified vs their corporate plan)
+    4. 2027 unplanned scenario     (the risk on top of the booked plan)
 
-The ExxonMobil 2027 slate is cross-checked, per unit, against ExxonMobil's own
-corporate turnaround plan (data/exxon_ta_plan.csv); records with no counterpart
-in the plan are flagged. Margin/$ estimates are intentionally excluded.
+Everything is per-unit capacity offline (never a summed "total"), 2027-forward.
+2027 completeness is asymmetric: only ExxonMobil gave a full-year plan (verified
+against their corporate schedule); every other operator is H1-confirmed only, so
+the non-Exxon H2 is flagged as not-yet-booked throughout.
 
-Brand mark: set BRAND_LOGO to a logo image path to drop in your own logo;
-otherwise BRAND_TEXT is rendered in the corner.
+Brand mark: set BRAND_LOGO to a logo image path; otherwise BRAND_TEXT is used.
 
 Usage:
     python build_slides.py                       # uses INPUT_PATH
@@ -31,8 +31,6 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
-import pandas as pd
-
 import engine
 import charts
 
@@ -40,7 +38,6 @@ _ROOT = Path(__file__).resolve().parent.parent
 INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Data.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_deck.pptx")
 
-# Brand mark (swap in your own logo to match exactly)
 BRAND_TEXT = "Products Trading"
 BRAND_LOGO = None
 
@@ -61,13 +58,6 @@ SW, SH = Inches(13.333), Inches(7.5)
 
 def kbd(x):
     return f"{x:,.0f}"
-
-
-def _d(ts):
-    try:
-        return f"{ts.month}/{ts.day}/{str(ts.year)[2:]}"
-    except Exception:
-        return ""
 
 
 class Deck:
@@ -143,13 +133,12 @@ class Deck:
 
     # ----------------------------------------------------------------- chrome
     def _section(self, title, sub=None):
-        """White content slide with a red section header top-left."""
         s = self._slide()
         self.page += 1
-        self._text(s, Inches(0.45), Inches(0.18), Inches(11.5), Inches(0.7),
+        self._text(s, Inches(0.45), Inches(0.18), Inches(12.4), Inches(0.7),
                    [(title, 30, False, RED)], anchor=MSO_ANCHOR.MIDDLE)
         if sub:
-            self._text(s, Inches(0.5), Inches(0.92), Inches(11.5), Inches(0.3),
+            self._text(s, Inches(0.5), Inches(0.92), Inches(12.3), Inches(0.3),
                        [(sub, 12, False, GRAY)])
         self._brand(s, Inches(0.45), Inches(6.98))
         self._text(s, Inches(12.5), Inches(7.0), Inches(0.7), Inches(0.3),
@@ -169,8 +158,7 @@ class Deck:
             txt = b[2:] if sub else b
             bx = x + (Inches(0.45) if sub else Inches(0.0))
             fs = size if not sub else size - 1.5
-            boxw = w - Inches(0.22) - (bx - x)                  # text width (EMU)
-            # estimate wrapped line count so multi-line bullets don't overlap
+            boxw = w - Inches(0.22) - (bx - x)
             cpl = max(18, int((boxw / 914400) * 72 / (fs * 0.53)))
             nlines = max(1, math.ceil(len(txt) / cpl))
             self._rect(s, bx, y + Inches(0.07), Inches(0.09), Inches(0.09),
@@ -214,49 +202,6 @@ class Deck:
             self._footnote(s, foot)
         return s
 
-    def unit_table_slide(self, title, df, note=None, maxrows=14):
-        """Per-unit turnaround schedule: one row per physical unit (no summing)."""
-        s = self._section(title, "Planned turnarounds by unit - nameplate capacity offline, kbd")
-        heads = ["Refinery", "Operator", "PADD", "Unit", "Class", "Offline\n(kbd)", "Window"]
-        widths = [2.5, 2.5, 0.8, 2.7, 1.3, 0.95, 1.65]
-        rows = min(maxrows, len(df)) + 1
-        x, y = Inches(0.45), Inches(1.35)
-        tbl = s.shapes.add_table(rows, len(heads), x, y, Inches(12.4), Inches(0.3 * rows)).table
-        tbl.first_row = False
-        tbl.horz_banding = True
-        for j, wd in enumerate(widths):
-            tbl.columns[j].width = Inches(wd)
-        for j, h in enumerate(heads):
-            c = tbl.cell(0, j)
-            c.fill.solid(); c.fill.fore_color.rgb = NAVY
-            c.margin_left = c.margin_right = Pt(3); c.margin_top = c.margin_bottom = Pt(1)
-            tf = c.text_frame; tf.word_wrap = True
-            p = tf.paragraphs[0]; p.alignment = PP_ALIGN.LEFT if j < 2 else PP_ALIGN.CENTER
-            r = p.add_run(); r.text = h
-            r.font.size = Pt(9); r.font.bold = True; r.font.color.rgb = WHITE; r.font.name = FONT
-        for i, (_, row) in enumerate(df.head(maxrows).iterrows(), start=1):
-            win = f"{_d(row['start'])}-{_d(row['end'])}" if pd.notna(row["start"]) else str(row["span"])
-            vals = [str(row["plant"]).replace(" Refinery", "")[:26],
-                    str(row["operator"]).title()[:26],
-                    str(row["padd"]).replace("PADD ", "P"),
-                    str(row["unit_name"])[:30],
-                    str(row["focus"]) if isinstance(row["focus"], str)
-                    else str(row["unit_cat"]).title()[:14],
-                    f"{row['kbd']:.0f}", win]
-            for j, v in enumerate(vals):
-                c = tbl.cell(i, j)
-                c.fill.solid(); c.fill.fore_color.rgb = WHITE if i % 2 else LT_GRAY
-                c.margin_left = c.margin_right = Pt(3); c.margin_top = c.margin_bottom = Pt(0)
-                tf = c.text_frame; tf.word_wrap = False
-                p = tf.paragraphs[0]; p.alignment = PP_ALIGN.LEFT if j < 2 else PP_ALIGN.CENTER
-                r = p.add_run(); r.text = v
-                r.font.size = Pt(8.5); r.font.color.rgb = INK; r.font.name = FONT
-        for i in range(rows):
-            tbl.rows[i].height = Inches(0.42 if i == 0 else 0.3)
-        if note:
-            self._footnote(s, note)
-        return s
-
     # ----------------------------------------------------------------- slides
     def title_slide(self):
         s = self._slide()
@@ -273,131 +218,48 @@ class Deck:
         self._text(s, Inches(0.7), Inches(2.9), Inches(7.6), Inches(0.4),
                    [("Products Trading", 20, False, LT_BLUE)])
         self._text(s, Inches(0.68), Inches(3.4), Inches(8.0), Inches(1.7),
-                   [("Refinery Capacity Offline", 36, True, WHITE),
-                    ("by Unit - 2027 Turnaround Outlook", 36, True, WHITE)], sa=2)
+                   [("Refinery Outages", 38, True, WHITE),
+                    ("2027 Outlook by Unit", 38, True, WHITE)], sa=2)
         self._rect(s, Inches(0.72), Inches(5.35), Inches(2.8), Pt(2.5), GOLD)
-        self._text(s, Inches(0.72), Inches(5.55), Inches(7.8), Inches(0.9),
-                   [("Per-unit capacity offline (kbd): CDU - FCC - hydrocracker - reformer   |   "
-                     "2021-2027", 12, False, LT_BLUE),
-                    ("2027: ExxonMobil full-year (verified vs their corporate plan); all other "
-                     "operators H1-confirmed only", 11, False, RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
+        self._text(s, Inches(0.72), Inches(5.55), Inches(7.9), Inches(0.9),
+                   [("Capacity offline by unit, region & operator - and what it tightens", 12.5, False, LT_BLUE),
+                    ("2027: ExxonMobil full-year (verified vs their plan); all other operators "
+                     "H1-confirmed only", 11, False, RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
         self._text(s, Inches(11.3), Inches(7.0), Inches(1.85), Inches(0.3),
                    [("PROPRIETARY", 9, False, LT_BLUE)], align=PP_ALIGN.RIGHT)
 
-    def principle_slide(self):
-        """Frame the whole deck: read capacity offline per unit, not as one total."""
-        ver = self.ctx["exxon_verify"]
-        nconf = int((ver["events"]["verified"] == True).sum())   # noqa: E712
-        nflag = len(ver["flagged"])
-        self.charts_bullets_slide(
-            "Read Capacity Offline Per Unit - Not as One Big Total",
-            "Why a single summed 'offline' figure misleads, and how this deck reports instead",
-            [self.a["joliet_decode"]],
-            ["A single turnaround takes many units down at once. Summing them is meaningless: "
-             "Joliet's one April-2027 event adds to ~715 kbd at a refinery that runs ~250 kbd of crude.",
-             "The honest read is per unit: ~250 kbd of crude (CDU) offline, with the FCC, coker and "
-             "hydrotreaters shown separately - never added together.",
-             "So this deck reports the four units that matter, in priority order: "
-             "CDU -> FCC -> hydrocracker -> reformer.",
-             "Every figure is concurrent capacity offline by month - a unit down Apr-May is counted "
-             "once at its nameplate, never stacked across months or across unit types.",
-             f"ExxonMobil's 2027 records are cross-checked unit-by-unit against Exxon's own corporate "
-             f"TA plan: {nconf} confirmed, {nflag} flagged as not-in-plan.",
-             "Margin / $-at-risk estimates are intentionally excluded - this is physical capacity offline only."],
-            foot="Concurrent offline = for each month, each distinct unit's nameplate capacity counted once "
-                 "(deduped by plant+unit). History shown from 2021.")
-
-    def overview_slide(self):
-        fp = self.ctx["focus_peak"]
-
-        def pk(unit, yr):
-            return float(fp.loc[yr, unit]) if yr in fp.index else 0.0
+    def total_by_unit_slide(self):
+        c2 = self.ctx["confirmed2027"]
+        pk = lambda f: max(c2[f]["confirmed"])
         self.wide_chart_slide(
-            "Capacity Offline by Unit & Month, 2021-2027",
-            "Concurrent capacity offline (kbd) for each focus unit - the per-unit timeline",
-            self.a["focus_heat"],
-            [f"Crude (CDU+VDU) dominates: peak concurrent ~{kbd(pk('CDU',2025))} kbd offline in 2025, "
-             f"vs FCC ~{kbd(pk('FCC',2025))}, hydrocracker ~{kbd(pk('Hydrocracker',2025))}, "
-             f"reformer ~{kbd(pk('Reformer',2025))}.",
-             "Each unit carries a clear spring (Mar-May) and autumn (Sep-Oct) turnaround window every year.",
-             f"2021 stands out across every unit - Winter Storm Uri (Feb) - {kbd(pk('CDU',2021))} kbd of "
-             "crude offline at the peak; it's the floor year of this view.",
-             "FCC, hydrocracker and reformer are smaller in kbd but gasoline-octane-critical: their loss "
-             "squeezes blending even when crude runs hold.",
-             "2026-27 are partial / booked-only; for 2027, only ExxonMobil is full-year - all other "
-             "operators are H1-confirmed (so the 2027 H2 cells are an incomplete, non-Exxon floor)."],
-            foot="Read each panel left-to-right as a month-by-month timeline; cells are kbd of that unit "
-                 "class concurrently offline. Never sum across panels. 2027 H2 (non-Exxon) is not yet confirmed.")
+            "Total 2027 Outages by Unit - and What They Tighten",
+            "Capacity offline by unit & month; solid = confirmed, hatched = non-Exxon H2 (not yet booked)",
+            self.a["splits_2027"],
+            ["Crude (CDU) down = the whole refinery's run is cut - every product from that site. "
+             "FCC down = gasoline + octane. Reformer = octane. Hydrocracker = diesel / jet.",
+             f"Confirmed 2027 peak: CDU ~{kbd(pk('CDU'))}, FCC ~{kbd(pk('FCC'))}, "
+             f"hydrocracker ~{kbd(pk('Hydrocracker'))}, reformer ~{kbd(pk('Reformer'))} kbd - all in H1.",
+             "Read units separately, never added: a 250-kbd CDU plus a 100-kbd FCC is not '350 offline'.",
+             "Solid = confirmed (Exxon full-year + everyone's H1). Hatched = non-Exxon H2, still being "
+             "booked - don't trade the autumn spike as real."],
+            foot="Concurrent capacity offline, each unit counted once per month. Non-Exxon H2 2027 is a floor "
+                 "that fills in. Verified-bad Exxon records excluded.")
 
-    def unit_deepdive_slide(self, focus, lines_img, padd_img, extra_bullets, foot):
-        fp = self.ctx["focus_peak"]
-        label = engine.FOCUS_LABEL[focus]
-
-        def pk(yr):
-            return float(fp.loc[yr, focus]) if yr in fp.index else 0.0
-        head = [
-            f"Peak concurrent {focus} offline: ~{kbd(pk(2025))} kbd (2025), ~{kbd(pk(2026))} (2026), "
-            f"~{kbd(pk(2027))} booked (2027).",
-        ]
+    def padd_by_unit_slide(self):
         self.charts_bullets_slide(
-            f"{label} - Capacity Offline by Month & PADD",
-            "Concurrent capacity offline (kbd); booked-only beyond H1-2027",
-            [lines_img, padd_img], head + extra_bullets, foot=foot)
-
-    def cdu_slide(self):
-        ev = self.ctx["unit_events_2027"]
-        cdu = ev[ev["focus"].eq("CDU")].sort_values("kbd", ascending=False)
-        tops = ", ".join(f"{str(r.plant).replace(' Refinery','')} ~{kbd(r.kbd)}"
-                         for _, r in cdu.head(3).iterrows())
-        self.unit_deepdive_slide(
-            "CDU", self.a["cdu_lines"], self.a["cdu_padd_27"],
-            ["Crude is the #1 unit to watch - when the CDU is down, the whole refinery's throughput is cut.",
-             "By PADD, the 2027 crude book concentrates on the Gulf Coast (PADD 3) in autumn and "
-             "PADD 2 in spring (the Joliet event).",
-             f"Largest booked 2027 crude turnarounds: {tops} kbd.",
-             "Spring and autumn are the windows; the summer trough is when crude runs are protected for "
-             "driving-season gasoline."],
-            foot="Crude = atmospheric (CDU) + vacuum (VDU) distillation. 2027 is planned-only; H2 books "
-                 "continue to fill in.")
-
-    def fcc_slide(self):
-        ev = self.ctx["unit_events_2027"]
-        fcc = ev[ev["focus"].eq("FCC")].sort_values("kbd", ascending=False)
-        tops = ", ".join(f"{str(r.plant).replace(' Refinery','')} ~{kbd(r.kbd)}"
-                         for _, r in fcc.head(3).iterrows())
-        self.unit_deepdive_slide(
-            "FCC", self.a["fcc_lines"], self.a["fcc_padd_27"],
-            ["FCC (cat cracker) is the most gasoline-relevant unit loss (~0.65 mogas yield) - octane and "
-             "blending risk stack when it's down.",
-             f"Largest booked 2027 FCC turnarounds: {tops} kbd - concentrated in Q1 (Beaumont, Baytown "
-             "Fuels South).",
-             "FCC turnarounds recur in adjacent months at the same plants - a back-to-back pattern that "
-             "month-aggregated trackers smooth away.",
-             "Gulf Coast (PADD 3) again leads the FCC slate; watch the spring overlap with crude work."],
-            foot="FCC offline shown concurrent by month; a plant's FCC counted once per month at nameplate.")
-
-    def hdc_ref_slide(self):
-        fp = self.ctx["focus_peak"]
-
-        def pk(u, y):
-            return float(fp.loc[y, u]) if y in fp.index else 0.0
-        s = self._section("Hydrocracker & Reformer - Capacity Offline by Month",
-                          "The octane/distillate complex: smaller in kbd, but gasoline-quality critical")
-        self._pic_fit(s, self.a["hdc_lines"], Inches(0.4), Inches(1.35), Inches(6.4), Inches(4.7),
-                      center="both")
-        self._pic_fit(s, self.a["ref_lines"], Inches(6.85), Inches(1.35), Inches(6.4), Inches(4.7),
-                      center="both")
-        self._bullets(s, Inches(0.5), Inches(6.15), Inches(12.3), [
-            f"Hydrocracker peak concurrent offline ~{kbd(pk('Hydrocracker',2025))} kbd (2025) -> "
-            f"~{kbd(pk('Hydrocracker',2027))} booked 2027; reformer ~{kbd(pk('Reformer',2025))} -> "
-            f"~{kbd(pk('Reformer',2027))}.",
-            "Hydrocracker = HYDROCRACKING only (distinct from diesel hydrotreating); reformer makes the "
-            "high-octane reformate that backstops gasoline blending.",
-            "Both are lower-volume than CDU/FCC but their loss tightens octane and distillate quality - a "
-            "read CDU-only trackers miss.",
-        ], size=11, spacing=0.34, head=None)
-        self._footnote(s, "Concurrent capacity offline (kbd) by month, 2021-2027; 2026-27 partial / booked-only.")
-        return s
+            "Outages by PADD by Unit - Where It Tightens",
+            "2027 crude (CDU, top) and cat-cracker (FCC, bottom) offline by region & month",
+            [self.a["cdu_padd_27"], self.a["fcc_padd_27"]],
+            ["PADD 3 (Gulf) is the swing region - most crude and FCC work lands there, tightening USGC "
+             "supply and the export barrel.",
+             "PADD 2 (Midwest) carries the spring crude (the Joliet event). PADD 5 (West) is islanded - a "
+             "California outage doesn't get bailed out by other regions.",
+             "Timing: spring (Mar-May) and autumn (Sep-Oct) are the windows; summer is protected for "
+             "driving-season gasoline.",
+             "Past the dotted line (H2) is non-Exxon-unconfirmed - those autumn bars are a floor and grow "
+             "as operators book."],
+            foot="Concurrent capacity offline by month, stacked by PADD. P1 NE, P2 Midwest, P3 Gulf, "
+                 "P4 Rockies, P5 West.")
 
     def exxon_slide(self):
         ver = self.ctx["exxon_verify"]
@@ -406,69 +268,56 @@ class Deck:
         conf = foc[foc["verified"] == True]                       # noqa: E712
         flag = foc[foc["verified"] == False]                      # noqa: E712
         bullets = [
-            "ExxonMobil is the ONLY operator with a full-year 2027 plan - so it's the one refiner whose "
-            "H2 turnarounds we can confirm. Everyone else is H1-only.",
-            "Shown per unit, never summed: each bar is one unit's nameplate offline over its window - no "
-            "meaningless Exxon 'total'.",
-            f"Confirmed against Exxon's corporate plan ({len(conf)} focus-unit events): Baytown & Beaumont "
-            "FCC in Q1, Joliet crude+vacuum Apr-May, Baton Rouge PSLA-9 crude in autumn.",
+            "ExxonMobil is the only operator with a full-year 2027 plan - so it's the one refiner whose H2 "
+            "we can confirm. Everyone else is H1-only.",
+            "Per unit, never summed - the 'Exxon ~700 kbd' figure was 8 Joliet units in one April "
+            "turnaround added together; it's really ~250 kbd of crude.",
+            f"Confirmed vs Exxon's own plan ({len(conf)} units): Baytown & Beaumont FCC in Q1, Joliet "
+            "crude+vacuum Apr-May, Baton Rouge crude in autumn.",
         ]
         for _, r in flag.iterrows():
-            bullets.append(f"- Flagged: {str(r.plant).replace(' Refinery','')} {str(r.unit_name)[:18]} "
-                           f"(~{kbd(r.kbd)} kbd, {r.span}) - {r.note}.")
-        bullets.append("The Joliet 'Crude' in Sep-Oct is the '700 kbd' culprit: a duplicate of the real "
-                       "April crude TA. Exxon's only Sep-2027 Joliet event is FT Cogen (a utility).")
+            bullets.append(f"- Flagged: {str(r.plant).replace(' Refinery','')} {str(r.unit_name)[:16]} "
+                           f"(~{kbd(r.kbd)} kbd, {r.span}) - not in Exxon's plan.")
         self.wide_chart_slide(
-            "ExxonMobil 2027 - Per Unit, Verified vs Corporate Plan",
-            "Each focus-unit turnaround as its own bar; red-hatched = no match in Exxon's plan",
+            "ExxonMobil 2027 - Per Unit, Verified vs Their Plan",
+            "Each unit's turnaround as its own bar; red-hatched = no match in Exxon's corporate schedule",
             self.a["exxon_gantt"], bullets,
-            foot="Cross-checked against data/exxon_ta_plan.csv (vendored from the AMR Turnaround Schedule). "
+            foot="Cross-checked against ExxonMobil's corporate turnaround plan (data/exxon_ta_plan.csv). "
                  "Match = same refinery + unit class overlapping the same months.")
 
-    def basis_2027_slide(self):
-        c2 = self.ctx["confirmed2027"]
-        pk = lambda f: max(c2[f]["confirmed"])
-        self.wide_chart_slide(
-            "2027 - What's Confirmed vs Still Being Booked",
-            "Capacity offline by unit & month: solid = confirmed, hatched = non-Exxon H2 (not yet booked)",
-            self.a["splits_2027"],
-            ["Only ExxonMobil gave a full-year 2027 plan - and we verified it against their own "
-             "corporate turnaround schedule. For every other operator, only H1 (Jan-Jun) 2027 is booked.",
-             "So in H2, the solid bars are ExxonMobil alone; the hatched H2 is other operators' work "
-             "still being scheduled - a floor that fills in, not a confirmed number.",
-             f"Confirmed peak concurrent offline (all in H1): CDU ~{kbd(pk('CDU'))} kbd, "
-             f"FCC ~{kbd(pk('FCC'))}, hydrocracker ~{kbd(pk('Hydrocracker'))}, reformer ~{kbd(pk('Reformer'))}.",
-             "The apparent autumn CDU spike is almost entirely unconfirmed non-Exxon H2 - don't read it "
-             "as a booked surge.",
-             "Bottom line: compare 2027 H1 like-for-like vs prior years; read H2 as Exxon-confirmed plus "
-             "an open book."],
-            foot="Confirmed = ExxonMobil (any month, plan-verified) + all operators' H1. The Joliet Sep-Oct "
-                 "'Crude' duplicate and the 2027 Joliet FCC (the plan books it 2026/2030) are excluded.")
+    def scenario_slide(self):
+        sc = self.ctx["scenario"]
+        fan = self.ctx["scenario_fan"]
+        cons = float(fan["Conservative"].sum()); avg = float(fan["Average"].sum()); act = float(fan["Active"].sum())
+        pl = float(sc["planned_2027"])
+        self.charts_bullets_slide(
+            "2027 Unplanned Scenario - the Risk on Top of Planned",
+            "Potential unplanned offline (kbd) modeled off the 2022-25 seasonal pattern",
+            [self.a["fan"], self.a["scenario_total"]],
+            ["2027 has no actual unplanned yet - this is the risk range to carry on top of the booked "
+             "planned slate.",
+             f"Average ~{kbd(avg)} kbd unplanned; Conservative ~{kbd(cons)} (calm year), Active ~{kbd(act)} "
+             f"(heavy). Booked planned is ~{kbd(pl)} kbd.",
+             f"Implied total ~{kbd(cons + pl)} / ~{kbd(avg + pl)} / ~{kbd(act + pl)} kbd "
+             "(Conservative / Average / Active).",
+             "Risk peaks in Feb (winter freeze) and Sep-Oct (turnaround overlap); summer is the trough.",
+             "Trade it: Active = stress case for supply tightness; Conservative = the floor."],
+            foot="Scenario = mean 2022-25 monthly unplanned shape x {0.8 / 1.0 / 1.3}. A risk range, not a "
+                 "forecast; fully tunable in the Excel Scenario tab.")
 
     def build(self):
         self.title_slide()
-        self.principle_slide()
-        self.basis_2027_slide()
-        self.overview_slide()
-        self.cdu_slide()
-        self.fcc_slide()
-        self.hdc_ref_slide()
-        self.exxon_slide()
-        # per-unit 2027 turnaround schedule (focus units, largest offline first)
-        ev = self.ctx["unit_events_2027"]
-        foc = ev[ev["focus"].isin(engine.FOCUS_ORDER)].sort_values("kbd", ascending=False)
-        self.unit_table_slide(
-            "Largest 2027 Turnarounds by Unit - CDU / FCC / HC / Reformer", foc,
-            note="One row per physical unit (deduped to peak nameplate offline), focus units only, all PADDs. "
-                 "ExxonMobil rows are full-year plan-verified; non-Exxon H2 rows are not yet confirmed. "
-                 "Excludes the verified-bad Joliet Sep-Oct crude & 2027 FCC.")
+        self.total_by_unit_slide()     # 4) total outages by unit
+        self.padd_by_unit_slide()      # 1) outages by PADD by unit
+        self.exxon_slide()             # 2) ExxonMobil outages
+        self.scenario_slide()          # 3) 2027 unplanned scenario
 
     def save(self, path):
         self.prs.save(path)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Refinery per-unit outage slide deck")
+    ap = argparse.ArgumentParser(description="Refinery outage trading-desk deck")
     ap.add_argument("excel", nargs="?", default=INPUT_PATH, help="path to the outage .xlsx export")
     ap.add_argument("--out", default=OUT_PATH, help="output .pptx path")
     args = ap.parse_args()

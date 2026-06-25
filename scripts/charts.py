@@ -511,13 +511,13 @@ def scenario_fan_chart(ctx, path):
     x = np.arange(12)
     ax.fill_between(x, fan["Conservative"].values, fan["Active"].values,
                     color="#D9E1F2", alpha=0.7, zorder=1, label="Conservative-Active range")
-    styles = {"Conservative": (GREEN, "--", 2.0), "Average": (NAVY, "-", 2.8), "Active": (RED, "--", 2.0)}
+    styles = {"Conservative": (GREEN, "--", 3.2), "Average": (NAVY, "-", 4.0), "Active": (RED, "--", 3.2)}
     for name, prof in fan.items():
         c, ls, lw = styles[name]
-        ax.plot(x, prof.values, color=c, lw=lw, ls=ls, marker="o", ms=3,
+        ax.plot(x, prof.values, color=c, lw=lw, ls=ls, marker="o", ms=6,
                 label=f"{name} (~{prof.sum():,.0f} kbd)", zorder=3)
     if 2025 in mu.index:
-        ax.plot(x, [mu.loc[2025, m] for m in MONTHS], color=GRAY, lw=1.2, zorder=2,
+        ax.plot(x, [mu.loc[2025, m] for m in MONTHS], color=GRAY, lw=2.0, ls=":", zorder=2,
                 label="2025 actual")
     ax.set_xticks(x, MONTHS)
     ax.yaxis.set_major_formatter(_thousands)
@@ -947,19 +947,16 @@ def render_all(ctx, outdir):
     os.makedirs(outdir, exist_ok=True)
     p = lambda n: os.path.join(outdir, n)
     out = {
-        # the per-unit principle + master timeline
-        "joliet_decode": joliet_decode(ctx, p("joliet_decode.png")),
+        # 1) total outages by unit (2027, confirmed vs not-yet-booked)
         "splits_2027": splits_2027(ctx, p("splits_2027.png")),
-        "focus_heat": focus_heat(ctx, p("focus_heat.png")),
-        # per-unit deep dives: by month (lines) + by month & PADD (stacked)
-        "cdu_lines": unit_year_lines(ctx, "CDU", p("cdu_lines.png")),
+        # 2) outages by PADD by unit
         "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
-        "fcc_lines": unit_year_lines(ctx, "FCC", p("fcc_lines.png")),
         "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),
-        "hdc_lines": unit_year_lines(ctx, "Hydrocracker", p("hdc_lines.png")),
-        "ref_lines": unit_year_lines(ctx, "Reformer", p("ref_lines.png")),
-        # ExxonMobil per-unit, verified vs corporate plan
+        # 3) ExxonMobil outages (per unit, verified)
         "exxon_gantt": exxon_gantt(ctx, p("exxon_gantt.png")),
+        # 4) 2027 unplanned scenario analysis
+        "fan": scenario_fan_chart(ctx, p("fan.png")),
+        "scenario_total": scenario_total_bars(ctx, p("scenario_total.png")),
     }
     return out
 
