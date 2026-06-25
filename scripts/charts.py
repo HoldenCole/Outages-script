@@ -7,6 +7,7 @@ a high-resolution PNG styled to the desk palette, and returns the path. Keeping
 all static-chart styling here means the deck stays consistent and a refresh only
 re-renders.
 """
+import math
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -179,10 +180,15 @@ def padd_combo(ctx, padd, path, figsize=(7.2, 4.2), compact=False):
 
 
 def padd_small_multiples(ctx, padds, path):
-    """2x2 small multiples of combo charts for the given PADDs (shared legend)."""
-    fig, axes = plt.subplots(2, 2, figsize=(10.5, 6.4))
+    """Small multiples of combo charts for the given PADDs (shared legend). Grid
+    auto-sizes: 4 PADDs -> 2x2, 5-6 -> 2x3 (spare cell blanked)."""
+    n = len(padds)
+    ncol = 3 if n > 4 else 2
+    nrow = int(math.ceil(n / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(3.6 * ncol, 3.15 * nrow))
+    axes = np.atleast_1d(axes).reshape(-1)
     CUR = 2026
-    for ax, padd in zip(axes.flat, padds):
+    for ax, padd in zip(axes, padds):
         pm = ctx["padd_month"][padd]
 
         def row(mat, yr):
@@ -199,6 +205,8 @@ def padd_small_multiples(ctx, padds, path):
         ax.yaxis.set_major_formatter(_thousands)
         ax.set_title(padd, fontsize=11)
         _clean(ax)
+    for ax in axes[n:]:                       # blank any spare grid cells
+        ax.axis("off")
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=GOLD), plt.Rectangle((0, 0), 1, 1, color=ORANGE),
         plt.Line2D([0], [0], color=RED, lw=2), plt.Line2D([0], [0], color=BLUE, lw=2),
@@ -447,16 +455,20 @@ def planned_cross_year(ctx, path):
                     label=f"{yr} Planned" + ("*" if yr in engine.PARTIAL_YEARS else ""))
     # mark the H1 / H2 boundary: 2027 H2 is still filling in -> read H1 for like-for-like
     ax.axvline(5.5, color=GRAY, ls=":", lw=1.4, zorder=2)
-    ymax = ax.get_ylim()[1]
-    ax.text(2.5, ymax * 0.97, "H1 (complete)", ha="center", va="top", fontsize=9, color=GRAY)
-    ax.text(8.5, ymax * 0.97, "H2 2027 incomplete*", ha="center", va="top", fontsize=9,
-            color=RED, style="italic")
     ax.set_xticks(x, MONTHS)
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd")
-    ax.set_title("US Planned Offline by Month - 2027 vs 2026 & 2025 (kbd)")
-    ax.legend(frameon=False, ncol=3, loc="upper left")
+    ax.set_title("US Planned Offline by Month - 2027 vs 2026 & 2025 (kbd)", pad=28)
+    # legend ABOVE the axes (between title and plot) so it never sits on the data
+    ax.legend(frameon=False, ncol=3, loc="lower left", bbox_to_anchor=(0, 1.0),
+              borderaxespad=0.3)
     _clean(ax)
+    # headroom so the H1/H2 region labels float above the bars/lines, clear of legend
+    top = ax.get_ylim()[1] * 1.15
+    ax.set_ylim(top=top)
+    ax.text(2.5, top * 0.97, "H1 (complete)", ha="center", va="top", fontsize=9, color=GRAY)
+    ax.text(8.5, top * 0.97, "H2 2027 incomplete*", ha="center", va="top", fontsize=9,
+            color=RED, style="italic")
     fig.text(0.5, 0.005, "*2027 planned book is complete through H1; H2 still being scheduled - "
              "compare H1-vs-H1 for a like-for-like read.", ha="center", fontsize=8, color=GRAY)
     return _save(fig, path)
@@ -477,8 +489,9 @@ def exxon_2027_chart(ctx, path):
     ax.set_xticks(x, MONTHS)
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd")
-    ax.set_title("ExxonMobil 2027 Planned Offline by Month & Refinery (kbd)")
-    ax.legend(frameon=False, ncol=4, loc="upper center", fontsize=9)
+    ax.set_title("ExxonMobil 2027 Planned Offline by Month & Refinery (kbd)", pad=24)
+    ax.legend(frameon=False, ncol=4, loc="lower left", bbox_to_anchor=(0, 1.0),
+              borderaxespad=0.3, fontsize=9)
     _clean(ax)
     return _save(fig, path)
 
@@ -495,8 +508,9 @@ def padd_planned_27v26(ctx, padd, path):
     ax.set_xticks(x, [m[0] for m in MONTHS])
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd")
-    ax.set_title(f"{padd} Planned Offline - 2027 vs 2026 (kbd)")
-    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=9)
+    ax.set_title(f"{padd} Planned Offline - 2027 vs 2026 (kbd)", pad=22)
+    ax.legend(frameon=False, ncol=2, loc="lower left", bbox_to_anchor=(0, 1.0),
+              borderaxespad=0.3, fontsize=9)
     _clean(ax)
     return _save(fig, path)
 
@@ -521,7 +535,8 @@ def scenario_fan_chart(ctx, path):
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd")
     ax.set_title("2027 Unplanned Forecast - Conservative / Average / Active (kbd)")
-    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=9)
+    ax.set_ylim(top=ax.get_ylim()[1] * 1.04)
+    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=8.5)
     _clean(ax)
     return _save(fig, path)
 
@@ -556,6 +571,100 @@ def dollar_at_risk(ctx, path):
     return _save(fig, path)
 
 
+def padd_planned_pair(ctx, path):
+    """Where the 2027 build lands: planned offline by PADD, 2026 vs 2027, with
+    the y/y% labelled over each region (pairs with the monthly cross-year view)."""
+    pp = ctx["padd_planned"]
+    padds = list(pp.index)
+    fig, ax = plt.subplots(figsize=(9.6, 3.5))
+    x = np.arange(len(padds))
+    v26 = [float(pp.loc[p, 2026]) for p in padds]
+    v27 = [float(pp.loc[p, 2027]) for p in padds]
+    ax.bar(x - 0.2, v26, 0.4, color=BLUE, label="2026 Planned", zorder=3)
+    ax.bar(x + 0.2, v27, 0.4, color=GOLD, label="2027 Planned", zorder=3)
+    for i, (a, b) in enumerate(zip(v26, v27)):
+        if a > 0:
+            ax.text(i, max(a, b), f"  {b / a - 1:+.0%}", ha="center", va="bottom",
+                    fontsize=8.5, color=NAVY, fontweight="bold")
+    ax.set_xticks(x, padds)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_ylim(top=max(v26 + v27) * 1.18)
+    ax.set_title("Planned Offline by PADD - 2026 vs 2027 (kbd, with y/y%)")
+    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def dollar_monthly_profile(ctx, path):
+    """When in the year the unplanned $-at-risk lands: monthly $MM, 2025 vs 2026
+    (pairs with the annual $-at-risk bars)."""
+    di = ctx.get("dollar_impact") or {}
+    fig, ax = plt.subplots(figsize=(9.6, 3.5))
+    if not di:
+        ax.axis("off")
+        return _save(fig, path)
+    x = np.arange(12)
+    for yr, c, off in [(2025, NAVY, -0.2), (2026, GOLD, 0.2)]:
+        if yr in di:
+            ax.bar(x + off, di[yr]["monthly_unpl"], 0.4, color=c,
+                   label=f"{yr} unplanned $", zorder=3)
+    ax.set_xticks(x, [m[0] for m in MONTHS])
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("$MM")
+    ax.set_title("Monthly Unplanned Margin at Risk - 2025 vs 2026 ($MM)")
+    ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def exxon_by_unit(ctx, path):
+    """ExxonMobil 2027 planned offline split by unit category (pairs with the
+    by-month / by-refinery stacked view)."""
+    bu = ctx["exxon_2027"]["by_unit"]
+    items = sorted(bu.items(), key=lambda kv: kv[1])[-7:]
+    fig, ax = plt.subplots(figsize=(9.6, 3.5))
+    labels = [str(k).title() for k, _ in items]
+    vals = [v for _, v in items]
+    ax.barh(labels, vals, color=NAVY, zorder=3)
+    ax.xaxis.set_major_formatter(_thousands)
+    ax.set_xlabel("kbd")
+    ax.set_xlim(right=max(vals) * 1.16)
+    ax.set_title("ExxonMobil 2027 Planned Offline by Unit (kbd)")
+    for i, v in enumerate(vals):
+        ax.text(v, i, f"  {v:,.0f}", va="center", fontsize=8.5, color=NAVY)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="x", zorder=0)
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(length=0)
+    return _save(fig, path)
+
+
+def fcc_by_year(ctx, path):
+    """US-wide FCC (cat cracker) offline by year - the recurring, multi-operator
+    market pattern behind the Exxon-specific back-to-back runs (2020-21 capped)."""
+    row = ctx["unit_total"].loc["FLUID CAT CRACKING"]
+    years = [y for y in range(2014, 2027) if y in row.index]
+    vals = [float(row[y]) for y in years]
+    ref = max([v for y, v in zip(years, vals) if y not in engine.OUTLIER_YEARS] or vals)
+    disp = [min(v, ref) if y in engine.OUTLIER_YEARS else v for y, v in zip(years, vals)]
+    fig, ax = plt.subplots(figsize=(9.6, 3.5))
+    x = np.arange(len(years))
+    ax.bar(x, disp, color=GOLD, zorder=3)
+    for i, y in enumerate(years):
+        if y in engine.OUTLIER_YEARS:
+            ax.text(i, disp[i], "^", ha="center", va="bottom", fontsize=11, color=RED)
+    ax.set_xticks(x, [f"{y}*" if y in engine.PARTIAL_YEARS else str(y) for y in years], fontsize=8)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title("US FCC (Cat Cracker) Offline by Year - All Operators (kbd)")
+    _clean(ax)
+    fig.text(0.5, 0.004, "2020-21 (COVID / Winter Storm Uri) capped for scale (^).",
+             ha="center", fontsize=7.5, color=GRAY)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path."""
     import os
@@ -585,6 +694,11 @@ def render_all(ctx, outdir):
         "exxon27": exxon_2027_chart(ctx, p("exxon27.png")),
         "fan": scenario_fan_chart(ctx, p("fan.png")),
         "dollar": dollar_at_risk(ctx, p("dollar.png")),
+        "padd_pair": padd_planned_pair(ctx, p("padd_pair.png")),
+        "dollar_month": dollar_monthly_profile(ctx, p("dollar_month.png")),
+        "exxon_unit": exxon_by_unit(ctx, p("exxon_unit.png")),
+        "padd_all": padd_small_multiples(ctx, list(engine.PADD_ORDER), p("padd_all.png")),
+        "fcc_year": fcc_by_year(ctx, p("fcc_year.png")),
         "padd_pl": {pd: padd_planned_27v26(ctx, pd, p(f"padd_pl_{pd[-1]}.png")) for pd in PADDS},
     }
     return out

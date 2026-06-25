@@ -9,10 +9,11 @@ deliverables from one data pipeline:
    a two-way sensitivity heatmap, a sorted driver-sensitivity bar, and a **live**
    2027 **Scenario Analysis** model (Conservative/Average/Active fan) driven by
    data-validation dropdowns. *(Priority 1.)*
-2. **Slide deck** (`outage_deck.pptx`) — 12-slide 16:9 deck mirroring the
-   workbook's charts with data-driven takeaways; the planned slide leads with the
-   H1-vs-H1 like-for-like and the scenario slide is the Conservative/Average/Active
-   fan. *(Priority 2.)*
+2. **Slide deck** (`outage_deck.pptx`) — tight 8-slide 16:9 deck, two charts per
+   content slide, mirroring the workbook's charts with data-driven takeaways; the
+   planned slide leads with the H1-vs-H1 like-for-like, the scenario slide pairs the
+   Conservative/Average/Active fan with a driver tornado, and the regional view is a
+   five-PADD small-multiples + a national turnaround table. *(Priority 2.)*
 3. **HTML dashboard** (`outage_dashboard.html`) — a single self-contained file
    with a **dynamic focus-year selector** (KPIs show the picked year vs the prior
    year), a 2026-vs-2025 / H1'27-vs-H1'26 / 2027-forecast outlook strip, and a
@@ -148,10 +149,12 @@ cross-navigation on the Dashboard; a Quick-Start callout; and print-ready setup
 
 Styled to a sell-side "weekly meeting" template: a navy title slide, white
 content slides with a **red section header**, brand wordmark and page number,
-and **dense layouts** — multi-chart grids, combo-charts + "key takeaways"
-bullets, range-band seasonality charts, and **full-width turnaround-schedule
-tables** per PADD. Set `BRAND_LOGO` in `build_slides.py` to drop in your own
-logo (the layout reproduces the reference look, not the trademarked mark).
+and **dense layouts** — **two charts per content slide** (chart-pair + "key
+takeaways" bullets), a five-PADD **small-multiples** regional overview, and a
+**full-width national turnaround-schedule table**. Chart legends sit above the
+plot where they would otherwise collide with the data. Set `BRAND_LOGO` in
+`build_slides.py` to drop in your own logo (the layout reproduces the reference
+look, not the trademarked mark).
 
 ### Dashboard (`outage_dashboard.html`)
 

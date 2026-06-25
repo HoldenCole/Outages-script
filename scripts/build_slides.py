@@ -27,6 +27,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
+import pandas as pd
+
 import engine
 import charts
 
@@ -320,53 +322,42 @@ class Deck:
             self._footnote(s, note)
         return s
 
-    def method_slide(self):
-        s = self._section("Method & Caveats", "Read before use")
-        notes = [
-            "Primary metric is CAP_OFFLINE_ADJUSTED_KBD (offline capacity, kbd, all units). Mogas is "
-            "a secondary overlay (capacity x unit yield).",
-            "Outage type is binary {PLANNED, UNPLANNED}; UNKNOWN folds into UNPLANNED per desk rule.",
-            "2027 is planned-only - Plan+Unplanned / Unplanned comparisons vs 2027 are n/a; only "
-            "Planned is comparable. Unplanned-2027 is a modeled scenario.",
-            "2020-2021 (COVID / Winter Storm Uri) are excluded from forecast baselines by default.",
-            "Back-to-back = consecutive months of outage at one plant/unit; surfaces clustered FCC "
-            "turnarounds external trackers miss.",
-            "Scenario = baseline(window) x (1+growth) x multiplier + one-off(stress month); the Excel "
-            "workbook recomputes it live from dropdown inputs.",
-            "All numbers refresh from the source export - re-run the build to update workbook, deck "
-            "and dashboard together.",
-        ]
-        self._bullets(s, Inches(0.5), Inches(1.5), Inches(12.3), notes, size=12.5, spacing=0.66,
-                      head=None)
+    def wide_chart_slide(self, title, sub, img, bullets, foot=None):
+        """One wide chart (left ~2/3) + a narrow takeaways column (right)."""
+        s = self._section(title, sub)
+        self._pic_fit(s, img, Inches(0.4), Inches(1.3), Inches(8.7), Inches(5.3), center="both")
+        self._bullets(s, Inches(9.35), Inches(1.5), Inches(3.75), bullets, size=11, spacing=0.46)
+        if foot:
+            self._footnote(s, foot)
+        return s
 
-    def _padd_highlight(self, p, pct):
-        ta = self.ctx["ta_2027"][p]
-        if len(ta):
-            big = ta.sort_values("kbd", ascending=False).iloc[0]
-            mon = engine.MONTHS[int(big["start"].month) - 1]
-            dirn = "up" if (pct or 0) > 0.05 else ("down" if (pct or 0) < -0.05 else "roughly flat")
-            return (f"Highlight: {str(big['plant']).replace(' Refinery','')} "
-                    f"({str(big['unit_cat']).title()}, {mon}) is the largest single 2027 turnaround "
-                    f"at ~{kbd(big['kbd'])} kbd; the region's planned book is {dirn} y/y.")
-        return "Highlight: a light planned year for the region."
-
-    def _padd_slide(self, p):
+    def padd_overview_slide(self):
+        """Replaces five sparse per-PADD slides with one dense small-multiples view."""
         pp = self.ctx["padd_planned"]
-        v26 = float(pp.loc[p, 2026]); v27 = float(pp.loc[p, 2027])
-        pct = (v27 / v26 - 1) if v26 else None
-        ta = self.ctx["ta_2027"][p]
-        bullets = [f"2027 planned offline ~{kbd(v27)} kbd vs ~{kbd(v26)} in 2026"
-                   + (f"  ({pct:+.0%} y/y)." if pct is not None else ".")]
-        bullets.append("Main 2027 turnarounds (largest by offline kbd):")
-        for _, r in ta.sort_values("kbd", ascending=False).head(3).iterrows():
-            mon = engine.MONTHS[int(r["start"].month) - 1]
-            bullets.append(f"- {str(r['plant']).replace(' Refinery','')} - "
-                           f"{str(r['unit_cat']).title()} (~{kbd(r['kbd'])} kbd, {mon})")
-        bullets.append(self._padd_highlight(p, pct))
-        self.charts_bullets_slide(
-            f"{p} - 2027 Planned Outlook",
-            "Planned offline 2027 vs 2026, and the main turnarounds for next year",
-            [self.a["padd_pl"][p]], bullets)
+        bul = ["2027 planned offline vs 2026, by region (kbd):"]
+        for p in engine.PADD_ORDER:
+            v26 = float(pp.loc[p, 2026]); v27 = float(pp.loc[p, 2027])
+            pct = (v27 / v26 - 1) if v26 else None
+            bul.append(f"- {p}: ~{kbd(v27)} vs ~{kbd(v26)}"
+                       + (f"  ({pct:+.0%})." if pct is not None else "."))
+        nat26 = float(pp[2026].sum()); nat27 = float(pp[2027].sum())
+        bul.append(f"National ~{kbd(nat27)} kbd in 2027 vs ~{kbd(nat26)} in 2026 "
+                   f"({nat27/nat26-1:+.0%}) - Gulf Coast (PADD 3) leads the build.")
+        bul.append("Each panel: 2026 plan+unplanned (bars), recent-year totals (lines), 2027 plan (green dashed).")
+        self.wide_chart_slide(
+            "Planned 2027 by Region - All PADDs",
+            "Per-PADD monthly offline: 2026 actuals, recent-year totals and the 2027 booked plan",
+            self.a["padd_all"], bul,
+            foot="2027 is planned-only and complete through H1; H2 books fill in. 2020-21 excluded.")
+
+    def national_ta_slide(self):
+        """Dense national 2027 turnaround schedule (largest by offline capacity)."""
+        allta = pd.concat([self.ctx["ta_2027"][p] for p in engine.PADD_ORDER], ignore_index=True)
+        allta = allta.sort_values("kbd", ascending=False)
+        self.ta_table_slide(
+            "Largest 2027 Turnarounds Nationally", allta,
+            note="Top planned 2027 turnarounds by offline capacity (kbd), all PADDs. 2027 is "
+                 "planned-only and complete through H1; H2 books continue to fill in.", maxrows=14)
 
     def build(self):
         a = self.a
@@ -390,7 +381,7 @@ class Deck:
         self.charts_bullets_slide(
             "2027 vs 2026 & 2025 - Planned Offline",
             "US planned capacity offline (kbd); 2027 book complete through H1 only",
-            [a["planned_xyear"]],
+            [a["planned_xyear"], a["padd_pair"]],
             [f"H1 is the clean read: 2027 H1 planned ~{kbd(h1_27)} kbd vs 2026 H1 ~{kbd(h1_26)} "
              f"({h1_27/h1_26-1:+.0%}) - a real, like-for-like step up.",
              f"Full-year looks larger ({pl27/pl26-1:+.0%} vs 2026) only because 2026 H2 is light/incomplete; "
@@ -407,7 +398,7 @@ class Deck:
         self.charts_bullets_slide(
             "2027 Potential Unplanned - Scenario Fan",
             "Conservative / Average / Active paths off the 2022-25 seasonal baseline",
-            [a["fan"]],
+            [a["fan"], a["tornado"]],
             [f"Average case ~{kbd(avg)} kbd unplanned; Conservative ~{kbd(cons)} (calm year, x0.8), "
              f"Active ~{kbd(act)} (heavy year, x1.3).",
              f"On top of {kbd(sc['planned_2027'])} kbd booked planned, that's an implied total of "
@@ -423,7 +414,7 @@ class Deck:
             self.charts_bullets_slide(
                 "Outages in Dollars - Gross Margin at Risk",
                 "Offline capacity valued at the gasoline crack spread (EIA NYH gasoline - WTI)",
-                [a["dollar"]],
+                [a["dollar"], a["dollar_month"]],
                 [f"Valuing offline capacity at the gasoline crack turns outages into P&L: 2025 unplanned "
                  f"outages = ~${d25['unplanned']/1000:.1f}bn gross margin at risk (crack ~${d25['crack_avg']:.0f}/bbl).",
                  f"Planned turnarounds ~${d25['planned']/1000:.1f}bn, timed into softer-margin shoulder seasons.",
@@ -437,7 +428,8 @@ class Deck:
         # 3) back-to-back-to-back FCC
         self.charts_bullets_slide(
             "Back-to-Back-to-Back FCC Outages - ExxonMobil",
-            "Consecutive-month FCC (cat cracker) runs external trackers miss", [a["fcc"]],
+            "Consecutive-month FCC (cat cracker) runs external trackers miss",
+            [a["fcc"], a["fcc_year"]],
             ["This granular book captures repeated FCC outages in adjacent months at the same Exxon "
              "plant - genuine back-to-back-to-back runs.",
              "Baton Rouge ran Jan-Jun 2022 (6 months); Joliet Feb-Jun 2026 (5); Baytown Jan-Mar 2023; "
@@ -456,7 +448,8 @@ class Deck:
         others_txt = ", ".join(f"{r} ~{kbd(v)}" for r, v in others)
         self.charts_bullets_slide(
             "ExxonMobil - 2027 Outages Breakdown",
-            "2027 is planned-only; this is Exxon's booked turnaround slate", [a["exxon27"]],
+            "2027 is planned-only; this is Exxon's booked turnaround slate",
+            [a["exxon27"], a["exxon_unit"]],
             [f"ExxonMobil has ~{kbd(tot)} kbd of planned offline booked for 2027 across "
              f"{len(by_ref)} refineries.",
              f"Joliet (PADD 2) dominates at ~{kbd(jol)} kbd (~{jol/tot:.0%}) - a major spring "
@@ -466,11 +459,10 @@ class Deck:
              f"hydrotreating ~{kbd(by_unit.get('HYDROTREATING',0))} kbd.",
              "Calendar: heaviest in April with a second wave in Sep-Oct - watch the Joliet spring event."])
 
-        # 5) per-PADD planned 2027 vs 2026 + highlights
-        for p in engine.PADD_ORDER:
-            self._padd_slide(p)
-
-        self.method_slide()
+        # 5) regional outlook: one dense small-multiples overview + national TA table
+        #    (replaces five sparse per-PADD slides)
+        self.padd_overview_slide()
+        self.national_ta_slide()
 
     def save(self, path):
         self.prs.save(path)
