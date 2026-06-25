@@ -744,8 +744,191 @@ def mom_newgone_chart(ctx, path):
     return path
 
 
+# --------------------------------------------------------------------------- per-unit (focus) charts
+FOCUS_COLOR = {"CDU": NAVY, "FCC": RED, "Hydrocracker": GREEN, "Reformer": GOLD}
+
+
+def focus_heat(ctx, path):
+    """2x2 heatmaps: concurrent capacity offline (kbd) by month x year (2021-2027)
+    for each focus unit (CDU/FCC/hydrocracker/reformer). Reads as a per-unit
+    timeline and never sums across units - the core 'by month & unit' view."""
+    fm = ctx["focus_monthly"]
+    fig, axes = plt.subplots(2, 2, figsize=(11.6, 6.6))
+    for ax, f in zip(axes.reshape(-1), engine.FOCUS_ORDER):
+        m = fm[f]
+        years = [int(y) for y in m.index]
+        mat = m.values
+        ax.imshow(mat, cmap="OrRd", aspect="auto", vmin=0)
+        ax.set_xticks(range(12), [mo[0] for mo in MONTHS], fontsize=8)
+        ax.set_yticks(range(len(years)), years, fontsize=8)
+        vmax = mat.max() or 1.0
+        for i in range(len(years)):
+            for j in range(12):
+                v = mat[i, j]
+                if v >= 0.06 * vmax:
+                    ax.text(j, i, f"{v:,.0f}", ha="center", va="center", fontsize=6,
+                            color="white" if v > 0.55 * vmax else "#23272e")
+        ax.set_title(engine.FOCUS_LABEL[f], fontsize=11)
+        ax.grid(False)
+        ax.tick_params(length=0)
+    fig.suptitle("Capacity Offline by Unit & Month - concurrent kbd, 2021-2027",
+                 fontsize=14, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def unit_year_lines(ctx, focus, path, figsize=(7.4, 4.5)):
+    """One focus unit: concurrent capacity offline (kbd) by month, a line per year
+    2021-2027 (the per-unit seasonal timeline)."""
+    m = ctx["focus_monthly"][focus]
+    fig, ax = plt.subplots(figsize=figsize)
+    cmap = {2021: "#C9C9C9", 2022: "#9DB0CE", 2023: GREEN, 2024: BLUE,
+            2025: RED, 2026: GOLD, 2027: NAVY}
+    for y in [int(y) for y in m.index]:
+        lw = 2.8 if y == 2027 else (2.3 if y == 2025 else 1.5)
+        ls = "--" if y in (2026, 2027) else "-"
+        ax.plot(MONTHS, [m.loc[y, mo] for mo in MONTHS], color=cmap.get(y, GRAY),
+                lw=lw, ls=ls, marker="o", ms=3,
+                label=f"{y}*" if y in engine.PARTIAL_YEARS else str(y))
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd offline")
+    ax.set_title(f"{engine.FOCUS_LABEL[focus]} - Capacity Offline by Month (kbd)", pad=26)
+    ax.legend(frameon=False, ncol=7, fontsize=8, loc="lower left",
+              bbox_to_anchor=(0, 1.0), borderaxespad=0.3, columnspacing=1.0)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def focus_padd_bars(ctx, focus, year, path, figsize=(7.4, 4.1)):
+    """One focus unit, one year: concurrent offline by month, stacked by PADD -
+    the 'timeline by month and PADD' read, kept per unit."""
+    g = ctx["focus_padd"][year][focus]
+    fig, ax = plt.subplots(figsize=figsize)
+    x = np.arange(12)
+    bottom = np.zeros(12)
+    cols = {"PADD 1": "#9DB0CE", "PADD 2": BLUE, "PADD 3": NAVY, "PADD 4": GREEN, "PADD 5": GOLD}
+    for pd_ in PADDS:
+        vals = g.loc[pd_].values if pd_ in g.index else np.zeros(12)
+        ax.bar(x, vals, bottom=bottom, color=cols[pd_], label=pd_.replace("PADD ", "P"), zorder=3)
+        bottom += vals
+    ax.set_xticks(x, [mo[0] for mo in MONTHS])
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd")
+    ax.set_title(f"{focus} Offline by Month & PADD - {year} (kbd)")
+    ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
+    _clean(ax)
+    return _save(fig, path)
+
+
+def exxon_gantt(ctx, path):
+    """Per-unit timeline of ExxonMobil's 2027 focus-unit turnarounds, each bar a
+    single unit (plant-unit, nameplate kbd) spanning its outage months, colored by
+    unit class. Confirmed against Exxon's corporate plan = solid; flagged (no plan
+    match) = red hatched. Replaces the meaningless summed-Exxon total."""
+    ev = ctx["exxon_verify"]["events"]
+    foc = ev[ev["focus"].isin(engine.FOCUS_ORDER)].copy()
+    foc["m0"] = foc["months"].apply(lambda m: min(m) if m else 13)
+    foc["m1"] = foc["months"].apply(lambda m: max(m) if m else 0)
+    foc = foc.sort_values(["m0", "kbd"], ascending=[True, False]).reset_index(drop=True)
+    fig, ax = plt.subplots(figsize=(10.6, max(3.4, 0.52 * len(foc) + 1.1)))
+    for i, (_, r) in enumerate(foc.iterrows()):
+        s, w = r["m0"] - 1, r["m1"] - r["m0"] + 1
+        flagged = (r["verified"] is False) or (r["verified"] == False)  # noqa: E712
+        ax.barh(i, w, left=s, height=0.62, color=FOCUS_COLOR.get(r["focus"], GRAY),
+                edgecolor=RED if flagged else "white", lw=2.4 if flagged else 0.5,
+                hatch="///" if flagged else None, zorder=3)
+        lbl = f"{r['plant'].replace(' Refinery', '')} {str(r['unit_name'])[:17]} ({r['kbd']:.0f})"
+        ax.text(s + w + 0.15, i, lbl + ("   (!) not in plan" if flagged else ""),
+                va="center", fontsize=8, color=RED if flagged else "#23272e")
+    ax.set_yticks(range(len(foc)), [r["focus"] for _, r in foc.iterrows()], fontsize=7.5)
+    ax.set_xticks(range(12), MONTHS)
+    ax.set_xlim(0, 17.5)
+    ax.set_ylim(-0.6, len(foc) - 0.4)
+    ax.invert_yaxis()
+    handles = [plt.Rectangle((0, 0), 1, 1, color=FOCUS_COLOR[f]) for f in engine.FOCUS_ORDER]
+    ax.legend(handles, engine.FOCUS_ORDER, frameon=False, ncol=4, fontsize=8,
+              loc="lower right")
+    ax.set_title("ExxonMobil 2027 - Focus-Unit Turnarounds, per unit (kbd), verified vs corporate plan",
+                 fontsize=11.5)
+    ax.grid(axis="x", zorder=0)
+    ax.tick_params(length=0)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return _save(fig, path)
+
+
+def joliet_decode(ctx, path):
+    """Why one 'Exxon ~700 kbd' figure is wrong. The units in Joliet's SINGLE
+    Apr-2027 turnaround, shown per unit: adding them up = ~715 kbd at a ~250 kbd
+    refinery. The honest read is 250 kbd of crude (CDU) offline."""
+    ev = engine.unit_events(ctx["df"], operator_contains="EXXON", year=2027)
+    jol = ev[ev["plant"].str.contains("Joliet", na=False)
+             & ev["months"].apply(lambda m: bool(set(m) & {4, 5}))].copy()
+    jol = jol.sort_values("kbd", ascending=True)
+    labels = [f"{str(u).title()[:24]}" for u in jol["unit_name"]]
+    vals = jol["kbd"].tolist()
+    # highlight ONLY the atmospheric crude unit (the CDU) - the 250 kbd headline
+    is_cdu = (jol["unit_cat"] == "ATMOS DISTILLATION").tolist()
+    colors = [NAVY if c else "#C0C0C0" for c in is_cdu]
+    total = sum(vals)
+    crude = float(jol[jol["unit_cat"] == "ATMOS DISTILLATION"]["kbd"].sum())
+    fig, ax = plt.subplots(figsize=(9.6, 4.8))
+    y = np.arange(len(jol))
+    ax.barh(y, vals, color=colors, zorder=3)
+    ax.set_yticks(y, labels, fontsize=9)
+    for i, v in enumerate(vals):
+        ax.text(v, i, f"  {v:,.0f}", va="center", fontsize=8.5, color=NAVY)
+    ax.xaxis.set_major_formatter(_thousands)
+    ax.set_xlabel("nameplate offline (kbd)")
+    ax.set_xlim(right=max(vals) * 1.28)
+    ax.set_title("One Joliet turnaround, April 2027 - why you can't add units together")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="x", zorder=0)
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(length=0)
+    ax.text(0.97, 0.06,
+            f"Sum of all {len(jol)} units = {total:,.0f} kbd\n"
+            f"...but Joliet is a ~250 kbd refinery.\n"
+            f"Honest read: ~{crude:,.0f} kbd of crude (the CDU) offline;\n"
+            f"the rest are separate downstream units.",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5, color=RED,
+            bbox=dict(boxstyle="round,pad=0.5", fc="#FFF3F3", ec=RED, lw=1.2))
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
-    """Render every deck chart into outdir; return a dict name -> path."""
+    """Render every deck chart into outdir; return a dict name -> path.
+
+    The deck is built around per-unit capacity offline (2021+): the focus is the
+    four key units (CDU, FCC, hydrocracker, reformer) read per unit and by month
+    and PADD, plus the verified ExxonMobil per-unit view. Margin/$ and aggregate
+    'total offline' charts are intentionally not rendered here."""
+    import os
+    os.makedirs(outdir, exist_ok=True)
+    p = lambda n: os.path.join(outdir, n)
+    out = {
+        # the per-unit principle + master timeline
+        "joliet_decode": joliet_decode(ctx, p("joliet_decode.png")),
+        "focus_heat": focus_heat(ctx, p("focus_heat.png")),
+        # per-unit deep dives: by month (lines) + by month & PADD (stacked)
+        "cdu_lines": unit_year_lines(ctx, "CDU", p("cdu_lines.png")),
+        "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
+        "fcc_lines": unit_year_lines(ctx, "FCC", p("fcc_lines.png")),
+        "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),
+        "hdc_lines": unit_year_lines(ctx, "Hydrocracker", p("hdc_lines.png")),
+        "ref_lines": unit_year_lines(ctx, "Reformer", p("ref_lines.png")),
+        # ExxonMobil per-unit, verified vs corporate plan
+        "exxon_gantt": exxon_gantt(ctx, p("exxon_gantt.png")),
+    }
+    return out
+
+
+def _render_all_legacy(ctx, outdir):
+    """Previous (aggregate/margin) chart set - kept for reference, not used by the
+    per-unit deck."""
     import os
     os.makedirs(outdir, exist_ok=True)
     p = lambda n: os.path.join(outdir, n)

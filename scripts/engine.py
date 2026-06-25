@@ -109,6 +109,25 @@ BASELINE_WINDOWS = {
 }
 DEFAULT_WINDOW = "2022-2025"
 
+# Focus units, in the priority order the desk reads them (CDU first, then FCC,
+# hydrocracker, reformer). These four are reported per-unit; everything else is
+# context. Hydrocracker = HYDROCRACKING only (NOT hydrotreating, a different unit).
+FOCUS_ORDER = ["CDU", "FCC", "Hydrocracker", "Reformer"]
+FOCUS_LABEL = {
+    "CDU": "Crude / Distillation (CDU+VDU)",
+    "FCC": "FCC (cat cracker)",
+    "Hydrocracker": "Hydrocracker",
+    "Reformer": "Reformer",
+}
+UNITCAT_TO_FOCUS = {
+    "ATMOS DISTILLATION": "CDU", "VACUUM DISTILLATION": "CDU",
+    "FLUID CAT CRACKING": "FCC",
+    "HYDROCRACKING": "Hydrocracker", "RESID_HYDROCRACKING": "Hydrocracker",
+    "REFORMING": "Reformer",
+}
+START_YEAR = 2021          # desk view starts at 2021 (earlier years dropped per request)
+END_YEAR = 2027
+
 
 # ----------------------------------------------------------------------------- load + clean
 def _to_padd_from_roman(val):
@@ -186,6 +205,8 @@ def load(path):
     out["year"] = pd.to_numeric(out["year"], errors="coerce").astype("Int64")
     out["month"] = pd.to_numeric(out["month"], errors="coerce").astype("Int64")
     out["cap_kbd"] = pd.to_numeric(out["cap_kbd"], errors="coerce").fillna(0.0)
+    out["cap_raw"] = pd.to_numeric(out["cap_raw"], errors="coerce").fillna(0.0)  # full unit nameplate offline
+    out["unit_cap"] = pd.to_numeric(out["unit_cap"], errors="coerce")
     out["duration"] = pd.to_numeric(out["duration"], errors="coerce")
 
     # outage type: fold UNKNOWN -> UNPLANNED, normalize to {PLANNED, UNPLANNED}
@@ -202,6 +223,7 @@ def load(path):
 
     # mogas overlay
     out["bucket"] = out["unit_cat"].map(UNITCAT_TO_BUCKET).fillna("Other")
+    out["focus"] = out["unit_cat"].map(UNITCAT_TO_FOCUS)      # NaN for non-focus units
     out["mogas_kbd"] = out["cap_kbd"] * out["bucket"].map(YIELD_FACTOR).fillna(0.0)
 
     out["month_name"] = out["month"].map(
@@ -990,6 +1012,207 @@ def period_change(df):
     }
 
 
+# ----------------------------------------------------------------------------- per-unit capacity offline
+def unit_offline_monthly(df, focus=None, type_filter=None, padd=None,
+                         y0=START_YEAR, y1=END_YEAR, value="cap_raw"):
+    """Concurrent capacity offline (kbd) by month for one focus unit class.
+
+    The honest 'per-unit' read: for each (year, month) we sum each *distinct
+    physical unit's* offline capacity once (deduped on plant+unit), so a unit
+    down across several months is never double-counted across months, and we
+    never add a CDU to an FCC. Returns a year x month matrix (Jan..Dec).
+    Nameplate offline (`cap_raw`) by default -- 'how much of this unit class is
+    down', the way the desk thinks about it ("250 kbd of crude offline")."""
+    sub = df[(df["year"] >= y0) & (df["year"] <= y1)].dropna(subset=["month"]).copy()
+    if focus:
+        sub = sub[sub["focus"].eq(focus)]
+    if type_filter:
+        sub = sub[sub["type"].eq(type_filter)]
+    if padd:
+        sub = sub[sub["padd"].eq(padd)]
+    if sub.empty:
+        return pd.DataFrame(0.0, index=list(range(y0, y1 + 1)), columns=MONTHS)
+    # one value per physical unit per month, at its peak nameplate that month
+    dd = (sub.groupby(["year", "month", "plant", "unit_name"], dropna=False)[value]
+            .max().reset_index())
+    g = (dd.groupby(["year", "month"])[value].sum()
+           .unstack("month").reindex(columns=range(1, 13)))
+    g.columns = MONTHS
+    return g.reindex(range(y0, y1 + 1)).fillna(0.0)
+
+
+def focus_unit_monthly(df, type_filter=None, **kw):
+    """{focus_class: year x month concurrent-offline matrix} for the four focus units."""
+    return {f: unit_offline_monthly(df, focus=f, type_filter=type_filter, **kw)
+            for f in FOCUS_ORDER}
+
+
+def focus_unit_padd_month(df, focus, year, value="cap_raw"):
+    """PADD x month concurrent offline for one focus unit in one year -- the
+    'timeline by month and PADD' view (each unit kept separate)."""
+    sub = df[(df["year"] == year) & df["focus"].eq(focus)
+             & df["padd"].isin(PADD_ORDER)].dropna(subset=["month"])
+    if sub.empty:
+        return pd.DataFrame(0.0, index=PADD_ORDER, columns=MONTHS)
+    dd = (sub.groupby(["padd", "month", "plant", "unit_name"], dropna=False)[value]
+            .max().reset_index())
+    g = (dd.groupby(["padd", "month"])[value].sum()
+           .unstack("month").reindex(index=PADD_ORDER, columns=range(1, 13)))
+    g.columns = MONTHS
+    return g.fillna(0.0)
+
+
+def focus_annual_peak(df, type_filter=None, y0=START_YEAR, y1=END_YEAR):
+    """year x focus-class table of the PEAK concurrent monthly offline (kbd):
+    'at its worst this year, how much of each unit class was down at once'.
+    Summing a unit's months would double-count; the peak month is the honest
+    scalar to compare across years."""
+    out = {}
+    for f in FOCUS_ORDER:
+        m = unit_offline_monthly(df, focus=f, type_filter=type_filter, y0=y0, y1=y1)
+        out[f] = m.max(axis=1)
+    return pd.DataFrame(out).reindex(range(y0, y1 + 1))
+
+
+def unit_events(df, focus=None, operator_contains=None, year=None, padd=None,
+                type_filter=None, top=None, min_kbd=0.0):
+    """Per-unit event timeline: one row per physical outage (deduped to its peak
+    nameplate, full date span) -- the 'per unit, not summed' detail behind the
+    monthly view. Columns: plant, operator, padd, focus, unit_cat, unit_name,
+    kbd, start, end, months, span, type, year. Sorted by offline kbd."""
+    cols = ["plant", "operator", "padd", "focus", "unit_cat", "unit_name",
+            "kbd", "start", "end", "months", "span", "type", "year"]
+    sub = df.copy()
+    if focus:
+        sub = sub[sub["focus"].eq(focus)]
+    if operator_contains:
+        sub = sub[sub["operator"].astype(str).str.upper()
+                  .str.contains(operator_contains.upper(), na=False)]
+    if year is not None:
+        sub = sub[sub["year"].eq(year)]
+    if padd:
+        sub = sub[sub["padd"].eq(padd)]
+    if type_filter:
+        sub = sub[sub["type"].eq(type_filter)]
+    if min_kbd:
+        sub = sub[sub["cap_raw"] >= min_kbd]
+    if sub.empty:
+        return pd.DataFrame(columns=cols)
+    rows = []
+    for (oid, plant, unit), g in sub.groupby(["outage_id", "plant", "unit_name"], dropna=False):
+        months = sorted(int(m) for m in g["month"].dropna().unique())
+        rows.append({
+            "plant": str(plant), "operator": str(g["operator"].iloc[0]),
+            "padd": str(g["padd"].iloc[0]),
+            "focus": (g["focus"].dropna().iloc[0] if g["focus"].notna().any() else None),
+            "unit_cat": str(g["unit_cat"].iloc[0]), "unit_name": str(unit),
+            "kbd": float(g["cap_raw"].max()),
+            "start": g["start"].min(), "end": g["end"].max(),
+            "months": months, "span": _span(months) if months else "",
+            "type": str(g["type"].iloc[0]),
+            "year": int(g["year"].dropna().iloc[0]) if g["year"].notna().any() else None,
+        })
+    out = pd.DataFrame(rows, columns=cols).sort_values("kbd", ascending=False)
+    return out.head(top) if top else out.reset_index(drop=True)
+
+
+# ----------------------------------------------------------------------- Exxon plan verification
+EXXON_PLAN_PATH = Path(__file__).resolve().parent.parent / "data" / "exxon_ta_plan.csv"
+
+
+def load_exxon_plan(path=None):
+    """ExxonMobil's own corporate turnaround plan (vendored from the AMR schedule
+    into data/exxon_ta_plan.csv) -> DataFrame[site, unit, platform, subunit,
+    bucket, year, start, end, event, region]. Used to verify the IIR Exxon
+    records per-unit. Empty frame if the file is absent (verification just
+    degrades to 'unverified')."""
+    p = Path(path) if path else EXXON_PLAN_PATH
+    if not p.exists():
+        return pd.DataFrame()
+    plan = pd.read_csv(p, comment="#")
+    for c in ("start", "end"):
+        plan[c] = pd.to_datetime(plan[c], errors="coerce")
+    plan["year"] = pd.to_numeric(plan["year"], errors="coerce").astype("Int64")
+    return plan
+
+
+_REFINERY_KEYS = ["BAYTOWN", "BATON ROUGE", "BEAUMONT", "JOLIET", "SARNIA",
+                  "STRATHCONA", "NANTICOKE", "BILLINGS", "CHALMETTE", "TORRANCE", "FAWLEY"]
+
+
+def _site_key(name):
+    """Map an IIR plant name or Exxon-plan site name to a common refinery key."""
+    s = str(name).upper()
+    for k in _REFINERY_KEYS:
+        if k in s:
+            return k
+    return s.replace(" REFINERY", "").replace(" COMPLEX", "").replace(" CHEMICAL PLANT", "").strip()
+
+
+def _months_between(s, e):
+    if pd.isna(s) or pd.isna(e):
+        return set()
+    cur, last = pd.Timestamp(s.year, s.month, 1), pd.Timestamp(e.year, e.month, 1)
+    out = set()
+    while cur <= last:
+        out.add(cur.month)
+        cur = cur + pd.offsets.MonthBegin(1)
+    return out
+
+
+def verify_exxon(df, year=2027, plan=None):
+    """Cross-check IIR ExxonMobil records for `year` against Exxon's own corporate
+    plan, per unit. An IIR event is 'confirmed' when the plan has an outage at the
+    same refinery + same focus class overlapping the same months; otherwise it is
+    'unverified' -- a likely phantom / mis-dated duplicate (e.g. the IIR Joliet
+    'Crude' that appears in Sep-Oct 2027 with no counterpart in the plan, whose
+    only Sep-2027 Joliet event is FT Cogen).
+
+    Returns {events (with verified/note cols), flagged, confirmed_kbd,
+    flagged_kbd, plan_year}."""
+    if plan is None:
+        plan = load_exxon_plan()
+    ev = unit_events(df, operator_contains="EXXON", year=year)
+    if ev.empty:
+        return {"events": ev, "flagged": ev, "confirmed_kbd": 0.0, "flagged_kbd": 0.0,
+                "plan_year": plan}
+    if plan.empty:
+        ev = ev.assign(verified=None, note="no corporate plan vendored")
+        return {"events": ev, "flagged": ev.iloc[0:0], "confirmed_kbd": float(ev["kbd"].sum()),
+                "flagged_kbd": 0.0, "plan_year": plan}
+    py = plan[plan["year"] == year].copy()
+    py["skey"] = py["site"].map(_site_key)
+    cover = {}                                   # (skey, bucket) -> set(plan months)
+    for _, r in py.iterrows():
+        cover.setdefault((r["skey"], r["bucket"]), set()).update(
+            _months_between(r["start"], r["end"]))
+    verified, notes = [], []
+    for _, e in ev.iterrows():
+        sk, fb = _site_key(e["plant"]), e["focus"]
+        if not isinstance(fb, str):              # NaN/None -> non-focus unit
+            verified.append(None)
+            notes.append("non-focus unit - not cross-checked")
+            continue
+        pm = cover.get((sk, fb), set())
+        if pm & set(e["months"]):
+            verified.append(True)
+            notes.append("matches corporate plan")
+        elif pm:
+            verified.append(False)
+            notes.append(f"plan has {fb} at {sk.title()} but in month(s) "
+                         f"{sorted(pm)} not {e['months']} - check dating")
+        else:
+            verified.append(False)
+            notes.append(f"no {fb} outage at {sk.title()} in the {year} corporate "
+                         "plan - likely phantom / duplicate")
+    ev = ev.assign(verified=verified, note=notes)
+    flagged = ev[ev["verified"] == False]
+    confirmed = ev[ev["verified"] != False]
+    return {"events": ev, "flagged": flagged,
+            "confirmed_kbd": float(confirmed["kbd"].sum()),
+            "flagged_kbd": float(flagged["kbd"].sum()), "plan_year": py}
+
+
 # ----------------------------------------------------------------------------- context bundle
 def build_context(path):
     """One-shot bundle of every frame the deliverables need.
@@ -1047,6 +1270,14 @@ def build_context(path):
         "dollar_impact": outage_dollar_impact(df, load_crack()),
         "crack_corr": crack_outage_relationship(df, load_crack()),
         "period_change": period_change(df),
+        # --- per-unit capacity offline (2021+), the focus of the deck ---
+        "focus_monthly": focus_unit_monthly(df),                       # all outages
+        "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
+        "focus_peak": focus_annual_peak(df),
+        "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
+                       for y in (2026, 2027)},
+        "unit_events_2027": unit_events(df, year=2027, type_filter="PLANNED"),
+        "exxon_verify": verify_exxon(df, 2027),
         "padd_month": {p: {
             "total": padd_month_year(df, p),
             "planned": padd_month_year(df, p, type_filter="PLANNED"),

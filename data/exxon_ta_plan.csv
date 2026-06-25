@@ -1,0 +1,805 @@
+# ExxonMobil corporate turnaround plan (AMR Turnaround Schedule 2026 FP, Query1 sheet).
+# Vendored from the operator's own plan to VERIFY the IIR Exxon outage records (per-unit, by site/date).
+# bucket = focus unit class derived from platform/subunit (CDU/FCC/Hydrocracker/Reformer/Coker/Hydrotreater/Other).
+site,unit,platform,subunit,bucket,year,start,end,event,region
+Baytown Refinery,APS 3,Distillation,CDU,CDU,2026,2026-01-28,2026-03-04,2026 PS3/DCU,North America
+Baytown Refinery,DCU,Coking,DC,Coker,2026,2026-01-28,2026-03-04,2026 PS3/DCU,North America
+Baytown Refinery,VPS 3,Distillation,VAC,CDU,2026,2026-01-28,2026-03-04,2026 PS3/DCU,North America
+Baytown Refinery,GF-1B,Hydroprocessing,,Hydrotreater,2026,2026-01-21,2026-02-28,2026 Gofiner 1 B,North America
+Baytown Refinery,ALKY,Alkylation,FCC,Other,2027,2027-02-22,2027-04-08,2027 Fuels South Event,North America
+Baytown Refinery,CLEU 3,Cracking,FCC,FCC,2027,2027-02-22,2027-04-12,2027 Fuels South Event,North America
+Baytown Refinery,FCCU 3,Cracking,FCC,FCC,2027,2027-02-22,2027-04-13,2027 Fuels South Event,North America
+Baytown Refinery,HU9,Hydroprocessing,Hydrofining Unit 9,Hydrotreater,2027,2027-02-22,2027-03-26,2027 Fuels South Event,North America
+Baytown Refinery,BOP-2X,Olefins,Olefins,Other,2027,2027-01-18,2027-03-09,2027 BOP2X Event,North America
+Sarnia Refinery,CCIS,Distillation,CDU,CDU,2026,2026-09-14,2026-11-05,2026 Phoenix Turnaround,North America
+Sarnia Refinery,CCIS,Distillation,COB,Other,2026,2026-09-14,2026-10-25,2026 Phoenix Turnaround,North America
+Sarnia Refinery,CCIS,Distillation,COK-OTH,Other,2026,2026-09-14,2026-11-05,2026 Phoenix Turnaround,North America
+Sarnia Refinery,CCIS,Distillation,COK-SX,Other,2026,2026-09-14,2026-11-05,2026 Phoenix Turnaround,North America
+Sarnia Refinery,FCIS Flare,Flares,,Other,2026,2026-09-14,2026-10-15,2026 Phoenix Turnaround,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2026,2026-09-14,2026-10-09,2026 Phoenix Turnaround,North America
+Sarnia Refinery,SRIS2,Gas Processing,SRU/TRU,Other,2026,2026-09-14,2026-10-23,2026 Phoenix Turnaround,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2026,2026-02-14,2026-03-16,2026 CUA Block,North America
+Beaumont Complex,CUA,Distillation,CDU,CDU,2026,2026-02-14,2026-03-24,2026 CUA Block,North America
+Beaumont Complex,CUA,Distillation,FRACTIONATOR,Other,2026,2026-02-14,2026-03-24,2026 CUA Block,North America
+Beaumont Complex,CUA,Distillation,VAC,CDU,2026,2026-02-14,2026-03-18,2026 CUA Block,North America
+Beaumont Complex,GP5-East,Hydrocracking,HYC,Hydrocracker,2026,2026-02-14,2026-03-24,2026 CUA Block,North America
+Beaumont Complex,Olefins MT,Olefins,Olefins,Other,2027,2027-04-02,2027-05-23,2027 Beaumont Olefins Event,North America
+Baton Rouge Refinery,BRCP EPLA,,,Other,2027,2027-09-14,2027-10-14,"3Q27 Block (PipeStills #9, West Coker, EPLA-W)",North America
+Baton Rouge Refinery,PSLA-9,Distillation,CDU,CDU,2027,2027-09-14,2027-10-05,"3Q27 Block (PipeStills #9, West Coker, EPLA-W)",North America
+Baton Rouge Refinery,PSLA-9,Distillation,VAC,CDU,2027,2027-09-14,2027-10-05,"3Q27 Block (PipeStills #9, West Coker, EPLA-W)",North America
+Baton Rouge Refinery,WEST,Coking,DC,Coker,2027,2027-09-14,2027-11-06,"3Q27 Block (PipeStills #9, West Coker, EPLA-W)",North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2027,2027-04-05,2027-05-09,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2027,2027-04-05,2027-05-08,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,CRUDE,Distillation,CDU,CDU,2027,2027-04-05,2027-05-13,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,Coke Handling,Miscellaneous,OTHER,Other,2027,2027-04-05,2027-05-05,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,PRETREATER,Hydroprocessing,HYDT,Hydrotreater,2027,2027-04-05,2027-05-05,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,REFORMER,Reforming,CCR,Reformer,2027,2027-04-05,2027-05-15,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,"SULFUR, EAST",Gas Processing,SRU/TRU,Other,2027,2027-04-05,2027-05-05,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,"SULFUR, WEST",Gas Processing,SRU/TRU,Other,2027,2027-04-05,2027-05-05,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,"TAIL GAS, SOUTH",Gas Processing,SRU/TRU,Other,2027,2027-04-05,2027-04-30,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Joliet Refinery,VACUUM,Distillation,VAC,CDU,2027,2027-04-05,2027-05-13,2027 Joliet Crude/Coker/SSRU/CCR,North America
+Strathcona Refinery,AF,Distillation,Atmospheric pre_Flash,CDU,2026,2026-04-05,2026-05-18,2026 Crude,North America
+Strathcona Refinery,AP,Distillation,Atmospheric Pipestill,CDU,2026,2026-04-05,2026-05-12,2026 Crude,North America
+Strathcona Refinery,COB,Utilities,,Other,2026,2026-04-05,2026-06-10,2026 Crude,North America
+Strathcona Refinery,HTIP,Hydroprocessing,HAGO Treater,Hydrotreater,2026,2026-04-05,2026-05-18,2026 Crude,North America
+Strathcona Refinery,PF,Reforming,Powerformer,Reformer,2026,2026-04-05,2026-05-13,2026 Crude,North America
+Strathcona Refinery,RHIP,Hydroprocessing,Refined Oil Hydrotreater,Hydrotreater,2026,2026-04-05,2026-05-12,2026 Crude,North America
+Strathcona Refinery,SLE,Distillation,Saturated Light Ends,Other,2026,2026-04-05,2026-05-11,2026 Crude,North America
+Strathcona Refinery,SU,Gas Processing,Sulphur Plant 1,Other,2026,2026-04-05,2026-05-09,2026 Crude,North America
+Strathcona Refinery,VP,Distillation,Vacuum Pipestill,CDU,2026,2026-04-05,2026-05-14,2026 Crude,North America
+Sarnia Refinery,AVIS,Distillation,CDU,CDU,2028,2028-04-01,2028-05-01,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,AVIS,Distillation,VAC,CDU,2028,2028-04-01,2028-05-01,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,CVBD - Flare,Flare,Flare,Other,2028,2028-04-01,2028-05-01,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,HCIS,Hydrocracking,HYC,Hydrocracker,2028,2028-04-01,2028-05-01,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,HPIS,Miscellaneous,OTHER,Other,2028,2028-04-01,2028-05-01,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,HSIS,Miscellaneous,OTHER,Other,2028,2028-04-01,2028-05-22,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2028,2028-04-01,2028-05-01,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,MHIST101,Distillation,FRACTIONATOR,Other,2028,2028-04-01,2028-04-16,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,SLE,Distillation,Saturated Light Ends,Other,2028,2028-04-01,2028-04-16,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,Sarnia Benzene,,Benzene,Other,2028,2028-04-01,2028-04-30,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Sarnia Refinery,,,,Other,2028,2028-04-01,2028-05-22,2028 HCIS AVIS MHIS ARIS TA Block,North America
+Baton Rouge Refinery,ALKY,Alkylation,Alkylation Strat,Other,2026,2026-02-02,2026-03-15,1Q26 Alky Stratco Turnaround,North America
+Beaumont Complex,HDC,Hydrocracking,Hydrocracking,Hydrocracker,2028,2028-02-14,2028-03-24,2028 HDC Block TA,North America
+Beaumont Complex,PTR4_CCR4,Reforming,,Reformer,2028,2028-02-14,2028-03-24,2028 HDC Block TA,North America
+Baton Rouge Complex,ALKY,Alkylation,Alkylation East,Other,2027,2027-02-01,2027-03-01,1Q27 Alky East Turnaround,North America
+Baton Rouge Refinery,AROM,Aromatics,Benzene Hydrofining Unit,Other,2028,2028-01-24,2028-02-22,"1Q28 Atlas Event (PHLA-2, RHLA-2, HCLA, Aromatics/LOLA, Halobutyl)",North America
+Baton Rouge Refinery,BRCP Butyl,Butyl,Butyl,Other,2028,2028-01-24,2028-03-08,"1Q28 Atlas Event (PHLA-2, RHLA-2, HCLA, Aromatics/LOLA, Halobutyl)",North America
+Baton Rouge Refinery,HCLA,Hydrocracking,HYC,Hydrocracker,2028,2028-01-24,2028-02-25,"1Q28 Atlas Event (PHLA-2, RHLA-2, HCLA, Aromatics/LOLA, Halobutyl)",North America
+Baton Rouge Refinery,PHLA-2,Reforming,REF-OTH,Reformer,2028,2028-01-24,2028-03-02,"1Q28 Atlas Event (PHLA-2, RHLA-2, HCLA, Aromatics/LOLA, Halobutyl)",North America
+Baton Rouge Refinery,RHLA-2,Hydroprocessing,HYDT,Hydrotreater,2028,2028-01-24,2028-03-02,"1Q28 Atlas Event (PHLA-2, RHLA-2, HCLA, Aromatics/LOLA, Halobutyl)",North America
+Baton Rouge Refinery,SRLA,Gas Processing,Sulfur Recovery 200,Other,2028,2028-04-24,2028-05-23,2Q28 SRLA-200 Turnaround,North America
+Baton Rouge Refinery,ICN,Hydroprocessing,Intermediate Catalytic Naphtha,Hydrotreater,2028,2028-09-12,2028-10-10,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Baton Rouge Refinery,LEU4,Distillation,Light Ends 4 West,Other,2028,2028-09-12,2028-10-18,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Baton Rouge Refinery,OLA-2X,Olefin Recovery,Refinery Gas Recovery,Other,2028,2028-09-12,2028-10-06,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Baton Rouge Refinery,PCLA-2,Cracking,FCC,FCC,2028,2028-10-01,2028-10-09,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Baton Rouge Refinery,PCLA-3,Cracking,FCC,FCC,2028,2028-09-12,2028-10-24,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Baton Rouge Refinery,SRLA,Gas Processing,Sulfur Recovery 100,Other,2028,2028-09-12,2028-10-11,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Baton Rouge Refinery,WET GAS SCRUBBER,Miscellaneous,OTHER,Other,2028,2028-09-12,2028-10-21,"3Q28 Atlas Event (PCLA-3/PCLA-2/WGS, 4LEU-W, SRLA-100/TGCU-B, ICN/SHU, RGR/EPLA-S)",North America
+Beaumont Complex,ALKY 2,Asphalt,ASA,Other,2027,2027-01-07,2027-02-22,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2027,2027-01-07,2027-02-22,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,FCC,Cracking,FCC,FCC,2027,2027-01-07,2027-02-21,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,MTBE,Miscellaneous,OTHER,Other,2027,2027-01-07,2027-02-22,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,NSU,Distillation,FRACTIONATOR,Other,2027,2027-01-07,2027-02-21,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,SCANFINER,Hydroprocessing,HYDT,Hydrotreater,2027,2027-01-07,2027-02-23,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,SULFUR PLANT 3,Gas Processing,SRU/TRU,Other,2027,2027-01-07,2027-02-13,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,UCAR SOL 3,Gas Processing,SRU/TRU,Other,2027,2027-01-07,2027-02-13,2027 FCC/ALKY/SRU3 Event,North America
+Beaumont Complex,WET GAS SCRUBBER,Miscellaneous,OTHER,Other,2027,2027-01-07,2027-02-21,2027 FCC/ALKY/SRU3 Event,North America
+Baton Rouge Complex,KDLA SOLVENT DEWAX,Lubes,LUBES,Other,2029,2029-01-19,2029-03-09,"1Q29 Block (KDLA, LELA-N/S, WHLA)",North America
+Baton Rouge Complex,LELA-N,Lubes,LUBES,Other,2029,2029-01-19,2029-02-23,"1Q29 Block (KDLA, LELA-N/S, WHLA)",North America
+Baton Rouge Complex,LELA-S,Lubes,LUBES,Other,2029,2029-01-19,2029-02-26,"1Q29 Block (KDLA, LELA-N/S, WHLA)",North America
+Baton Rouge Complex,WHLA,Lubes,LUBES,Other,2029,2029-01-19,2029-02-27,"1Q29 Block (KDLA, LELA-N/S, WHLA)",North America
+Baton Rouge Complex,HHLA-S,Hydroprocessing,HYDT,Hydrotreater,2029,2029-09-11,2029-10-09,3Q29 HHLA-S Turnaround,North America
+Baton Rouge Complex,RHLA-1,Hydroprocessing,HYDT,Hydrotreater,2029,2029-10-01,2029-10-31,4Q29 RHLA-1 Turnaround,North America
+Baytown Refinery,CLAUS C,Gas Processing,SRU/TRU,Other,2027,2027-06-01,2027-07-09,2027 Claus C / Flexsorb TA,North America
+Baytown Refinery,CLEU3,Distillation,Catalytic Light Ends 3,Other,2028,2028-06-01,2028-07-01,2028 CLEU RGR TA,North America
+Baytown Refinery,DAU,Miscellaneous,OTHER,Other,2028,2028-01-24,2028-02-29,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,FS_SOUTH,Utilities,Flare Stack 20,Other,2028,2028-01-24,2028-02-23,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,FS_SOUTH,Utilities,Flare Stack 21,Other,2028,2028-01-24,2028-02-23,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,FS_SOUTH,Utilities,Flare Stack 22,Other,2028,2028-01-24,2028-02-23,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,HF 4,Reforming,REF-OTH,Reformer,2028,2028-01-24,2028-03-01,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,MSDW,Lubes,LUBES,Other,2028,2028-01-24,2028-02-28,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,NHF,Hydroprocessing,HYDT,Hydrotreater,2028,2028-01-24,2028-02-24,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,RHC,Lubes,LUBES,Other,2028,2028-01-24,2028-02-28,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,SCU2,Gas Processing,Sour Water Stripper A,Other,2028,2028-01-24,2028-02-13,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,VPS 8,Distillation,VAC,CDU,2028,2028-01-24,2028-02-22,2028 FN+ GOLD/ RHC/MSDW,North America
+Baytown Refinery,HCU 1,Hydrocracking,HYC,Hydrocracker,2028,2028-09-10,2028-11-09,2028 HCU TA + GOLD Outage Execution,North America
+Baytown Refinery,ALKY,Alkylation,Alkylation,Other,2029,2029-01-15,2029-02-23,2029 Fuels South Event,North America
+Baytown Refinery,CLEU1,Distillation,Catalytic Light Ends 1,Other,2029,2029-01-15,2029-02-23,2029 Fuels South Event,North America
+Baytown Refinery,CLEU2,Distillation,Catalytic Light Ends 2,Other,2029,2029-01-15,2029-02-23,2029 Fuels South Event,North America
+Baytown Refinery,CLEU3,Distillation,Catalytic Light Ends 3,Other,2029,2029-01-15,2029-02-23,2029 Fuels South Event,North America
+Baytown Refinery,FCCU 2,Cracking,FCC,FCC,2029,2029-01-15,2029-02-24,2029 Fuels South Event,North America
+Baytown Refinery,CLAUS B,Gas Processing,SRU/TRU,Other,2029,2029-09-01,2029-10-09,2029 Claus B TA,North America
+Baytown Refinery,FXK,Coking,COK-OTH,Coker,2028,2028-06-01,2028-07-16,2028 FXK TA,North America
+Baytown Refinery,VPS 7 North,Distillation,VAC,CDU,2028,2028-06-01,2028-07-05,2028 FXK TA,North America
+Baytown Refinery,LDU,Lubes,LUBES,Other,2030,2030-01-28,2030-03-07,"2030 Specialties Event - MEK, LHU2, LXU1, LDU",North America
+Baytown Refinery,LHU 2,Lubes,LUBES,Other,2030,2030-01-28,2030-02-27,"2030 Specialties Event - MEK, LHU2, LXU1, LDU",North America
+Baytown Refinery,LXU 1,Lubes,LUBES,Other,2030,2030-01-28,2030-03-06,"2030 Specialties Event - MEK, LHU2, LXU1, LDU",North America
+Baytown Refinery,MEK,Lubes,MEK Dewaxing,Other,2030,2030-01-28,2030-03-10,"2030 Specialties Event - MEK, LHU2, LXU1, LDU",North America
+Baytown Refinery,CLAUS D,Gas Processing,SRU/TRU,Other,2030,2030-09-02,2030-10-13,2030 Claus D + Tail Gas C + Flexsorb B TA,North America
+Baytown Refinery,SCU2,Gas Processing,Tail gas cleanup C,Other,2030,2030-09-02,2030-10-01,2030 Claus D + Tail Gas C + Flexsorb B TA,North America
+Baytown Refinery,GF-1B,Hydroprocessing,,Hydrotreater,2030,2030-05-01,2030-06-08,2030 GF-1B TA,North America
+Baytown Chemical Plant,BAPP_L8,Slurry,Line 8 Polymerization,Other,2030,2030-06-01,2030-07-01,2030 BAPP LN8 Outage,North America
+Nanticoke Refinery,NP-BZSPL,Distillation,FRACTIONATOR,Other,2027,2027-04-01,2027-05-07,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-CRU,Reforming,CCR,Reformer,2027,2027-04-01,2027-05-07,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-CSU,Distillation,CDU,CDU,2027,2027-04-01,2027-05-13,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-FDSPL,Distillation,FRACTIONATOR,Other,2027,2027-04-01,2027-05-10,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-LSRSPL,Distillation,FRACTIONATOR,Other,2027,2027-04-01,2027-05-13,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-NHIN,Hydroprocessing,HYDT,Hydrotreater,2027,2027-04-01,2027-05-13,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-REFSPL,Distillation,FRACTIONATOR,Other,2027,2027-04-01,2027-05-07,2Q27 Spartan TA,North America
+Nanticoke Refinery,NP-SRU,Gas Processing,SRU/TRU,Other,2027,2027-04-01,2027-04-25,2Q27 Spartan TA,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2026,2026-05-01,2026-05-24,HULA R-901,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2026,2026-05-01,2026-05-24,HULA R-901,North America
+Baton Rouge Chemical Plant,INFRA,Utilities,Infrastructure,Other,2028,2028-08-11,2028-09-18,BRTG Major,North America
+Baton Rouge Refinery,HCN,Hydroprocessing,Heavy Cat Naptha,Hydrotreater,2030,2030-01-21,2030-02-20,30Q1 HCN,North America
+Baton Rouge Refinery,HCN,Hydroprocessing,Heavy Cat Naptha,Hydrotreater,2030,2030-01-21,2030-02-20,30Q1 HCN,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2030,2030-05-07,2030-05-30,HULA R-901: 23 days,North America
+Baton Rouge Refinery,HHLA,Hydroprocessing,North Train Hydrofiner,Hydrotreater,2030,2030-06-07,2030-07-05,30Q2 HHLA-N,North America
+Baytown Refinery,LHU1,Lubes,Lube Hydrofiner Unit 1,Other,2030,2030-06-05,2030-06-25,2030 LHU1 Cat C/O,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2030,2030-09-01,2030-09-22,3Q30 Joliet Shutdown,North America
+Strathcona Refinery,AM,Gas Processing,Amine,Other,2030,2030-09-01,2030-09-15,3Q30 Strathcona Shutdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2030,2030-09-01,2030-09-13,3Q30 Strathcona Shutdown,North America
+Strathcona Refinery,HTIP,Hydroprocessing,HAGO Treater,Hydrotreater,2030,2030-09-01,2030-09-27,3Q30 Strathcona Shutdown,North America
+Strathcona Refinery,O1F,Utilities,Flare,Other,2030,2030-09-01,2030-10-31,3Q30 Strathcona Shutdown,North America
+Strathcona Refinery,RHIE,Hydroprocessing,HYDT,Hydrotreater,2030,2030-09-01,2030-09-29,3Q30 Strathcona Shutdown,North America
+Strathcona Refinery,UP,Utilities,Utilities Plant,Other,2030,2030-03-07,2030-05-06,2Q30 Stathcona Shutdown,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2030,2030-01-31,2030-02-12,GTG41: 12 days - 1Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2030,2030-01-31,2030-02-12,GTG41: 12 days - 1Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2030,2030-01-31,2030-02-12,GTG41: 12 days - 1Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2030,2030-01-14,2030-01-28,Alky R1: 14 days - 1Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2030,2030-01-14,2030-01-28,Alky R1: 14 days - 1Q,North America
+Beaumont Complex,SWS,Gas Processing,Sour Water Stripper,Other,2030,2030-02-04,2030-03-06,SWS2: 30 days - 1Q,North America
+Beaumont Complex,SWS,Gas Processing,Sour Water Stripper,Other,2030,2030-02-04,2030-03-06,SWS2: 30 days - 1Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2030,2030-02-04,2030-02-16,GTG42: 12 days - 1Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2030,2030-02-04,2030-02-16,GTG42: 12 days - 1Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2030,2030-03-31,2030-04-30,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2030,2030-03-31,2030-04-30,Coker: 30 days - 2Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2030,2030-10-27,2030-12-26,GTG 43: 60 days - 4Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2030,2030-10-27,2030-12-26,GTG 43: 60 days - 4Q,North America
+Beaumont Complex,Utilities,Utilities,,Other,2030,2030-04-28,2030-05-28,Boiler 33: 30 days - 5/1,North America
+Beaumont Complex,Utilities,Utilities,,Other,2030,2030-04-28,2030-05-28,Boiler 33: 30 days - 5/1,North America
+Beaumont Complex,Utilities,Utilities,,Other,2030,2030-09-01,2030-10-01,Boiler 34: 30 days - 9/1,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2030,2030-08-04,2030-08-25,S-BRU: 21 days - 3Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2030,2030-08-04,2030-08-25,S-BRU: 21 days - 3Q,North America
+Beaumont Complex,CUA,Distillation,Vacuum Distillation A2,CDU,2030,2030-09-29,2030-10-24,CUA VT-2: 25 days - 4Q,North America
+Beaumont Complex,CUA,Distillation,Vacuum Distillation A2,CDU,2030,2030-09-29,2030-10-24,CUA VT-2: 25 days - 4Q,North America
+Beaumont Complex,HYD/CYC,Aromatics,Hydrotreater,Other,2030,2030-09-29,2030-10-24,Treater 3: 25 days - 4Q,North America
+Beaumont Complex,HYD/CYC,Aromatics,Hydrotreater,Other,2030,2030-09-29,2030-10-24,Treater 3: 25 days - 4Q,North America
+Beaumont Complex,Coldbox,Offsites,Coldbox,Other,2030,2030-09-29,2030-10-24,Cold Box: 25 day - 4Q,North America
+Beaumont Complex,Coldbox,Offsites,Coldbox,Other,2030,2030-09-29,2030-10-24,Cold Box: 25 day - 4Q,North America
+Baton Rouge Refinery,PSLA-10,Distillation,VAC,CDU,2031,2031-01-17,2031-03-11,PSLA-10 1Q31,North America
+Baton Rouge Refinery,FECKR,Coking,Far East Coker,Coker,2031,2031-01-01,2031-02-05,31Q1 Baton Rouge Far East Coker,North America
+Baton Rouge Chemical Plant,OXO-HP,Oxo,High Pressure OXO,Other,2031,2031-09-01,2031-10-01,31Q3 OXO/Poly Turnaround,North America
+Baton Rouge Chemical Plant,OXO-HP,Oxo,High Pressure OXO,Other,2031,2031-09-01,2031-10-01,31Q3 OXO/Poly Turnaround,North America
+Baton Rouge Chemical Plant,POLY,Oxo,POLY,Other,2031,2031-09-01,2031-10-01,31Q3 OXO/Poly Turnaround,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2031,2031-05-04,2031-05-27,HULA R-801: 23 Days- Q2,North America
+Baton Rouge Refinery,HHLA-S,Hydroprocessing,HYDT,Hydrotreater,2031,2031-09-09,2031-10-02,31Q3 HHLA-S,North America
+Baton Rouge Refinery,PHLA,Distillation,Feed Preparation,Other,2031,2031-01-19,2031-02-26,Feed prep/T30: 38 days - 1/17,North America
+Baton Rouge Chemical Plant,EPLAS,Olefin Recovery,EPLAS Process Gas Compressor,Other,2031,2031-09-01,2031-10-23,Maintrain Turnaround,North America
+Baton Rouge Chemical Plant,OLA-2X,Olefin Recovery,Light Olefins 2X Process Gas Compressor,Other,2031,2031-09-01,2031-10-23,Maintrain Turnaround,North America
+Baton Rouge Refinery,ALKY,Alkylation,Alkylation Strat,Other,2031,2031-10-05,2031-11-19,ALKY Stratco: 45 days - 4Q,North America
+Baytown Refinery,HU 6A,Hydroprocessing,DHYT,Hydrotreater,2031,2031-08-01,2031-09-01,2031 HU-6A Cat C/O,North America
+Baytown Refinery,HU10,Hydroprocessing,Hydrofiner 10,Hydrotreater,2031,2031-05-15,2031-06-17,2031 HU-10 R901A C/O,North America
+Baytown Refinery,HU10,Hydroprocessing,Hydrofiner 10,Hydrotreater,2031,2031-05-15,2031-06-24,2031 HU-10 R901A C/O,North America
+Baytown Refinery,SCU2,Gas Processing,Claus A Train,Other,2031,2031-05-15,2031-06-24,2031 HU-10 R901A C/O,North America
+Baytown Refinery,SCU2,Gas Processing,Tail gas cleanup B,Other,2031,2031-05-15,2031-06-24,2031 HU-10 R901A C/O,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2031,2031-01-19,2031-03-20,GTG 24: 60 days - 1Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2031,2031-01-19,2031-03-20,GTG 24: 60 days - 1Q,North America
+Beaumont Complex,FCC,Cracking,FCC,FCC,2031,2031-02-02,2031-03-23,FCC: 49 days - 1Q,North America
+Beaumont Complex,FCC,Cracking,FCC,FCC,2031,2031-02-02,2031-03-23,FCC: 49 days - 1Q,North America
+Beaumont Complex,DUA,Hydrocracking,Dualayers,Hydrocracker,2031,2031-02-02,2031-03-20,Dualayer / GP5W: 46 days - 1Q,North America
+Beaumont Complex,DUA,Hydrocracking,Dualayers,Hydrocracker,2031,2031-02-02,2031-03-20,Dualayer / GP5W: 46 days - 1Q,North America
+Beaumont Complex,SCANFINER,Hydroprocessing,HYDT,Hydrotreater,2031,2031-02-02,2031-03-20,Scanfiner: 46 days - 1Q,North America
+Beaumont Complex,SCANFINER,Hydroprocessing,HYDT,Hydrotreater,2031,2031-02-02,2031-03-20,Scanfiner: 46 days - 1Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2031,2031-02-02,2031-03-20,Alky / MTBE: 1Q31,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2031,2031-02-02,2031-03-20,Alky / MTBE: 1Q31,North America
+Beaumont Complex,SULFUR PLANT 3,Gas Processing,SRU/TRU,Other,2031,2031-02-02,2031-03-09,SRU3 / TGU: 35 days - 1Q,North America
+Beaumont Complex,SULFUR PLANT 3,Gas Processing,SRU/TRU,Other,2031,2031-02-02,2031-03-09,SRU3 / TGU: 35 days - 1Q,North America
+Beaumont Complex,GP5E,Distillation,GP5E,Other,2031,2031-10-19,2031-11-18,GP5E: 30 days - 4Q,North America
+Beaumont Complex,GP5E,Distillation,GP5E,Other,2031,2031-10-19,2031-11-18,GP5E: 30 days - 4Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2031,2031-04-06,2031-05-06,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2031,2031-04-06,2031-05-06,Coker: 30 days - 2Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2031,2031-04-06,2031-04-27,N-BRU: 21 days - 2Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2031,2031-04-06,2031-04-27,N-BRU: 21 days - 2Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2031,2031-07-06,2031-09-04,GTG 42: 60 days - 3Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2031,2031-07-06,2031-09-04,GTG 42: 60 days - 3Q,North America
+Beaumont Complex,CAT,Miscellaneous,Catalyst,Other,2031,2031-10-05,2031-11-03,Catalyst & Synthetics: 29 days - 4Q,North America
+Beaumont Complex,CAT,Miscellaneous,Catalyst,Other,2031,2031-10-05,2031-11-03,Catalyst & Synthetics: 29 days - 4Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2031,2031-05-04,2031-05-14,GTG 41: 10 days - 2Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2031,2031-05-04,2031-05-14,GTG 41: 10 days - 2Q,North America
+Nanticoke Refinery,FCCU,Cracking,Catalytic Cracking,FCC,2031,2031-03-30,2031-05-14,FCC/CO Boiler: 45 days - 2Q,North America
+Nanticoke Refinery,UT,Utilities,Utilities,Other,2031,2031-03-31,2031-04-28,Common Utilities: 28 days - 2Q,North America
+Nanticoke Refinery,NP-CSU,Distillation,CDU,CDU,2031,2031-03-30,2031-05-11,CSU: 42 days - 2Q,North America
+Nanticoke Refinery,CRU,Hydroprocessing,Light Ends Fractionation CRU,Hydrotreater,2031,2031-03-30,2031-05-01,CRU: 32 days - 2Q,North America
+Nanticoke Refinery,NHIN,Hydroprocessing,Naphtha Hydroprocessing,Hydrotreater,2031,2031-03-30,2031-05-12,NHIN: 43 days - 2Q,North America
+Nanticoke Refinery,SWS,Gas Processing,Sour Water Stripper,Other,2031,2031-03-30,2031-04-29,SWS: 30 days - 2Q,North America
+Nanticoke Refinery,FLR,Utilities,Flare,Other,2031,2031-03-30,2031-04-21,S-Flare: 22 days - 2Q,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2031,2031-04-01,2031-05-01,2031 DHIS#3 Major,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2031,2031-04-01,2031-05-01,2031 DHIS#3 Major,North America
+Strathcona Refinery,AF,Distillation,Atmospheric pre_Flash,CDU,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,AM,Gas Processing,Amine,Other,2031,2031-03-30,2031-04-13,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,AP,Distillation,Atmospheric Pipestill,CDU,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,COB,Utilities,,Other,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,NHIE,Hydroprocessing,HYDT,Hydrotreater,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,PF,Reforming,Powerformer,Reformer,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,RHIP,Hydroprocessing,Refined Oil Hydrotreater,Hydrotreater,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,S1,Gas Processing,SRU/TRU,Other,2031,2031-03-30,2031-04-24,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,VP,Distillation,Vacuum Pipestill,CDU,2031,2031-03-30,2031-05-04,2Q31 Strathcona Shutdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2031,2031-08-29,2031-09-26,3Q31 Strathcona Shutdown,North America
+Strathcona Refinery,UP,Utilities,Utilities Plant,Other,2031,2031-08-29,2031-10-28,3Q31 Strathcona Shutdown,North America
+Baton Rouge Refinery,PSLA-7,Distillation,VAC,CDU,2032,2032-01-01,2032-02-23,PSLA-7 1Q32,North America
+Baton Rouge Refinery,ECKR,Coking,East Coker,Coker,2032,2032-01-01,2032-02-05,32Q1 Baton Rouge East Coker,North America
+Baton Rouge Refinery,HCLA,Hydrocracking,HYC,Hydrocracker,2032,2032-02-03,2032-04-03,32Q1 HCLA,North America
+Baton Rouge Refinery,RHLA-2,Hydroprocessing,HYDT,Hydrotreater,2032,2032-02-14,2032-02-29,RHLA-2 s/d,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2032,2032-05-04,2032-05-27,HULA R-901: 23 days - 2Q,North America
+Baton Rouge Refinery,ALKY,Alkylation,Alkylation East,Other,2032,2032-10-01,2032-11-15,ALKY East: 45 days - 4Q,North America
+Baytown Refinery,LHU 1,Hydroprocessing,DHYT,Hydrotreater,2032,2032-01-12,2032-02-01,2032 LHU1 Cat C/O,North America
+Baytown Refinery,HU 6B,Hydroprocessing,HYDT,Hydrotreater,2033,2033-05-03,2033-06-02,2033 HU-6B Cat C/O,North America
+Baytown Refinery,LHF,Hydroprocessing,Light Gas Oil Hydrofiner,Hydrotreater,2032,2032-04-07,2032-05-04,2032 LHF Cat C/O,North America
+Baytown Refinery,LHF,Hydroprocessing,Light Gas Oil Hydrofiner,Hydrotreater,2032,2032-04-07,2032-05-04,2032 LHF Cat C/O,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2032,2032-05-15,2032-06-17,2032 HU-10 R901B C/O,North America
+Baytown Refinery,HU4,Hydroprocessing,Hydrofining Unit 4,Hydrotreater,2032,2032-02-15,2032-03-11,2032 HU4 Cat C/O,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2032,2032-04-26,2032-05-21,CUB Vac: 25 days - 2Q,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2032,2032-04-26,2032-05-21,CUB Vac: 25 days - 2Q,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2032,2032-02-02,2032-03-12,PTR3 / HDC: 39 days - 1Q,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2032,2032-02-02,2032-03-12,PTR3 / HDC: 39 days - 1Q,North America
+Beaumont Complex,SULFUR PLANT 2,Gas Processing,SRU/TRU,Other,2032,2032-02-02,2032-03-08,SRU2 / TGU: 35 days - 1Q,North America
+Beaumont Complex,SULFUR PLANT 2,Gas Processing,SRU/TRU,Other,2032,2032-02-02,2032-03-08,SRU2 / TGU: 35 days - 1Q,North America
+Beaumont Complex,BMCP Paraxylene,,Paraxylene,Other,2032,2032-10-04,2032-11-03,Paraxylene Hot/Cold: 30 days -4Q,North America
+Beaumont Complex,BMCP Paraxylene,,Paraxylene,Other,2032,2032-10-04,2032-11-03,Paraxylene Hot/Cold: 30 days -4Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2032,2032-10-04,2032-10-16,GTG 24: 12 days - 4Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2032,2032-10-04,2032-10-16,GTG 24: 12 days - 4Q,North America
+Beaumont Complex,DEA_N,Gas Processing,N DEA Regeneration,Other,2032,2032-02-02,2032-03-08,North DEA: 35 days - 1Q,North America
+Beaumont Complex,DEA_N,Gas Processing,N DEA Regeneration,Other,2032,2032-02-02,2032-03-08,North DEA: 35 days - 1Q,North America
+Beaumont Complex,SAM,Miscellaneous,OTHER,Other,2032,2032-02-02,2032-02-23,SAM: 21 days - 1Q,North America
+Beaumont Complex,SAM,Miscellaneous,OTHER,Other,2032,2032-02-02,2032-02-23,SAM: 21 days - 1Q,North America
+Beaumont Complex,CKRGP,Distillation,Coker Gas Plant,Other,2032,2032-04-05,2032-05-05,Coker: 30 days - 2Q,North America
+Beaumont Complex,CKRGP,Distillation,Coker Gas Plant,Other,2032,2032-04-05,2032-05-05,Coker: 30 days - 2Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2032,2032-04-05,2032-04-26,S-BRU: 21 days - 2Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2032,2032-04-05,2032-04-26,S-BRU: 21 days - 2Q,North America
+Beaumont Complex,SWS,Gas Processing,Sour Water Stripper,Other,2032,2032-04-05,2032-05-05,SWS1: 30 days - 2Q,North America
+Beaumont Complex,SWS,Gas Processing,Sour Water Stripper,Other,2032,2032-04-05,2032-05-05,SWS1: 30 days - 2Q,North America
+Beaumont Complex,PP3,Utilities,Power Plant 3,Other,2032,2032-04-05,2032-05-17,STG 33: 42 days - 2Q,North America
+Beaumont Complex,CHD1,Hydroprocessing,Catalytic Hydrodesulfurizer 1,Hydrotreater,2032,2032-04-05,2032-04-30,CHD1: 25 days - 2Q,North America
+Beaumont Complex,CHD1,Hydroprocessing,Catalytic Hydrodesulfurizer 1,Hydrotreater,2032,2032-04-05,2032-04-30,CHD1: 25 days - 2Q,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2032,2032-07-05,2032-08-04,CHD2: 30 days - 3Q,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2032,2032-07-05,2032-08-04,CHD2: 30 days - 3Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2032,2032-04-05,2032-04-19,Alky B Rx: 2Q32,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2032,2032-04-05,2032-04-19,Alky B Rx: 2Q32,North America
+Beaumont Complex,DEA3,Gas Processing,DEA Regeneration 3,Other,2032,2032-07-05,2032-07-08,South DEA: 3- days - 3Q,North America
+Beaumont Complex,DEA3,Gas Processing,DEA Regeneration 3,Other,2032,2032-07-05,2032-07-08,South DEA: 3- days - 3Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2032,2032-04-05,2032-04-17,GTG 43: 12 days - 2Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2032,2032-04-05,2032-04-17,GTG 43: 12 days - 2Q,North America
+Beaumont Complex,PtR-4,Reforming,HYDT,Reformer,2032,2032-10-04,2032-10-29,PTR4: 25 days - 4Q,North America
+Beaumont Complex,PtR-4,Reforming,HYDT,Reformer,2032,2032-10-04,2032-10-29,PTR4: 25 days - 4Q,North America
+Beaumont Complex,ALKY 2,Asphalt,ASA,Other,2032,2032-10-04,2032-10-18,Alky E Rx: 14 days - 4Q,North America
+Beaumont Complex,ALKY 2,Asphalt,ASA,Other,2032,2032-10-04,2032-10-18,Alky E Rx: 14 days - 4Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2032,2032-07-05,2032-08-19,GTG 41: 45 days - 3Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2032,2032-07-05,2032-08-19,GTG 41: 45 days - 3Q,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2032,2032-03-29,2032-04-12,2Q32 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2032,2032-03-29,2032-04-23,2Q32 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2032,2032-03-29,2032-04-18,2Q32 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2032,2032-03-29,2032-04-18,2Q32 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2032,2032-03-29,2032-04-12,2Q32 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2032,2032-03-29,2032-04-08,2Q32 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2032,2032-03-29,2032-04-10,2Q32 Joliet Shutdown,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2031,2031-03-31,2031-04-14,2Q31 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2031,2031-03-31,2031-04-25,2Q31 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2031,2031-03-31,2031-04-20,2Q31 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2031,2031-03-31,2031-04-20,2Q31 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2031,2031-03-31,2031-04-14,2Q31 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2031,2031-03-31,2031-04-06,2Q31 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2031,2031-03-31,2031-04-12,2Q31 Joliet Shutdown,North America
+Nanticoke Refinery,NP-VSU,Distillation,VAC,CDU,2033,2033-04-05,2033-05-09,VSU: 34days - 2Q,North America
+Nanticoke Refinery,NP-HSR-UNIF,Hydroprocessing,HYDT,Hydrotreater,2033,2033-04-05,2033-04-24,UNI: 19 days - 2Q,North America
+Nanticoke Refinery,DHIN2,Hydroprocessing,Distillate Hydroprocessing 2,Hydrotreater,2033,2033-04-05,2033-04-29,DHIN #2: 24 days - 2Q,North America
+Nanticoke Refinery,UT,Utilities,Utilities,Other,2032,2032-09-20,2032-11-04,Boiler #1: 45 days - 3Q,North America
+Sarnia Refinery,PFIS2,Reforming,Powerformer 2,Reformer,2032,2032-01-01,2032-01-31,2032 PFIS#2 Major (Regen),North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2032,2032-07-05,2032-07-17,3Q32 Strathcona Shutdown,North America
+Strathcona Refinery,HTIP,Hydroprocessing,HAGO Treater,Hydrotreater,2032,2032-07-05,2032-08-02,3Q32 Strathcona Shutdown,North America
+Strathcona Refinery,RHIE,Hydroprocessing,HYDT,Hydrotreater,2032,2032-07-05,2032-08-02,3Q32 Strathcona Shutdown,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2033,2033-05-03,2033-05-26,HULA R-801: 23 days - 2Q,North America
+Baton Rouge Refinery,HHLA-N,Hydroprocessing,DHYT,Hydrotreater,2033,2033-03-15,2033-04-07,33Q1 HHLA-N,North America
+Baton Rouge Chemical Plant,IPA,Fluids,Isopropyl Alcohol Unit,Other,2030,2030-10-01,2030-10-31,IPA Turnaround,North America
+Baton Rouge Chemical Plant,IPA,Fluids,Isopropyl Alcohol Unit,Other,2030,2030-10-01,2030-10-31,IPA Turnaround,North America
+Baton Rouge Chemical Plant,OXO-LP,Offsites,Low Pressure OXO,Other,2033,2033-09-01,2033-09-15,OXO Equipment Cleaning,North America
+Baton Rouge Chemical Plant,OXO-LP,Offsites,Low Pressure OXO,Other,2033,2033-09-01,2033-09-15,OXO Equipment Cleaning,North America
+Baton Rouge Refinery,HHLA-S,Hydroprocessing,HYDT,Hydrotreater,2033,2033-09-13,2033-10-11,33Q3 HHLA-S,North America
+Baytown Refinery,HU9 IFP,Hydroprocessing,HYDT,Hydrotreater,2033,2033-01-31,2033-03-02,2033 HU9 Cat C/O (with FS Event),North America
+Baytown Refinery,HU9 IFP,Hydroprocessing,HYDT,Hydrotreater,2033,2033-01-31,2033-03-02,2033 HU9 Cat C/O (with FS Event),North America
+Baytown Refinery,HU 5A,Hydroprocessing,HYDT,Hydrotreater,2033,2033-01-10,2033-02-09,2033 HU5A Cat C/O,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2033,2033-05-15,2033-06-17,2033 HU-10 R901A C/O,North America
+Baytown Refinery,HU 6A,Hydroprocessing,DHYT,Hydrotreater,2033,2033-08-01,2033-09-01,2033 HU-6A Cat C/O,North America
+Baytown Refinery,LHU 1,Hydroprocessing,DHYT,Hydrotreater,2033,2033-10-03,2033-10-23,2033 LHU1 Cat C/O,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2033,2033-01-10,2033-01-22,GTG 42: 12 days - 1Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2033,2033-01-10,2033-01-22,GTG 42: 12 days - 1Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2033,2033-04-04,2033-04-18,Alky D Rx: 14 days - 2Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2033,2033-04-04,2033-04-18,Alky D Rx: 14 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2033,2033-04-04,2033-05-04,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2033,2033-04-04,2033-05-04,Coker: 30 days - 2Q,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2033,2033-04-04,2033-04-19,PTR3: 15 days - 2Q,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2033,2033-04-04,2033-04-19,PTR3: 15 days - 2Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2033,2033-04-04,2033-04-19,GTG 43: 15 days - 2Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2033,2033-04-04,2033-04-19,GTG 43: 15 days - 2Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2033,2033-07-04,2033-07-25,N-BRU: 21 days - 3Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2033,2033-07-04,2033-07-25,N-BRU: 21 days - 3Q,North America
+Beaumont Complex,Utilities,Utilities,,Other,2033,2033-07-04,2033-07-16,Boiler 25: 12 days - 3Q,North America
+Beaumont Complex,Utilities,Utilities,,Other,2033,2033-07-04,2033-07-16,Boiler 25: 12 days - 3Q,North America
+Nanticoke Refinery,UT,Utilities,Utilities,Other,2033,2033-04-04,2033-05-19,Boiler #2: 45 days - 2Q,North America
+Joliet Refinery,ALKY,Alkylation,Alkylation,Other,2033,2033-04-04,2033-05-14,2Q33 Joliet Shutdown,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2033,2033-04-04,2033-05-09,2Q33 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2033,2033-04-04,2033-05-07,2Q33 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2033,2033-04-04,2033-05-12,2Q33 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2033,2033-04-04,2033-05-12,2Q33 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2033,2033-04-04,2033-05-12,2Q33 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2033,2033-04-04,2033-04-10,2Q33 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2033,2033-04-04,2033-05-12,2Q33 Joliet Shutdown,North America
+Joliet Refinery,PRETREATER,Hydroprocessing,HYDT,Hydrotreater,2033,2033-04-04,2033-05-05,2Q33 Joliet Shutdown,North America
+Joliet Refinery,REFORMER,Reforming,CCR,Reformer,2033,2033-04-04,2033-05-14,2Q33 Joliet Shutdown,North America
+Joliet Refinery,SHU,Hydroprocessing,Selective Hydrogenation,Hydrotreater,2033,2033-04-04,2033-05-12,2Q33 Joliet Shutdown,North America
+Joliet Refinery,"SULFUR, EAST",Gas Processing,SRU/TRU,Other,2033,2033-04-04,2033-05-05,2Q33 Joliet Shutdown,North America
+Joliet Refinery,"SULFUR, NORTH",Gas Processing,SRU/TRU,Other,2033,2033-04-04,2033-05-05,2Q33 Joliet Shutdown,North America
+Joliet Refinery,"SULFUR, WEST",Gas Processing,SRU/TRU,Other,2033,2033-04-04,2033-05-05,2Q33 Joliet Shutdown,North America
+Joliet Refinery,"TAIL GAS, NORTH",Gas Processing,SRU/TRU,Other,2033,2033-04-04,2033-04-29,2Q33 Joliet Shutdown,North America
+Joliet Refinery,"TAIL GAS, SOUTH",Gas Processing,SRU/TRU,Other,2033,2033-04-04,2033-04-29,2Q33 Joliet Shutdown,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2033,2033-04-01,2033-05-01,2033 DHIS#3 Major,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2033,2033-04-01,2033-05-01,2033 DHIS#3 Major,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,Distillate Hydrofiner 3,Hydrotreater,2035,2035-04-01,2035-04-29,2035 DHIS#1 Major,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,Distillate Hydrofiner 3,Hydrotreater,2035,2035-04-01,2035-04-29,2035 DHIS#1 Major,North America
+Strathcona Refinery,AP,Distillation,Atmospheric Pipestill,CDU,2033,2033-02-14,2033-03-16,1Q33 Strathcona Shutdown,North America
+Strathcona Refinery,AS,Distillation,Asphalt Vaccum Pipestill A,CDU,2033,2033-02-14,2033-03-16,1Q33 Strathcona Shutdown,North America
+Strathcona Refinery,AS,Distillation,Asphalt Vaccum Pipestill B,CDU,2033,2033-02-14,2033-03-19,1Q33 Strathcona Shutdown,North America
+Strathcona Refinery,UP,Utilities,Utilities Plant,Other,2033,2033-04-14,2033-06-13,2Q33 Strathcona Shutdown,North America
+Strathcona Refinery,BU,Reforming,Butamer,Reformer,2033,2033-09-14,2033-10-09,3Q33 Strathcona Shutdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2033,2033-09-14,2033-09-26,3Q33 Strathcona Shutdown,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2034,2034-05-01,2034-06-15,HULA Full Unit: 45 days,North America
+Baton Rouge Refinery,ALKY,Alkylation,Alkylation West,Other,2034,2034-09-04,2034-10-27,Alky West: 53 days - 3/4Q,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2034,2034-05-01,2034-06-03,2034 HU-10 R901B C/O,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2034,2034-01-02,2034-01-27,CHD2: 25 days - 1Q,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2034,2034-01-02,2034-01-27,CHD2: 25 days - 1Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2034,2034-01-02,2034-01-14,GTG 41: 12 days - 1Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2034,2034-01-02,2034-01-14,GTG 41: 12 days - 1Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2034,2034-04-03,2034-05-03,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2034,2034-04-03,2034-05-03,Coker: 30 days - 2Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2034,2034-04-03,2034-04-17,Alky C Rx: 14 days - 2Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2034,2034-04-03,2034-04-17,Alky C Rx: 14 days - 2Q,North America
+Beaumont Complex,DEA3,Gas Processing,DEA Regeneration 3,Other,2034,2034-04-03,2034-05-19,DEA3: 46 days - 2Q,North America
+Beaumont Complex,DEA3,Gas Processing,DEA Regeneration 3,Other,2034,2034-04-03,2034-05-19,DEA3: 46 days - 2Q,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2034,2034-04-03,2034-04-17,2Q34 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2034,2034-04-03,2034-04-28,2Q34 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2034,2034-04-03,2034-04-23,2Q34 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2034,2034-04-03,2034-04-23,2Q34 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2034,2034-04-03,2034-04-17,2Q34 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2034,2034-04-03,2034-04-09,2Q34 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2034,2034-04-03,2034-04-15,2Q34 Joliet Shutdown,North America
+Sarnia Chemical Plant,HOIS,Oxo,Higher Olefins,Other,2034,2034-04-01,2034-05-03,2034 HOIS TA,North America
+Sarnia Chemical Plant,HOIS,Oxo,Higher Olefins,Other,2034,2034-04-01,2034-05-03,2034 HOIS TA,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2034,2034-04-01,2034-04-25,2034 MHIS A-train Major,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2034,2034-04-01,2034-04-25,2034 MHIS A-train Major,North America
+Sarnia Refinery,DHIS1,Hydroprocessing,DHYT,Hydrotreater,2029,2029-05-01,2029-05-29,2029 DHIS#1 Major,North America
+Sarnia Refinery,DHIS1,Hydroprocessing,DHYT,Hydrotreater,2029,2029-05-01,2029-05-29,2029 DHIS#1 Major,North America
+Sarnia Refinery,ALIS,Alkylation,Alkylation,Other,2034,2034-10-02,2034-10-16,2034 ALIS (Water Wash) Major,North America
+Sarnia Refinery,ALIS,Alkylation,Alkylation,Other,2034,2034-10-02,2034-10-16,2034 ALIS (Water Wash) Major,North America
+Strathcona Refinery,CHIP,Hydroprocessing,CHIP Splitter,Hydrotreater,2034,2034-08-03,2034-09-02,3Q34 Strathcona Shutdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2034,2034-08-03,2034-09-07,3Q34 Strathcona Shutdown,North America
+Strathcona Refinery,UP,Utilities,Utilities Plant,Other,2034,2034-08-03,2034-10-02,3Q34 Strathcona Shutdown,North America
+Strathcona Refinery,COB,Utilities,,Other,2034,2034-04-03,2034-05-08,2Q34 Strathcona Shutdown,North America
+Strathcona Refinery,HTIP,Hydroprocessing,HAGO Treater,Hydrotreater,2034,2034-04-03,2034-04-29,2Q34 Strathcona Shutdown,North America
+Strathcona Refinery,RHIE,Hydroprocessing,HYDT,Hydrotreater,2034,2034-04-03,2034-05-01,2Q34 Strathcona Shutdown,North America
+Strathcona Refinery,S2,Gas Processing,SRU/TRU,Other,2034,2034-04-03,2034-04-28,2Q34 Strathcona Shutdown,North America
+Strathcona Refinery,VP,Distillation,Vacuum Pipestill,CDU,2034,2034-04-03,2034-04-28,2Q34 Strathcona Shutdown,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,DHYT,Hydrotreater,2029,2029-05-01,2029-05-24,HULA: 23 days - Q2,North America
+Baton Rouge Chemical Plant,OXO-HP,Oxo,High Pressure OXO,Other,2029,2029-09-01,2029-09-15,29Q3 OXO,North America
+Baton Rouge Chemical Plant,OXO-HP,Oxo,High Pressure OXO,Other,2029,2029-09-01,2029-09-15,29Q3 OXO,North America
+Baton Rouge Refinery,HHLA,Hydroprocessing,East Train Hydrofiner,Hydrotreater,2030,2030-01-04,2030-02-01,30Q1 HHLA-E,North America
+Baytown Refinery,HU9,Hydroprocessing,Hydrofining Unit 9,Hydrotreater,2029,2029-03-15,2029-04-14,2029 HU9 Cat Change - 1Q,North America
+Baytown Refinery,HU9,Hydroprocessing,Hydrofining Unit 9,Hydrotreater,2029,2029-03-15,2029-04-14,2029 HU9 Cat Change - 1Q,North America
+Baytown Refinery,HU 6B,Hydroprocessing,HYDT,Hydrotreater,2030,2030-04-02,2030-05-02,2030 HU-6B Cat C/O,North America
+Baytown Refinery,HU 5A,Hydroprocessing,HYDT,Hydrotreater,2029,2029-08-06,2029-09-05,2029 HU5A Cat C/O,North America
+Baytown Refinery,HU 6A,Hydroprocessing,DHYT,Hydrotreater,2029,2029-08-06,2029-09-06,2029 HU-6A Cat C/O,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2029,2029-01-08,2029-01-29,S-BRU: 21 days - 1Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2029,2029-01-08,2029-01-29,S-BRU: 21 days - 1Q,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2029,2029-01-29,2029-03-16,CUB: 46 days - 2/1,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2029,2029-01-29,2029-03-16,CUB: 46 days - 2/1,North America
+Beaumont Complex,CKRGP,Distillation,Coker Gas Plant,Other,2029,2029-01-29,2029-03-18,Coker: 48 days - 2/1,North America
+Beaumont Complex,CKRGP,Distillation,Coker Gas Plant,Other,2029,2029-01-29,2029-03-18,Coker: 48 days - 2/1,North America
+Beaumont Complex,ISOM,Miscellaneous,OTHER,Other,2029,2029-01-29,2029-02-28,ISOM: 30 days - 2/1,North America
+Beaumont Complex,ISOM,Miscellaneous,OTHER,Other,2029,2029-01-29,2029-02-28,ISOM: 30 days - 2/1,North America
+Beaumont Complex,CHD-1,Hydroprocessing,HYDT,Hydrotreater,2029,2029-01-29,2029-03-10,CHD1: 40 days - 1Q,North America
+Beaumont Complex,CHD-1,Hydroprocessing,HYDT,Hydrotreater,2029,2029-01-29,2029-03-10,CHD1: 40 days - 1Q,North America
+Beaumont Complex,SULFUR PLANT 1,Gas Processing,SRU/TRU,Other,2029,2029-02-19,2029-03-26,SRU1: 35 days - 1Q,North America
+Beaumont Complex,SULFUR PLANT 1,Gas Processing,SRU/TRU,Other,2029,2029-02-19,2029-03-26,SRU1: 35 days - 1Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2029,2029-01-29,2029-03-16,N-BRU: 46 days - 2/1,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2029,2029-01-29,2029-03-16,N-BRU: 46 days - 2/1,North America
+Beaumont Complex,DEA3,Gas Processing,DEA Regeneration 3,Other,2029,2029-01-29,2029-03-16,DEA3: 46 days - 2/1,North America
+Beaumont Complex,DEA3,Gas Processing,DEA Regeneration 3,Other,2029,2029-01-29,2029-03-16,DEA3: 46 days - 2/1,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2029,2029-03-26,2029-04-20,PTR3 Pretreater: 25 days - 2Q,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2029,2029-03-26,2029-04-20,PTR3 Pretreater: 25 days - 2Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2029,2029-08-06,2029-08-18,GTG 43: 12 days - 3Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2029,2029-08-06,2029-08-18,GTG 43: 12 days - 3Q,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2029,2029-08-06,2029-08-31,CHD-2: 25 days - 3Q,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2029,2029-08-06,2029-08-31,CHD-2: 25 days - 3Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2029,2029-10-08,2029-10-20,GTG 24: 12 days - 4Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2029,2029-10-08,2029-10-20,GTG 24: 12 days - 4Q,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2029,2029-03-26,2029-04-09,2Q29 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2029,2029-03-26,2029-04-20,2Q29 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2029,2029-03-26,2029-04-15,2Q29 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2029,2029-03-26,2029-04-15,2Q29 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2029,2029-03-26,2029-04-09,2Q29 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2029,2029-03-26,2029-04-05,2Q29 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2029,2029-03-26,2029-04-07,2Q29 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2029,2029-10-01,2029-10-12,4Q29 Joliet Shutdown,North America
+Nanticoke Refinery,UT,Utilities,Utilities,Other,2029,2029-09-17,2029-11-01,Boiler #1: 45 days - 3Q,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2029,2029-04-01,2029-05-01,2029 DHIS#3 Major,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2029,2029-04-01,2029-05-01,2029 DHIS#3 Major,North America
+Strathcona Refinery,AL,Offsites,Alkylation,Other,2029,2029-03-26,2029-05-15,2Q29 Strathcona Shutdown,North America
+Strathcona Refinery,CHIP,Hydroprocessing,CHIP SCANFiner,Hydrotreater,2029,2029-03-26,2029-05-15,2Q29 Strathcona Shutdown,North America
+Strathcona Refinery,COB,Utilities,,Other,2029,2029-03-26,2029-05-15,2Q29 Strathcona Shutdown,North America
+Strathcona Refinery,COF,Offsites,CO Furnace,Other,2029,2029-03-26,2029-05-15,2Q29 Strathcona Shutdown,North America
+Strathcona Refinery,FCC,Cracking,Fluid Catalytic Cracker,FCC,2029,2029-03-26,2029-05-15,2Q29 Strathcona Shutdown,North America
+Strathcona Refinery,AF,Distillation,Atmospheric pre_Flash,CDU,2029,2029-03-26,2029-05-15,2Q29 Strathcona Slowdown,North America
+Strathcona Refinery,AP,Distillation,Atmospheric Pipestill,CDU,2029,2029-03-26,2029-05-15,2Q29 Strathcona Slowdown,North America
+Strathcona Refinery,NHIE,Hydroprocessing,HYDT,Hydrotreater,2029,2029-03-26,2029-05-15,2Q29 Strathcona Slowdown,North America
+Strathcona Refinery,RHIP,Hydroprocessing,Refined Oil Hydrotreater,Hydrotreater,2029,2029-03-26,2029-05-15,2Q29 Strathcona Slowdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2029,2029-09-02,2029-09-14,3Q29 Strathcona Shutdown,North America
+Baton Rouge Chemical Plant,OLA-2X,Olefin Recovery,Refinery Gas Recovery,Other,2034,2034-09-18,2034-10-15,RGR Turnaround with PCLA,North America
+Baytown Refinery,HU 5A,Hydroprocessing,HYDT,Hydrotreater,2026,2026-11-02,2026-11-24,2026 HU-5A Cat C/O,North America
+Baytown Refinery,HU 5A,Hydroprocessing,HYDT,Hydrotreater,2026,2026-11-02,2026-11-24,2026 HU-5A Cat C/O,North America
+Baytown Refinery,HU 6B,Hydroprocessing,HYDT,Hydrotreater,2029,2029-04-15,2029-05-15,2027 HU-6B Cat C/O,North America
+Baytown Refinery,HU 6B,Hydroprocessing,HYDT,Hydrotreater,2029,2029-04-15,2029-05-15,2027 HU-6B Cat C/O,North America
+Baytown Refinery,HU10,Hydroprocessing,Hydrofiner 10,Hydrotreater,2026,2026-05-04,2026-06-06,2026 HU-10 R901B C/O,North America
+Baytown Refinery,HU10,Hydroprocessing,Hydrofiner 10,Hydrotreater,2026,2026-05-04,2026-06-06,2026 HU-10 R901B C/O,North America
+Baytown Refinery,LHU 1,Hydroprocessing,DHYT,Hydrotreater,2026,2026-09-07,2026-09-27,2026 LHU1 Cat C/O,North America
+Baytown Refinery,LHU 1,Hydroprocessing,DHYT,Hydrotreater,2026,2026-09-07,2026-09-27,2026 LHU1 Cat C/O,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,DHYT,Hydrotreater,2028,2028-04-24,2028-05-17,HULA R-901: 23 days - 2Q,North America
+Beaumont Complex,GP5-East,Hydrocracking,HYC,Hydrocracker,2026,2026-02-02,2026-03-02,Treater 3/GP5E/S-BRU: 38 days - 2/1,North America
+Beaumont Complex,GP5-East,Hydrocracking,HYC,Hydrocracker,2026,2026-02-02,2026-03-02,Treater 3/GP5E/S-BRU: 38 days - 2/1,North America
+Beaumont Complex,CUA,Distillation,CDU,CDU,2026,2026-02-16,2026-03-26,CUA: 38 days - 2/14,North America
+Beaumont Complex,CUA,Distillation,CDU,CDU,2026,2026-02-16,2026-03-26,CUA: 38 days - 2/14,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2026,2026-08-17,2026-10-01,GTG24: 45 days - 3Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2026,2026-08-17,2026-10-01,GTG24: 45 days - 3Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2026,2026-05-11,2026-05-23,GTG42: 12 days - 5/15,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2026,2026-05-11,2026-05-23,GTG42: 12 days - 5/15,North America
+Beaumont Complex,CHD-1,Hydroprocessing,HYDT,Hydrotreater,2026,2026-07-29,2026-08-23,CHD1: 25 days - 3Q,North America
+Beaumont Complex,CHD-1,Hydroprocessing,HYDT,Hydrotreater,2026,2026-07-29,2026-08-23,CHD1: 25 days - 3Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2026,2026-05-04,2026-06-03,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2026,2026-05-04,2026-06-03,Coker: 30 days - 2Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2026,2026-10-26,2026-11-16,GTG 43: 21 days - 4Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2026,2026-10-26,2026-11-16,GTG 43: 21 days - 4Q,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2026,2026-09-28,2026-10-28,CHD2: 30 days - 10/3,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2026,2026-09-28,2026-10-28,CHD2: 30 days - 10/3,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2026,2026-09-28,2026-10-23,PTR3 Pretreater: 25 days - 4Q,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2026,2026-08-24,2026-09-18,CUB Vacuum: 25 days - 3Q,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2026,2026-08-24,2026-09-18,CUB Vacuum: 25 days - 3Q,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2026,2026-05-04,2026-05-18,Alky R6: 14 days - 5/1,North America
+Beaumont Complex,ALKY FD HDT,Hydroprocessing,HYDT,Hydrotreater,2026,2026-05-04,2026-05-18,Alky R6: 14 days - 5/1,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2026,2026-08-24,2026-09-14,N-BRU: 21 days - 3Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery North,Other,2026,2026-08-24,2026-09-14,N-BRU: 21 days - 3Q,North America
+Baytown Refinery,HU 4,Hydroprocessing,HYDT,Hydrotreater,2028,2028-07-31,2028-08-20,2028 HU4 Cat C/O,North America
+Baytown Refinery,LHU 1,Hydroprocessing,DHYT,Hydrotreater,2028,2028-07-03,2028-07-23,2028 LHU1 Cat C/O,North America
+Sarnia Refinery,PFIS2,Reforming,Powerformer 2,Reformer,2026,2026-01-12,2026-03-07,2026 PFIS2 TA,North America
+Sarnia Chemical Plant,HOIS,Oxo,Higher Olefins,Other,2026,2026-03-02,2026-04-03,2026 HOIS TA,North America
+Sarnia Chemical Plant,HOIS,Oxo,Higher Olefins,Other,2026,2026-03-02,2026-04-03,2026 HOIS TA,North America
+Beaumont Complex,SULFUR PLANT 2,Gas Processing,SRU/TRU,Other,2028,2028-02-14,2028-03-20,SRU2/TGU: 35 days - 1Q,North America
+Beaumont Complex,SULFUR PLANT 2,Gas Processing,SRU/TRU,Other,2028,2028-02-14,2028-03-20,SRU2/TGU: 35 days - 1Q,North America
+Beaumont Complex,ALKY2,Alkylation,Alkylation 2,Other,2028,2028-05-01,2028-05-15,Alky D Rx: 14 days = 5/1,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2028,2028-01-24,2028-03-09,GTG 24: 45 days - 1Q,North America
+Beaumont Complex,GTG 24 SCR,Miscellaneous,OTHER,Other,2028,2028-01-24,2028-03-09,GTG 24: 45 days - 1Q,North America
+Beaumont Complex,SAM,Reforming,Hydrogen Plant,Reformer,2028,2028-02-07,2028-02-28,SAM: 21 days - 1Q,North America
+Beaumont Complex,SAM,Reforming,Hydrogen Plant,Reformer,2028,2028-02-07,2028-02-28,SAM: 21 days - 1Q,North America
+Beaumont Complex,DEA_N,Gas Processing,N DEA Regeneration,Other,2028,2028-02-07,2028-03-15,North DEA: 37 days - Feb,North America
+Beaumont Complex,DEA_N,Gas Processing,N DEA Regeneration,Other,2028,2028-02-07,2028-03-15,North DEA: 37 days - Feb,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2028,2028-01-17,2028-01-29,GTG43: 12 days - 1Q,North America
+Beaumont Complex,GTG 43 SCR,Miscellaneous,OTHER,Other,2028,2028-01-17,2028-01-29,GTG43: 12 days - 1Q,North America
+Beaumont Complex,PP3,Utilities,Power Plant 3,Other,2028,2028-05-29,2028-07-10,STG 32: 42 days - 6/1,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2028,2028-07-31,2028-08-21,GTG41: 21 days - 3Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2028,2028-07-31,2028-08-21,GTG41: 21 days - 3Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2028,2028-09-25,2028-10-05,GTG42: 10 days - 4Q,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2028,2028-09-25,2028-10-05,GTG42: 10 days - 4Q,North America
+Beaumont Complex,CKRGP,Distillation,Coker Gas Plant,Other,2028,2028-07-01,2028-07-31,Coker: 30 days - 2Q,North America
+Beaumont Complex,CKRGP,Distillation,Coker Gas Plant,Other,2028,2028-07-01,2028-07-31,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2028,2028-07-01,2028-07-31,Coker: 30 days - 2Q,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2028,2028-03-27,2028-04-10,2Q28 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2028,2028-03-27,2028-04-21,2Q28 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2028,2028-03-27,2028-04-16,2Q28 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2028,2028-03-27,2028-04-16,2Q28 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2028,2028-03-27,2028-04-16,2Q28 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2028,2028-03-27,2028-04-02,2Q28 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2028,2028-03-27,2028-04-09,2Q28 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2028,2028-09-25,2028-10-16,3Q28 Joliet Shutdown,North America
+Nanticoke Refinery,NP-ALKY,Asphalt,ASA,Other,2028,2028-09-18,2028-10-31,ALKY: 43 days - 9/15 (Moved from 26),North America
+Nanticoke Refinery,NP-VSU,Distillation,VAC,CDU,2029,2029-04-01,2029-04-22,VSU: 34 days - 2Q29,North America
+Nanticoke Refinery,DHIN2,Hydroprocessing,Distillate Hydroprocessing 2,Hydrotreater,2029,2029-04-01,2029-04-25,DHIN #2: 24 days - 2Q29,North America
+Nanticoke Refinery,SRU_LRF,Miscellaneous,C3/C4 Liquid Recovery,Other,2028,2028-09-18,2028-10-12,SRU-LRF: 24 days - 9/15,North America
+Sarnia Refinery,COGEN,Utilities,COGEN,Other,2028,2028-05-15,2028-05-31,2028 Cogen (Hot Gas Path),North America
+Sarnia Refinery,COGEN,Utilities,COGEN,Other,2028,2028-05-15,2028-05-31,2028 Cogen (Hot Gas Path),North America
+Sarnia Refinery,ALIS,Alkylation,Alkylation,Other,2028,2028-09-18,2028-10-02,2028 ALIS (Water Wash) Major,North America
+Sarnia Refinery,ALIS,Alkylation,Alkylation,Other,2028,2028-09-18,2028-10-02,2028 ALIS (Water Wash) Major,North America
+Strathcona Refinery,HTIP,Hydroprocessing,HAGO Treater,Hydrotreater,2028,2028-04-03,2028-05-01,2Q28 Strathcona Shutdown,North America
+Strathcona Refinery,RHIE,Hydroprocessing,HYDT,Hydrotreater,2028,2028-04-03,2028-05-01,2Q28 Strathcona Shutdown,North America
+Strathcona Refinery,S2,Gas Processing,SRU/TRU,Other,2028,2028-04-03,2028-04-28,2Q28 Strathcona Shutdown,North America
+Strathcona Refinery,VP,Distillation,Vacuum Pipestill,CDU,2028,2028-04-03,2028-04-28,2Q28 Strathcona Shutdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2028,2028-07-03,2028-08-07,3Q28 Strathcona Shutdown,North America
+Strathcona Refinery,UP,Utilities,Utilities Plant,Other,2028,2028-07-03,2028-09-01,3Q28 Strathcona Shutdown,North America
+Baton Rouge Chemical Plant,IPA,Fluids,Isopropyl Alcohol Unit,Other,2027,2027-10-01,2027-10-31,IPA Turnaround,North America
+Baton Rouge Chemical Plant,IPA,Fluids,Isopropyl Alcohol Unit,Other,2027,2027-10-01,2027-10-31,IPA Turnaround,North America
+Baton Rouge Chemical Plant,OXO-HP,Oxo,High Pressure OXO,Other,2027,2027-09-01,2027-09-15,27Q3 OXO,North America
+Baton Rouge Chemical Plant,OXO-HP,Oxo,High Pressure OXO,Other,2027,2027-09-01,2027-09-15,27Q3 OXO,North America
+Nanticoke Refinery,UT,Utilities,Utilities,Other,2027,2027-02-01,2027-03-18,"Boiler #2"" 45 days - 1Q",North America
+Nanticoke Refinery,FCCU,Cracking,Catalytic Cracking,FCC,2027,2027-04-12,2027-05-17,FCIN: 32 days - 4/1,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2027,2027-10-28,2027-11-09,3Q27 Strathcona Shutdown,North America
+Strathcona Refinery,BU,Reforming,Butamer,Reformer,2027,2027-06-28,2027-07-12,2Q27 Strathcona Shutdown,North America
+Strathcona Refinery,GT,Utilities,Cogeneration,Other,2027,2027-06-28,2027-08-27,2Q27 Strathcona Shutdown,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,DHYT,Hydrotreater,2027,2027-05-04,2027-05-27,HULA R-801: 23 days - 2Q (+AP SMR --> HULA s/d for ~5 days),North America
+Baton Rouge Refinery,HHLA-N,Hydroprocessing,DHYT,Hydrotreater,2027,2027-04-06,2027-04-29,27Q2 HHLA-N,North America
+Baton Rouge Refinery,HHLA-N,Hydroprocessing,DHYT,Hydrotreater,2027,2027-09-14,2027-09-22,27Q3 HHLA-S (w/ HHLA-N s/d overlap),North America
+Baton Rouge Refinery,HHLA-S,Hydroprocessing,HYDT,Hydrotreater,2027,2027-09-14,2027-10-07,27Q3 HHLA-S (w/ HHLA-N s/d overlap),North America
+Baytown Refinery,HU 6A,Hydroprocessing,DHYT,Hydrotreater,2027,2027-07-12,2027-08-12,2027 HU-6A Cat C/O,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2027,2027-05-15,2027-06-17,2027 HU-10 R901A C/O,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2027,2027-05-15,2027-06-17,2027 HU-10 R901A C/O,North America
+Beaumont Complex,H2S,Gas Processing,H2S,Other,2027,2027-01-04,2027-01-25,H2S Regen: 21 days - 1/1,North America
+Beaumont Complex,DUA,Hydrocracking,Dualayers,Hydrocracker,2027,2027-01-04,2027-02-19,Dualayer: 46 days - 1/1,North America
+Beaumont Complex,DUA,Hydrocracking,Dualayers,Hydrocracker,2027,2027-01-04,2027-02-19,Dualayer: 46 days - 1/1,North America
+Beaumont Complex,GTG 42 SCR,Miscellaneous,OTHER,Other,2027,2027-04-26,2027-05-17,GTG 42: 21 days - 2Q,North America
+Beaumont Complex,GTG 41 SCR,Miscellaneous,OTHER,Other,2027,2027-06-28,2027-07-10,GTG41: 12 days - 3Q,North America
+Beaumont Complex,BRU,Environmental,Benzene Recovery South,Other,2027,2027-07-12,2027-08-02,S-BRU: 21 days - 3Q,North America
+Beaumont Complex,PP3,Utilities,Power Plant 3,Other,2027,2027-08-30,2027-11-08,STG 33: 70 days - 9/1,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2027,2027-09-27,2027-11-01,CHD2/4: 35 days - 10/1,North America
+Beaumont Complex,CHD-2,Hydroprocessing,DHYT,Hydrotreater,2027,2027-09-27,2027-11-01,CHD2/4: 35 days - 10/1,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2027,2027-05-03,2027-06-02,Coker: 30 days - 2Q,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2027,2027-05-03,2027-06-02,Coker: 30 days - 2Q,North America
+Beaumont Complex,Olefins RGR,Olefins,Olefins,Other,2027,2027-01-07,2027-02-14,Olefins RGR: 38 days - 1/7,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2029,2029-05-15,2029-06-17,2029 HU-10 R901A C/O,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2029,2029-05-15,2029-06-17,2029 HU-10 R901A C/O,North America
+Baytown Refinery,GF-1A,Hydroprocessing,,Hydrotreater,2027,2027-01-06,2027-02-18,2027 Gofiner 1A,North America
+Baytown Refinery,APS 8,Distillation,CDU,CDU,2026,2026-04-06,2026-05-04,2026 APS8 F-802 Revamp,North America
+Baytown Refinery,APS 8,Distillation,CDU,CDU,2026,2026-10-01,2026-10-29,2026 APS8 F-801 Revamp,North America
+Baytown Refinery,APS 8,Distillation,CDU,CDU,2031,2031-01-27,2031-03-13,2031 Fuels North Event,North America
+Baytown Refinery,FS_SOUTH,Utilities,Flare Stack 20,Other,2031,2031-01-27,2031-02-26,2031 Fuels North Event,North America
+Baytown Refinery,FS_SOUTH,Utilities,Flare Stack 21,Other,2031,2031-01-27,2031-02-26,2031 Fuels North Event,North America
+Baytown Refinery,FS_SOUTH,Utilities,Flare Stack 22,Other,2031,2031-01-27,2031-02-26,2031 Fuels North Event,North America
+Baytown Refinery,GF 1 (Commons),Hydroprocessing,VHYT,Hydrotreater,2031,2031-01-27,2031-03-10,2031 Fuels North Event,North America
+Baytown Refinery,GF-1A,Hydroprocessing,,Hydrotreater,2031,2031-01-27,2031-03-06,2031 Fuels North Event,North America
+Baytown Refinery,HCU 1,Hydrocracking,HYC,Hydrocracker,2031,2031-01-27,2031-02-22,2031 Fuels North Event,North America
+Baytown Refinery,LXU 2,Lubes,LUBES,Other,2031,2031-01-27,2031-02-25,2031 Fuels North Event,North America
+Baytown Refinery,RHC,Lubes,LUBES,Other,2031,2031-01-27,2031-03-09,2031 Fuels North Event,North America
+Baytown Refinery,SCU2,Gas Processing,Sour Water Stripper A,Other,2031,2031-01-27,2031-02-25,2031 Fuels North Event,North America
+Baytown Refinery,SCU2,Gas Processing,Waste Water Stripping Unit,Other,2031,2031-01-27,2031-02-25,2031 Fuels North Event,North America
+Baytown Refinery,VPS 8,Distillation,VAC,CDU,2031,2031-01-27,2031-03-09,2031 Fuels North Event,North America
+Baytown Refinery,FXK,Coking,COK-OTH,Coker,2031,2031-09-15,2031-10-30,2031 FXK TA,North America
+Baytown Refinery,VPS 7 South,Distillation,VAC,CDU,2031,2031-05-01,2031-06-04,2031 VPS7 South Squat,North America
+Baytown Refinery,ALKY,Alkylation,Alkylation,Other,2033,2033-01-31,2033-03-11,2033 Fuels South Event,North America
+Baytown Refinery,CLEU2,Distillation,Catalytic Light Ends 2,Other,2033,2033-01-31,2033-03-11,2033 Fuels South Event,North America
+Baytown Refinery,CLEU3,Distillation,Catalytic Light Ends 3,Other,2033,2033-01-31,2033-03-11,2033 Fuels South Event,North America
+Baytown Refinery,FCCU 3,Cracking,FCC,FCC,2033,2033-01-31,2033-03-12,2033 Fuels South Event,North America
+Baytown Refinery,LEFU,Light Ends,LIGHT ENDS,Other,2033,2033-01-31,2033-03-11,2033 Fuels South Event,North America
+Baytown Refinery,ALKY,Alkylation,Alkylation,Other,2027,2027-10-01,2027-11-30,"2027 Alky R-6, 9, 10 Reactor Replacement Capital",North America
+Baytown Refinery,HDU 1,Hydroprocessing,HYDT,Hydrotreater,2034,2034-01-30,2034-03-11,2034 HF3 / HDU TA,North America
+Baytown Refinery,HF 3,Reforming,REF-OTH,Reformer,2034,2034-01-30,2034-03-11,2034 HF3 / HDU TA,North America
+Baytown Refinery,CLAUS C,Gas Processing,SRU/TRU,Other,2034,2034-06-01,2034-07-11,2034 Claus C / Tail Gas A / Flex A,North America
+Baytown Refinery,SCU2,Gas Processing,Tail gas cleanup A,Other,2034,2034-06-01,2034-07-11,2034 Claus C / Tail Gas A / Flex A,North America
+Baytown Refinery,APS 7 North,Distillation,CDU,CDU,2034,2034-09-01,2034-10-05,2034 PS7 TA,North America
+Baytown Refinery,APS 7 South,Distillation,CDU,CDU,2034,2034-09-01,2034-10-05,2034 PS7 TA,North America
+Baytown Refinery,BS4,Reforming,Booster Station 4,Reformer,2034,2034-09-01,2034-10-05,2034 PS7 TA,North America
+Baytown Refinery,VPS 7 North,Distillation,VAC,CDU,2034,2034-09-01,2034-10-05,2034 PS7 TA,North America
+Baytown Refinery,VPS 7 South,Distillation,VAC,CDU,2034,2034-09-01,2034-10-05,2034 PS7 TA,North America
+Baytown Refinery,FXK,Coking,COK-OTH,Coker,2035,2035-09-01,2035-10-11,2035 FXK TA,North America
+Baytown Refinery,GF-1B,Hydroprocessing,,Hydrotreater,2034,2034-09-01,2034-10-09,2034 Gofiner 1 B,North America
+Sarnia Refinery,CCIS,Distillation,CDU,CDU,2029,2029-09-03,2029-10-13,2029 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COB,Other,2029,2029-09-03,2029-10-13,2029 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COK-OTH,Other,2029,2029-09-03,2029-10-18,2029 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COK-SX,Other,2029,2029-09-03,2029-10-13,2029 CCIS TA Block,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2029,2029-09-03,2029-09-27,2029 CCIS TA Block,North America
+Sarnia Refinery,SWIS,Sour Water,,Other,2029,2029-09-03,2029-09-17,2029 CCIS TA Block,North America
+Sarnia Refinery,ALISHYD,Hydroprocessing,HYDT,Hydrotreater,2031,2031-09-15,2031-10-05,2031 FCIS TA Block,North America
+Sarnia Refinery,DHIS1,Hydroprocessing,DHYT,Hydrotreater,2031,2031-09-15,2031-10-13,2031 FCIS TA Block,North America
+Sarnia Refinery,F-3300 - Incinerator,Gas Processing,,Other,2031,2031-09-15,2031-10-08,2031 FCIS TA Block,North America
+Sarnia Refinery,FCIS,Cracking,FCC,FCC,2031,2031-09-15,2031-10-30,2031 FCIS TA Block,North America
+Sarnia Refinery,AVIS,Distillation,VAC,CDU,2032,2032-04-01,2032-05-01,2032 HCIS/AVIS TA Block,North America
+Sarnia Refinery,CVBD - Flare,Flare,Flare,Other,2032,2032-04-01,2032-05-01,2032 HCIS/AVIS TA Block,North America
+Sarnia Refinery,HCIS,Hydrocracking,HYC,Hydrocracker,2032,2032-04-01,2032-05-01,2032 HCIS/AVIS TA Block,North America
+Sarnia Refinery,HPIS,Reforming,Hydrogen Purification,Reformer,2032,2032-04-01,2032-05-01,2032 HCIS/AVIS TA Block,North America
+Sarnia Refinery,HSIS,Reforming,Hydrogen Synthesis,Reformer,2032,2032-04-01,2032-05-01,2032 HCIS/AVIS TA Block,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2032,2032-04-01,2032-04-25,2032 HCIS/AVIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,CDU,CDU,2032,2032-09-15,2032-10-25,2032 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COB,Other,2032,2032-09-15,2032-10-25,2032 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COK-OTH,Other,2032,2032-09-15,2032-10-30,2032 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COK-SX,Other,2032,2032-09-15,2032-10-25,2032 CCIS TA Block,North America
+Sarnia Refinery,F-3300 - Incinerator,Gas Processing,,Other,2032,2032-09-15,2032-10-08,2032 CCIS TA Block,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2032,2032-09-15,2032-10-09,2032 CCIS TA Block,North America
+Sarnia Refinery,SRIS1,Gas Processing,SRU/TRU,Other,2032,2032-09-15,2032-10-30,2032 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,CDU,CDU,2035,2035-09-15,2035-10-25,2035 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COB,Other,2035,2035-09-15,2035-10-25,2035 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COK-OTH,Other,2035,2035-09-15,2035-10-30,2035 CCIS TA Block,North America
+Sarnia Refinery,CCIS,Distillation,COK-SX,Other,2035,2035-09-15,2035-10-05,2035 CCIS TA Block,North America
+Sarnia Refinery,F-3300 - Incinerator,Gas Processing,,Other,2035,2035-09-15,2035-10-08,2035 CCIS TA Block,North America
+Sarnia Refinery,HUIS,Reforming,Hydrogen Upgrade,Reformer,2035,2035-09-15,2035-10-20,2035 CCIS TA Block,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2035,2035-09-15,2035-10-09,2035 CCIS TA Block,North America
+Sarnia Refinery,SRIS2,Gas Processing,SRU/TRU,Other,2035,2035-09-15,2035-10-25,2035 CCIS TA Block,North America
+Sarnia Refinery,TGIS,Gas Processing,SRU/TRU,Other,2035,2035-09-15,2035-10-05,2035 CCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Amine Caustic,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Coldbox and H2 Separation,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Dryers DD,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Dryers LA,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Light Ends DD,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Light Ends LB,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Process Gas Compressor CB,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Chemical Plant,GCIS,Pyrolysis,Process Gas Compressor CF,Other,2035,2035-09-15,2035-11-04,2035 GCIS TA Block,North America
+Sarnia Refinery,AVIS,Distillation,CDU,CDU,2036,2036-04-15,2036-05-15,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,AVIS,Distillation,VAC,CDU,2036,2036-04-15,2036-05-15,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,HCIS,Hydrocracking,HYC,Hydrocracker,2036,2036-04-15,2036-05-31,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,HPIS,Miscellaneous,OTHER,Other,2036,2036-04-15,2036-05-15,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,HSIS,Miscellaneous,OTHER,Other,2036,2036-04-15,2036-05-31,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2036,2036-04-15,2036-05-09,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,MHIST101,Distillation,FRACTIONATOR,Other,2036,2036-04-15,2036-04-30,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,Sarnia Benzene,,Benzene,Other,2036,2036-04-15,2036-05-14,2036 AVIS-HCIS-MHIS-ARIS TA,North America
+Sarnia Refinery,PFIS1,Reforming,Powerformer 1,Reformer,2027,2027-01-11,2027-03-08,2027 PFIS#1 TA,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2027,2027-04-01,2027-05-01,2027 DHIS#3 Major,North America
+Sarnia Refinery,PFIS2,Reforming,Powerformer 2,Reformer,2029,2029-01-01,2029-02-15,2029 PFIS#2 Major,North America
+Sarnia Refinery,MHIS,Hydroprocessing,HYDT,Hydrotreater,2031,2031-05-01,2031-05-25,2031 MHIS A-Train Major,North America
+Sarnia Refinery,COGEN,Utilities,COGEN,Other,2031,2031-04-01,2031-05-01,2031 Cogen TA,North America
+Sarnia Refinery,PFIS2,Reforming,Powerformer 2,Reformer,2034,2034-01-01,2034-03-02,2034 PFIS#2 TA,North America
+Sarnia Refinery,DHIS3,Hydroprocessing,DHYT,Hydrotreater,2035,2035-04-01,2035-05-01,2035 DHIS#3 Major,North America
+Baytown Refinery,ALKY,Alkylation,Alkylation,Other,2035,2035-01-29,2035-03-10,2035 Fuels South Event,North America
+Baytown Refinery,CLEU1,Distillation,Catalytic Light Ends 1,Other,2035,2035-01-29,2035-03-10,2035 Fuels South Event,North America
+Baytown Refinery,CLEU2,Distillation,Catalytic Light Ends 2,Other,2035,2035-01-29,2035-03-10,2035 Fuels South Event,North America
+Baytown Refinery,FCCU 2,Cracking,FCC,FCC,2035,2035-01-29,2035-03-10,2035 Fuels South Event,North America
+Baytown Refinery,HCU 1,Hydrocracking,HYC,Hydrocracker,2035,2035-06-04,2035-07-04,2035 HCU TA,North America
+Baytown Refinery,LXU 2,Lubes,LUBES,Other,2035,2035-06-04,2035-07-09,2035 Fuels North - Extraction,North America
+Baytown Refinery,MSDW,Lubes,LUBES,Other,2035,2035-06-04,2035-07-09,2035 Fuels North - Extraction,North America
+Baytown Refinery,RHC,Lubes,LUBES,Other,2035,2035-06-04,2035-07-09,2035 Fuels North - Extraction,North America
+Baytown Refinery,VPS 8,Distillation,VAC,CDU,2035,2035-06-04,2035-07-04,2035 Fuels North - Extraction,North America
+Baytown Chemical Plant,FHB,Butyl,Butyl Finishing,Other,2035,2035-09-01,2035-10-11,2035 Butyl TA,North America
+Baytown Chemical Plant,RHB,Butyl,Butyl Polymerization,Other,2035,2035-09-01,2035-10-11,2035 Butyl TA,North America
+Baytown Chemical Plant,MPU,Solution Metallocene,Metallocene,Other,2035,2035-06-15,2035-07-25,2035 ALPS LAU & SPU TA,North America
+Baton Rouge Chemical Plant,IPA,Fluids,Isopropyl Alcohol Unit,Other,2033,2033-10-01,2033-10-31,IPA Turnaround,North America
+Baton Rouge Chemical Plant,RLA-1,Butyl,RLA-1,Other,2030,2030-03-01,2030-03-31,Butyl ST Combustion Inspection,North America
+Baton Rouge Chemical Plant,RLA-1,Butyl,RLA-1,Other,2032,2032-09-01,2032-10-11,Butyl ST Hot Gas Path Inspection,North America
+Baton Rouge Chemical Plant,AROM,Aromatics,Aromatics Extraction,Other,2036,2036-02-01,2036-03-02,Aromatics/LOLA Turnaround,North America
+Baton Rouge Chemical Plant,OLA-2X,Olefin Recovery,Light Olefins 2X Process Gas Compressor,Other,2026,2026-10-05,2026-10-19,OLA-2X Hot Gas Path,North America
+Baton Rouge Chemical Plant,OLA-2X,Olefin Recovery,Light Olefins 2X Process Gas Compressor,Other,2036,2036-10-05,2036-10-19,OLA-2X Hot Gas Path,North America
+Baton Rouge Chemical Plant,INFRA,Utilities,Infrastructure,Other,2032,2032-08-11,2032-09-10,BRTG Hot Gas Path,North America
+Baton Rouge Chemical Plant,INFRA,Utilities,Infrastructure,Other,2035,2035-08-11,2035-09-18,BRTG Major,North America
+Baytown Chemical Plant,BAPP_L8,Slurry,Line 8 Polymerization,Other,2034,2034-06-05,2034-07-01,2034 BAPP L8 Outage,North America
+Baytown Chemical Plant,AXU,Aromatics,Aromatics Extraction,Other,2034,2034-01-30,2034-03-15,2034 Aromatics TA,North America
+Baytown Chemical Plant,NRU,Aromatics,Naphtha Rerun,Other,2034,2034-01-30,2034-03-15,2034 Aromatics TA,North America
+Baytown Chemical Plant,PAU,Aromatics,Paraxylene Adsorption Heavy,Other,2034,2034-01-30,2034-03-15,2034 Aromatics TA,North America
+Baytown Chemical Plant,PFU,Aromatics,Paraxlene Feed,Other,2034,2034-01-30,2034-03-15,2034 Aromatics TA,North America
+Baytown Olefins Plant,XCE,Olefin Recovery,Cold Ends Recovery XCE,Other,2035,2035-01-29,2035-03-15,2035 BOP-X TA,North America
+Baytown Olefins Plant,XHE,Pyrolysis,Feed Preheat XHE,Other,2035,2035-01-29,2035-03-15,2035 BOP-X TA,North America
+Baytown Olefins Plant,XUT,Utilities,Utilities X,Other,2035,2035-01-29,2035-03-15,2035 BOP-X TA,North America
+Baytown Olefins Plant,CE,Olefin Recovery,Cold Ends Recovery CE,Other,2033,2033-01-24,2033-02-18,2033 BOP Maintrain,North America
+Baytown Olefins Plant,HE,Pyrolysis,Quench/Sour/Dilution HE,Other,2033,2033-01-24,2033-03-10,2033 BOP Maintrain,North America
+Baytown Chemical Plant,BAPP_L4,Slurry,Line 4 Polymerization,Other,2031,2031-06-02,2031-06-28,2031 BAPP LN4 Outage,North America
+Baytown Chemical Plant,BAPP_L6,Slurry,Line 6 Polymerization,Other,2031,2031-09-01,2031-09-27,2031 BAPP LN6 Outage,North America
+Baytown Chemical Plant,PAU,Aromatics,Paraxylene Adsorption Heavy,Other,2030,2030-05-01,2030-06-10,"2030 Aromatics Mid Cycle TDU, PAU, PFU Squat",North America
+Baytown Chemical Plant,PFU,Aromatics,Paraxlene Feed,Other,2030,2030-05-01,2030-06-10,"2030 Aromatics Mid Cycle TDU, PAU, PFU Squat",North America
+Baytown Chemical Plant,TDU,Aromatics,Toluene Dealkylation,Other,2030,2030-05-01,2030-06-10,"2030 Aromatics Mid Cycle TDU, PAU, PFU Squat",North America
+Baytown Chemical Plant,BAPP_L8,Slurry,Line 8 Polymerization,Other,2026,2026-05-04,2026-05-30,2026 BAPP LN8 Outage,North America
+Baytown Chemical Plant,BAPP_L4,Slurry,Line 4 Polymerization,Other,2027,2027-05-05,2027-05-31,2027 BAPP LN4 Outage,North America
+Baytown Chemical Plant,RHB,Butyl,Butyl Polymerization,Other,2029,2029-10-01,2029-11-10,2029Butyl Machinery Outage,North America
+Baytown Chemical Plant,DHU,Hydroprocessing,Diene Hydrogenation,Hydrotreater,2027,2027-02-22,2027-03-29,2027 PCU/DHU Outage,North America
+Baytown Chemical Plant,PCU,Olefin Recovery,Propylene Concentration,Other,2027,2027-02-22,2027-03-29,2027 PCU/DHU Outage,North America
+Baytown Chemical Plant,DHU,Hydroprocessing,Diene Hydrogenation,Hydrotreater,2029,2029-01-29,2029-03-05,2029 PCU / DHU Outage,North America
+Baytown Chemical Plant,PCU,Olefin Recovery,Propylene Concentration,Other,2029,2029-01-29,2029-03-05,2029 PCU / DHU Outage,North America
+Baytown Chemical Plant,DHU,Hydroprocessing,Diene Hydrogenation,Hydrotreater,2033,2033-01-31,2033-03-07,2033 PCU/DHU Outage,North America
+Baytown Chemical Plant,PCU,Olefin Recovery,Propylene Concentration,Other,2033,2033-01-31,2033-03-07,2033 PCU/DHU Outage,North America
+Baytown Olefins Plant,BD-IBN,Olefin Recovery,Butadiene,Other,2028,2028-04-15,2028-05-20,2028 BOP BD,North America
+Baytown Olefins Plant,CE,Olefin Recovery,Propylene Recovery,Other,2029,2029-01-29,2029-02-28,2029 BOP RGR & PRU Outage,North America
+Baytown Olefins Plant,CE,Olefin Recovery,Refinery Gas Recovery,Other,2029,2029-01-29,2029-02-23,2029 BOP RGR & PRU Outage,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2026,2026-04-26,2026-05-24,2026 BOP SGT-05 HGPI,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2026,2026-10-01,2026-11-30,2026 BOP SGT-03 Major,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2027,2027-09-20,2027-11-19,2027 BOP SGT-02 Major,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2028,2028-04-24,2028-05-15,2028 BOP SGT-04 Minor,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2029,2029-10-04,2029-11-22,2029 BOP SGT-03 HGPI,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2030,2030-02-14,2030-04-15,2030 BOP SGT-04 Major,North America
+Baytown Olefins Plant,UT,Utilities,Utilities,Other,2030,2030-10-01,2030-11-30,2030 BOP SGT-05 Major,North America
+Baytown Refinery,GTG44/WHB74,Utilities,COGEN,Other,2026,2026-02-15,2026-03-17,2026 GTG 44 HGPI,North America
+Baytown Refinery,GTG42/WHB72,Utilities,COGEN,Other,2026,2026-11-01,2026-12-05,2026 GTG 42 Major,North America
+Baytown Refinery,GTG41/WHB71,Utilities,COGEN,Other,2027,2027-01-24,2027-02-27,2027 GTG 41 HGPI,North America
+Baytown Refinery,GTG43/WHB73,Utilities,COGEN,Other,2027,2027-10-18,2027-11-17,2027 GTG 43 HGPI,North America
+Baytown Refinery,GTG38/WHB68,Utilities,COGEN,Other,2028,2028-01-04,2028-03-04,2028 GTG 38 Major,North America
+Baytown Refinery,GTG45/WHB75,Utilities,COGEN,Other,2027,2027-03-14,2027-05-13,2027 GTG 45 Major,North America
+Baytown Refinery,GTG45/WHB75,Utilities,COGEN,Other,2030,2030-01-15,2030-02-14,2030 GTG 45 Major,North America
+Baytown Refinery,GTG41/WHB71,Utilities,COGEN,Other,2032,2032-01-15,2032-02-18,2032 GTG 41 Major,North America
+Baytown Refinery,GTG44/WHB74,Utilities,COGEN,Other,2032,2032-03-01,2032-04-04,2032 GTG 44 Major,North America
+Joliet Refinery,WET GAS SCRUBBER,Miscellaneous,OTHER,Other,2035,2035-08-31,2035-09-21,3Q35 Joliet Slowdown,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2028,2028-06-01,2028-07-04,2028 HU 10 Outage for Polyshift Project + R-901B Cat Change,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2030,2030-05-01,2030-06-03,2030 HU-10 R901B C/O,North America
+Baytown Refinery,HU 10,Hydroprocessing,DHYT,Hydrotreater,2035,2035-05-15,2035-06-17,2035 HU-10 R901A C/O,North America
+Baytown Refinery,LHU 1,Hydroprocessing,DHYT,Hydrotreater,2035,2035-05-01,2035-05-21,2035 LHU1 Cat C/O,North America
+Baytown Refinery,GF-1A,Hydroprocessing,,Hydrotreater,2035,2035-01-29,2035-03-08,2035 GF-1A,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2035,2035-03-05,2035-03-19,2Q35 Jolliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2035,2035-03-05,2035-03-30,2Q35 Jolliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2035,2035-03-05,2035-03-25,2Q35 Jolliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2035,2035-03-05,2035-03-25,2Q35 Jolliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2035,2035-03-05,2035-03-19,2Q35 Jolliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2035,2035-03-05,2035-03-11,2Q35 Jolliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2035,2035-03-05,2035-03-17,2Q35 Jolliet Shutdown,North America
+Baton Rouge Complex,HCNHF,Hydroprocessing,HYDT,Hydrotreater,2026,2026-10-01,2026-10-17,HCN C-201,North America
+Baton Rouge Complex,ALKY,Alkylation,Alkylation West,Other,2029,2029-01-19,2029-03-13,Alky West,North America
+Baton Rouge Refinery,HCLA,Reforming,Hydrocracker,Reformer,2030,2030-02-04,2030-02-24,30Q1 HCLA s/d (GOLD Project Work),North America
+Baton Rouge Refinery,PCLA-2,Cracking,FCC,FCC,2030,2030-09-01,2030-10-13,PCLA-2 s/d,North America
+Baton Rouge Refinery,PHLA,Distillation,Feed Preparation,Other,2031,2031-01-15,2031-02-24,T-31 s/d,North America
+Baton Rouge Refinery,LOFU,Light Oils,,Other,2031,2031-01-16,2031-01-30,LOFU #16,North America
+Baton Rouge Refinery,HHLA-E,Hydroprocessing,HYDT,Hydrotreater,2033,2033-01-11,2033-02-03,33Q1 HHLA-E s/d,North America
+Baton Rouge Refinery,PSLA8,Distillation,Pipestills 8 Atmospheric,CDU,2033,2033-02-01,2033-03-21,PS8 S/D,North America
+Baton Rouge Refinery,SRLA,Gas Processing,Sulfur Recovery 200,Other,2033,2033-05-03,2033-06-14,SRLA-400,North America
+Baton Rouge Refinery,SRLA,Gas Processing,Sulfur Recovery 200,Other,2034,2034-05-02,2034-05-31,SRLA-100,North America
+Baton Rouge Refinery,PCLA-3,Cracking,FCC,FCC,2034,2034-09-01,2034-10-13,PCLA-3 s/d,North America
+Baton Rouge Refinery,PSLA9,Distillation,Pipestills 9 Atmospheric,CDU,2035,2035-02-01,2035-03-03,PSLA-9 s/d,North America
+Baton Rouge Refinery,HULA,Hydroprocessing,Hydrofiner Unit,Hydrotreater,2035,2035-05-01,2035-05-24,HULA R-801,North America
+Baton Rouge Refinery,HHLA-S,Hydroprocessing,HYDT,Hydrotreater,2035,2035-09-11,2035-10-04,35Q3 HHLA-S,North America
+Baton Rouge Refinery,WCKR,Coking,West Coker,Coker,2035,2035-09-14,2035-10-14,WCK S/D,North America
+Baton Rouge Refinery,HHLA-E,Hydroprocessing,HYDT,Hydrotreater,2035,2035-10-16,2035-11-13,35Q4 HHLA-E,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2026,2026-04-05,2026-04-19,2Q26 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2026,2026-04-05,2026-04-30,2Q26 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2026,2026-04-05,2026-04-25,2Q26 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2026,2026-04-05,2026-04-25,2Q26 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2026,2026-04-05,2026-04-19,2Q26 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2026,2026-04-05,2026-04-15,2Q26 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2026,2026-04-05,2026-04-17,2Q26 Joliet Shutdown,North America
+Joliet Refinery,WET GAS SCRUBBER,Miscellaneous,OTHER,Other,2026,2026-04-05,2026-05-05,2Q26 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2027,2027-09-01,2027-09-22,3Q27 Joliet Shutdown,North America
+Joliet Refinery,WET GAS SCRUBBER,Miscellaneous,OTHER,Other,2029,2029-08-31,2029-09-21,3Q29 Joliet Slowdown,North America
+Joliet Refinery,ALKY,Alkylation,Alkylation,Other,2030,2030-03-31,2030-05-17,2Q30 Joliet Shutdown,North America
+Joliet Refinery,CHD,Hydroprocessing,DHYT,Hydrotreater,2030,2030-03-31,2030-05-12,2Q30 Joliet Shutdown,North America
+Joliet Refinery,COKER,Coking,DC,Coker,2030,2030-03-31,2030-05-02,2Q30 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Atmospheric Distillation,CDU,2030,2030-03-31,2030-05-05,2Q30 Joliet Shutdown,North America
+Joliet Refinery,CRD,Distillation,Vacuum Distillation,CDU,2030,2030-03-31,2030-05-05,2Q30 Joliet Shutdown,North America
+Joliet Refinery,FCC,Cracking,Fluid Catalytic Cracking,FCC,2030,2030-03-31,2030-05-13,2Q30 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2030,2030-03-31,2030-04-06,2Q30 Joliet Shutdown,North America
+Joliet Refinery,HDF,Hydroprocessing,HYDT,Hydrotreater,2030,2030-03-31,2030-05-12,2Q30 Joliet Shutdown,North America
+Joliet Refinery,NSRU,Gas Processing,North Amine Regenerator,Other,2030,2030-03-31,2030-05-03,2Q30 Joliet Shutdown,North America
+Joliet Refinery,PRETREATER,Hydroprocessing,HYDT,Hydrotreater,2030,2030-03-31,2030-05-02,2Q30 Joliet Shutdown,North America
+Joliet Refinery,REFORMER,Reforming,CCR,Reformer,2030,2030-03-31,2030-05-02,2Q30 Joliet Shutdown,North America
+Joliet Refinery,SGP,Gas Processing,Saturated Gas,Other,2030,2030-03-31,2030-04-27,2Q30 Joliet Shutdown,North America
+Joliet Refinery,SHU,Hydroprocessing,Selective Hydrogenation,Hydrotreater,2030,2030-03-31,2030-05-12,2Q30 Joliet Shutdown,North America
+Joliet Refinery,"SULFUR, EAST",Gas Processing,SRU/TRU,Other,2030,2030-03-31,2030-04-25,2Q30 Joliet Shutdown,North America
+Joliet Refinery,"SULFUR, NORTH",Gas Processing,SRU/TRU,Other,2030,2030-03-31,2030-04-25,2Q30 Joliet Shutdown,North America
+Joliet Refinery,"SULFUR, WEST",Gas Processing,SRU/TRU,Other,2030,2030-03-31,2030-04-25,2Q30 Joliet Shutdown,North America
+Joliet Refinery,"TAIL GAS, NORTH",Gas Processing,SRU/TRU,Other,2030,2030-03-31,2030-04-25,2Q30 Joliet Shutdown,North America
+Joliet Refinery,"TAIL GAS, SOUTH",Gas Processing,SRU/TRU,Other,2030,2030-03-31,2030-04-25,2Q30 Joliet Shutdown,North America
+Joliet Refinery,USGP,Gas Processing,Unsaturated Gas Plant,Other,2030,2030-03-31,2030-05-06,2Q30 Joliet Shutdown,North America
+Joliet Refinery,UTL,Utilities,Sour Water Stripper,Other,2030,2030-03-31,2030-05-06,2Q30 Joliet Shutdown,North America
+Joliet Refinery,FT Cogen,Utilities,COGEN,Other,2033,2033-09-01,2033-09-22,3Q33 Joliet Shutdown,North America
+Strathcona Refinery,AL,Offsites,Alkylation,Other,2026,2026-04-06,2026-05-19,2Q26 Strathcona  Slowdown,North America
+Strathcona Refinery,CHIP,Hydroprocessing,CHIP SCANFiner,Hydrotreater,2026,2026-04-06,2026-05-19,2Q26 Strathcona  Slowdown,North America
+Strathcona Refinery,FCC,Cracking,Fluid Catalytic Cracker,FCC,2026,2026-04-06,2026-05-19,2Q26 Strathcona  Slowdown,North America
+Strathcona Refinery,AM,Gas Processing,Amine,Other,2026,2026-09-01,2026-09-11,3Q26 Strathcona Shutdown,North America
+Strathcona Refinery,AL,Offsites,Alkylation,Other,2031,2031-03-30,2031-05-04,2Q31 Strathcona Slowdown,North America
+Strathcona Refinery,CHIP,Hydroprocessing,CHIP SCANFiner,Hydrotreater,2031,2031-03-30,2031-05-04,2Q31 Strathcona Slowdown,North America
+Strathcona Refinery,FCC,Cracking,Fluid Catalytic Cracker,FCC,2031,2031-03-30,2031-05-04,2Q31 Strathcona Slowdown,North America
+Strathcona Refinery,AL,Offsites,Alkylation,Other,2035,2035-04-01,2035-05-21,2Q35 Strathcona Shutdown,North America
+Strathcona Refinery,CHIP,Hydroprocessing,CHIP SCANFiner,Hydrotreater,2035,2035-04-01,2035-05-21,2Q35 Strathcona Shutdown,North America
+Strathcona Refinery,COB,Utilities,,Other,2035,2035-04-01,2035-05-21,2Q35 Strathcona Shutdown,North America
+Strathcona Refinery,FCC,Cracking,Fluid Catalytic Cracker,FCC,2035,2035-04-01,2035-05-21,2Q35 Strathcona Shutdown,North America
+Strathcona Refinery,AF,Distillation,Atmospheric pre_Flash,CDU,2035,2035-04-01,2035-05-21,2Q35 Strathcona Slowdown,North America
+Strathcona Refinery,AP,Distillation,Atmospheric Pipestill,CDU,2035,2035-04-01,2035-05-21,2Q35 Strathcona Slowdown,North America
+Strathcona Refinery,NHIE,Hydroprocessing,HYDT,Hydrotreater,2035,2035-04-01,2035-05-21,2Q35 Strathcona Slowdown,North America
+Strathcona Refinery,RHIP,Hydroprocessing,Refined Oil Hydrotreater,Hydrotreater,2035,2035-04-01,2035-05-21,2Q35 Strathcona Slowdown,North America
+Strathcona Refinery,AM,Gas Processing,Amine,Other,2035,2035-09-01,2035-09-13,3Q35 Strathcona Shutdown,North America
+Beaumont Complex,CUC,Distillation,Crude C,Other,2028,2028-04-10,2028-05-10,28 CUC Outage 2Q,North America
+Beaumont Complex,LoVis,Synthetics,,Other,2028,2028-04-01,2028-04-30,28 C&S LoVis Synthetics,North America
+Beaumont Complex,BMCP Paraxylene,,Paraxylene,Other,2028,2028-02-14,2028-03-15,28 Paraxylene - 1Q,North America
+Beaumont Complex,CUC,Distillation,Crude C,Other,2035,2035-10-01,2035-10-31,35 CUC Outage,North America
+Beaumont Complex,HDC,Hydrocracking,HYC,Hydrocracker,2032,2032-10-01,2032-10-31,32 VGO HDC Cat Change - 4Q,North America
+Beaumont Complex,HDC,Hydrocracking,HYC,Hydrocracker,2034,2034-10-01,2034-10-29,34 VGO HDC Cat Change - 4Q,North America
+Beaumont Complex,PtR-3,Reforming,HYDT,Reformer,2035,2035-07-01,2035-07-25,35 PRTR 3 Cat Change - 3Q,North America
+Beaumont Complex,LoVis,Synthetics,Lo Vis,Other,2035,2035-04-01,2035-05-16,35 LoVis Synthetics (C&S) - 2Q,North America
+Beaumont Complex,CUB,Distillation,VAC,CDU,2035,2035-02-01,2035-02-26,35 CUB Vac Outage - 1Q,North America
+Beaumont Complex,SULFUR PLANT 1,Gas Processing,SRU/TRU,Other,2035,2035-02-01,2035-03-08,35 SRU1 Outage,North America
+Nanticoke Refinery,NP-HSR-UNIF,Hydroprocessing,HYDT,Hydrotreater,2029,2029-03-01,2029-03-16,UNI - 1Q29,North America
+Nanticoke Refinery,NP-ALKY,Asphalt,ASA,Other,2034,2034-09-15,2034-10-23,ALKY / SRU-LRF - 2034,North America
+Nanticoke Refinery,SRU_LRF,Miscellaneous,C3/C4 Liquid Recovery,Other,2034,2034-09-15,2034-10-06,ALKY / SRU-LRF - 2034,North America
+Nanticoke Refinery,NP-CRU,Reforming,CCR,Reformer,2035,2035-04-01,2035-05-09,2035 CSU/CRU/NHIN/SRU,North America
+Nanticoke Refinery,NP-CSU,Distillation,CDU,CDU,2035,2035-04-01,2035-05-09,2035 CSU/CRU/NHIN/SRU,North America
+Nanticoke Refinery,NP-NHIN,Hydroprocessing,HYDT,Hydrotreater,2035,2035-04-01,2035-04-30,2035 CSU/CRU/NHIN/SRU,North America
+Nanticoke Refinery,NP-SRU,Gas Processing,SRU/TRU,Other,2035,2035-04-01,2035-04-27,2035 CSU/CRU/NHIN/SRU,North America
+Baytown Chemical Plant,LAU,,,Other,2029,2029-09-01,2029-10-11,LAU/SPU 3Q29,North America
+Baytown Chemical Plant,SPU,,,Other,2029,2029-09-01,2029-10-11,LAU/SPU 3Q29,North America
+Baytown Refinery,FXK,Coking,Flexicoker,Coker,2032,2032-03-01,2032-04-10,FXK / VPS3 2032,North America
+Baytown Refinery,VPS 3,Distillation,VAC,CDU,2032,2032-03-01,2032-03-31,FXK / VPS3 2032,North America
+Beaumont Complex,CUC,Distillation,Crude C,Other,2031,2031-10-01,2031-11-16,31 CUC Outage,North America
+Beaumont Complex,HDC,Hydrocracking,Hydrocracking,Hydrocracker,2032,2032-02-14,2032-03-26,2032 HDC Block TA,North America
+Beaumont Complex,COKER,Coking,Coker,Coker,2029,2029-02-01,2029-03-15,Coker: 30 days - 2Q,North America
+Baytown Refinery,APS 8,Distillation,CDU,CDU,2028,2028-01-24,2028-02-14,2028 FN+ GOLD/ RHC/MSDW,North America
