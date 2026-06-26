@@ -510,7 +510,6 @@ def _forecast(wb, fm, ctx, assets):
     for k, (lab, key) in enumerate([("P25", "p25"), ("Median", "p50"), ("P90", "p90"), ("Mean", "mean")]):
         ws.write(br + 8 + k, 0, lab, fm["lbl"]); ws.write_number(br + 8 + k, 1, float(sb[key]), fm["num"])
     ws.insert_image(3, 15, assets["fan"], IMG)
-    ws.insert_image(26, 15, assets["scenario_total"], IMG)
 
 
 def _base(df):

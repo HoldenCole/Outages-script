@@ -990,8 +990,7 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     handles = [plt.Rectangle((0, 0), 1, 1, color=PADD_COLOR[p]) for p in present]
     ax.legend(handles, present, frameon=False, ncol=len(present), fontsize=8.5,
               loc="lower right", title="Region", title_fontsize=8.5)
-    ax.set_title(f"Biggest {year} Outages by Unit, colored by PADD (where the tonnage sits)",
-                 fontsize=12)
+    ax.set_title(f"Biggest {year} Outages by Unit, colored by PADD", fontsize=12)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.grid(axis="x", zorder=0)
@@ -1042,6 +1041,31 @@ def h1_monthly_by_unit(ctx, path):
     fig.savefig(path, dpi=200, bbox_inches="tight")
     plt.close(fig)
     return path
+
+
+def unplanned_context(ctx, path):
+    """Recent actual unplanned offline by month (2024-2026), grouped bars - the
+    seasonal magnitude to carry into the 2027 scenario (which has no actuals yet)."""
+    mu = ctx["monthly_unplanned"]
+    years = [y for y in (2024, 2025, 2026) if y in mu.index]
+    cols = {2024: "#9DC3E6", 2025: "#2E75B6", 2026: "#ED7D31"}
+    fig, ax = plt.subplots(figsize=(10.4, 4.9))
+    x = np.arange(12)
+    w = 0.82 / max(1, len(years))
+    for i, y in enumerate(years):
+        ax.bar(x + i * w, [float(mu.loc[y, m]) for m in MONTHS], w, color=cols.get(y, GRAY),
+               label=str(y), zorder=3)
+    ax.set_xticks(x + (len(years) - 1) * w / 2, MONTHS)
+    ax.set_xlabel("Month")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd offline")
+    ax.set_title("Unplanned Offline by Month, 2024-2026 (kbd) - context for 2027")
+    ax.legend(frameon=False, ncol=3, loc="upper right")
+    _clean(ax)
+    fig.text(0.5, 0.004, "Actuals. 2026 reported through June; H2 still filling in. "
+             "Feb freeze and Sep-Oct turnaround windows are the recurring spikes.",
+             ha="center", fontsize=7.5, color=GRAY)
+    return _save(fig, path)
 
 
 def naphtha_balance_chart(ctx, path):
@@ -1105,9 +1129,10 @@ def render_all(ctx, outdir):
         "naphtha_balance": naphtha_balance_chart(ctx, p("naphtha_balance.png")),
         # 3) ExxonMobil outages (per unit, verified)
         "exxon_gantt": exxon_gantt(ctx, p("exxon_gantt.png")),
-        # 4) 2027 unplanned scenario analysis
+        # 3b) recent actual unplanned (context for the 2027 scenario)
+        "unplanned_context": unplanned_context(ctx, p("unplanned_context.png")),
+        # 4) 2027 unplanned scenario analysis (monthly paths; no annual-sum bars)
         "fan": scenario_fan_chart(ctx, p("fan.png")),
-        "scenario_total": scenario_total_bars(ctx, p("scenario_total.png")),
     }
     return out
 

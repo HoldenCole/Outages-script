@@ -245,6 +245,22 @@ def _unit_cat_from_name(name):
 ENHANCED_MAX_SPAN_DAYS = 500     # drop obvious placeholder/error spans (e.g. an outage 'ending' 2031)
 ENHANCED_MIN_YEAR = 2023         # only 2023+ is verified data -- 2021/2022 are dropped entirely
 
+# Confirmed capacity overrides: cap a unit's offline where the site always keeps
+# part of a multi-train unit online (match plant + exact unit name).
+ENHANCED_CAP = [
+    # Garyville runs two crude trains under 'Crude 210' and always leaves one
+    # online, so no more than ~one train (138 kbd) is ever really offline.
+    {"plant": "GARYVILLE", "unit": "CRUDE 210", "max_kbd": 138.0},
+]
+
+
+def _capped(plant, unit, cap):
+    p, u = str(plant).upper(), str(unit).strip().upper()
+    for c in ENHANCED_CAP:
+        if c["plant"] in p and u == c["unit"]:
+            return min(cap, c["max_kbd"])
+    return cap
+
 
 def _load_enhanced(raw):
     """Load the cleaned 'Refinery Outages Enhanced' breakdown (one row per outage
@@ -269,6 +285,7 @@ def _load_enhanced(raw):
         otype = str(r.get("Outage Type", "")).strip().upper()
         typ = "PLANNED" if otype == "PLANNED" else "UNPLANNED"   # UNKNOWN folds into UNPLANNED
         uname = str(r.get("Unit Name", "")).strip()
+        cap = _capped(r.get("Plant"), uname, cap)   # multi-train cap (see ENHANCED_CAP)
         region = r.get("Country/Region")
         oid = f"ENH{i}"
         for per in pd.period_range(s.to_period("M"), e.to_period("M"), freq="M"):

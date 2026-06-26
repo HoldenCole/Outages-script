@@ -5,11 +5,12 @@ offline**: how much of each key unit (CDU, FCC, hydrocracker, reformer) is down,
 by month, region and operator, with the 2027 outlook front and center. One data
 pipeline feeds three deliverables that always agree:
 
-1. **Slide deck** (`output/outage_deck.pptx`): an 8-slide, trader-focused deck.
-   Total 2027 outages by unit, the biggest individual outages by PADD, the
-   like-for-like H1 read per unit and month, where it tightens by PADD, the
-   naphtha balance (CDU supply vs reformer demand), the verified ExxonMobil
-   slate, and the 2027 unplanned scenario.
+1. **Slide deck** (`output/outage_deck.pptx`): a chart-forward, gasoline- and
+   distillate-focused deck (the talk-track lives in the **speaker notes**, so you
+   talk through each slide). Total 2027 outages by unit, the biggest individual
+   outages by PADD, the like-for-like H1 read per unit and month, outages by PADD
+   by unit, the naphtha balance (CDU supply vs reformer demand), recent
+   2024-2026 unplanned context, and the 2027 unplanned scenario (monthly).
 2. **Excel model** (`output/outage_model.xlsx`): every number the deck looks at,
    calculates or forecasts, in detail, with the exact deck charts embedded on
    each sheet (just copy and paste). The Naphtha and Forecast sheets are **live

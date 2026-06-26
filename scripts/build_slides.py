@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 build_slides.py
-Trading-desk deck (python-pptx): the things a trader needs, kept simple --
-    1. Total 2027 outages by unit  (and what each unit tightens)
+Trading-desk deck (python-pptx), gasoline- and distillate-focused. Slides are
+chart-forward; the talk-track lives in the speaker notes (talk through them).
+    1. Total 2027 outages by unit  (gasoline & distillate read)
     2. What's driving the numbers  (the biggest individual outages, by PADD)
     3. H1 planned per unit & month (2025 vs 2026 vs 2027, like-for-like)
-    4. Outages by PADD by unit     (where it tightens)
-    5. Naphtha balance             (CDU supply vs reformer demand, surplus/deficit)
-    6. ExxonMobil outages          (per unit, verified vs their corporate plan)
-    7. 2027 unplanned scenario     (the risk on top of the booked plan)
+    4. Outages by PADD by unit     (regional)
+    5. Naphtha balance             (CDU supply vs reformer demand)
+    6. Unplanned 2024-2026 context (grounds the 2027 scenario)
+    7. 2027 unplanned scenario     (monthly risk on top of the booked plan)
 
 Everything is per-unit capacity offline (never a summed "total"), 2027-forward.
 2027 completeness is asymmetric: only ExxonMobil gave a full-year plan (verified
@@ -180,27 +181,32 @@ class Deck:
                 shp.line.fill.background(); shp.shadow.inherit = False
 
     # ----------------------------------------------------------------- chart layouts
-    def charts_bullets_slide(self, title, sub, imgs, bullets, foot=None):
-        """1-2 charts stacked on the left, bullets on the right."""
+    def _notes(self, s, text):
+        """Put the talk-track in the speaker notes (slides stay chart-forward)."""
+        if text:
+            s.notes_slide.notes_text_frame.text = text
+
+    def charts_bullets_slide(self, title, sub, imgs, notes=None, foot=None):
+        """1-2 charts, no on-slide bullets; the talk-track lives in speaker notes."""
         s = self._section(title, sub)
         if len(imgs) == 1:
-            self._pic_fit(s, imgs[0], Inches(0.45), Inches(1.45), Inches(7.4), Inches(5.0),
+            self._pic_fit(s, imgs[0], Inches(0.5), Inches(1.35), Inches(12.3), Inches(5.2),
                           center="both")
         else:
-            self._pic_fit(s, imgs[0], Inches(0.45), Inches(1.35), Inches(7.4), Inches(2.55),
+            self._pic_fit(s, imgs[0], Inches(0.35), Inches(1.5), Inches(6.45), Inches(4.9),
                           center="both")
-            self._pic_fit(s, imgs[1], Inches(0.45), Inches(4.05), Inches(7.4), Inches(2.55),
+            self._pic_fit(s, imgs[1], Inches(6.75), Inches(1.5), Inches(6.45), Inches(4.9),
                           center="both")
-        self._bullets(s, Inches(8.15), Inches(1.5), Inches(4.85), bullets, size=12, spacing=0.62)
+        self._notes(s, notes)
         if foot:
             self._footnote(s, foot)
         return s
 
-    def wide_chart_slide(self, title, sub, img, bullets, foot=None):
-        """One wide chart (left ~2/3) + a narrow takeaways column (right)."""
+    def wide_chart_slide(self, title, sub, img, notes=None, foot=None):
+        """One large centered chart; the talk-track lives in speaker notes."""
         s = self._section(title, sub)
-        self._pic_fit(s, img, Inches(0.4), Inches(1.3), Inches(8.9), Inches(5.3), center="both")
-        self._bullets(s, Inches(9.5), Inches(1.5), Inches(3.6), bullets, size=11, spacing=0.46)
+        self._pic_fit(s, img, Inches(0.5), Inches(1.35), Inches(12.3), Inches(5.2), center="both")
+        self._notes(s, notes)
         if foot:
             self._footnote(s, foot)
         return s
@@ -235,16 +241,19 @@ class Deck:
         c2 = self.ctx["confirmed2027"]
         pk = lambda f: max(c2[f]["confirmed"])
         self.wide_chart_slide(
-            "Total 2027 Outages by Unit, and What They Tighten",
+            "Total 2027 Outages by Unit",
             "Capacity offline by unit & month; solid = confirmed, hatched = non-Exxon H2 (not yet booked)",
             self.a["splits_2027"],
-            ["CDU down cuts the whole site's run, every product. FCC = gasoline + octane. "
-             "Reformer = octane. Hydrocracker = diesel/jet.",
-             f"Confirmed peak (all H1): CDU ~{kbd(pk('CDU'))}, FCC ~{kbd(pk('FCC'))}, "
-             f"hydrocracker ~{kbd(pk('Hydrocracker'))}, reformer ~{kbd(pk('Reformer'))} kbd.",
-             "Units read separately, never added: a 250 CDU plus a 100 FCC is not '350 offline'.",
-             "Solid = confirmed (Exxon full-year + everyone's H1). Hatched = non-Exxon H2: don't "
-             "trade the autumn spike as real."],
+            notes=(
+                "2027 planned offline, per unit. CDU is the whole barrel: when crude is down, every "
+                "product from the site is cut, gasoline and distillate alike. FCC and reformer feed the "
+                "gasoline pool (cat gasoline and octane); the hydrocracker feeds distillate (diesel and "
+                "jet). "
+                f"Confirmed peak, all in H1: CDU ~{kbd(pk('CDU'))}, FCC ~{kbd(pk('FCC'))}, hydrocracker "
+                f"~{kbd(pk('Hydrocracker'))}, reformer ~{kbd(pk('Reformer'))} kbd. "
+                "Read each unit on its own, never added: a 250 CDU plus a 100 FCC is not '350 offline'. "
+                "Solid bars are confirmed (Exxon full-year plus everyone's H1); the hatched autumn bars "
+                "are non-Exxon H2, still being booked, so don't trade them as firm."),
             foot="Day-weighted offline (a unit down part of a month counts only its days down), each unit "
                  "once per month. Non-Exxon H2 2027 is a floor that fills in.")
 
@@ -261,12 +270,14 @@ class Deck:
             "What's Driving the Numbers: the Biggest Outages",
             "Each bar is one unit's nameplate offline (kbd) in 2027, colored by PADD (region)",
             self.a["biggest_outages"],
-            [f"Big tonnage sits in {lead}: that's where one outage moves USGC supply and the export "
-             "barrel most.",
-             f"Biggest: {names}. Mostly crude (CDU); one CDU down cuts the whole site's run.",
-             f"Read each bar alone: individual units, never added. Biggest single outage ~{kbd(mx)} kbd, "
-             "not a summed total.",
-             "Hatched = non-Exxon H2: still being booked, an indicative floor, not confirmed."],
+            notes=(
+                f"The biggest single units offline in 2027, by refinery and region. The most capacity "
+                f"sits in {lead} (Gulf), so that's where one outage moves USGC supply and the export "
+                "gasoline and distillate barrel most. Biggest single outages: "
+                f"{names}. They're mostly crude (CDU): one crude unit down cuts the whole site, every "
+                f"product. Read each bar on its own, never added: the biggest single outage is ~{kbd(mx)} "
+                "kbd, not a summed total. Hatched bars are non-Exxon H2, still being booked, an "
+                "indicative floor, not confirmed."),
             foot="Per-unit nameplate offline, the 12 biggest focus-unit outages of 2027. Color = PADD "
                  "region; hatched = non-Exxon H2 (indicative).")
 
@@ -288,28 +299,31 @@ class Deck:
             "H1 Planned Outages per Unit & Month: 2025 / 2026 / 2027",
             "Like-for-like Jan-Jun planned offline, by unit and month (2027 confirmed through H1)",
             self.a["h1_month_by_unit"],
-            ["H1 is the only honest cross-year read: 2027 is booked through June; H2 is still being "
-             "scheduled.",
-             "2027 runs heavier than 2025 and 2026 in most H1 months: the orange bar stands tallest.",
-             f"Crude (CDU) averages ~{kbd(cdu27)} kbd vs ~{kbd(cdu26)} (2026), ~{kbd(cdu25)} (2025); "
-             f"crests in {pmo} (~{kbd(pval)} kbd).",
-             "Heavier spring = tighter product supply. Read each unit and month on its own, never added."],
+            notes=(
+                "H1 is the only honest cross-year read: 2027 is booked through June, H2 is still being "
+                "scheduled. 2027 runs heavier than 2025 and 2026 in most H1 months (the orange bar). "
+                f"Crude (CDU) averages ~{kbd(cdu27)} kbd vs ~{kbd(cdu26)} in 2026 and ~{kbd(cdu25)} in "
+                f"2025, cresting in {pmo}. Crude and cat-cracker turnarounds cluster in February-March, "
+                "landing into the spring gasoline-spec changeover, so the gasoline pool tightens just as "
+                "summer-grade demand builds. The hydrocracker (distillate: diesel and jet) is front-"
+                "loaded in Q1 too (Sweeny, Beaumont, Houston, LA, Martinez), but it is in line with "
+                "history and below the 2023-24 peaks, not elevated. A heavier H1 = tighter gasoline and "
+                "distillate supply into the spring."),
             foot="Day-weighted capacity offline by month, planned only, each unit once per month. "
                  "Per-panel y-axis. 2025/26 actuals; 2027 the booked plan.")
 
     def padd_by_unit_slide(self):
         self.charts_bullets_slide(
-            "Outages by PADD by Unit: Where It Tightens",
-            "2027 crude (CDU, top) and cat-cracker (FCC, bottom) offline by region & month",
+            "Outages by PADD by Unit",
+            "2027 crude (CDU, left) and cat-cracker (FCC, right) offline by region & month",
             [self.a["cdu_padd_27"], self.a["fcc_padd_27"]],
-            ["PADD 3 (Gulf) is the swing region: most crude and FCC work lands there, tightening USGC "
-             "supply and the export barrel.",
-             "PADD 2 (Midwest) carries the spring crude (Joliet). PADD 5 (West) is islanded: a California "
-             "outage isn't bailed out by other regions.",
-             "Windows are spring (Mar-May) and autumn (Sep-Oct); summer is protected for driving-season "
-             "gasoline.",
-             "Past the dotted line (H2) is non-Exxon, unconfirmed: those autumn bars are a floor that "
-             "grows as operators book."],
+            notes=(
+                "Where the work lands by region. PADD 3 (Gulf) is the swing region for crude and cat-"
+                "cracker turnarounds, so it drives USGC supply and the export gasoline and distillate "
+                "barrel. PADD 2 (Midwest) carries the spring crude. PADD 5 (West) is islanded: a "
+                "California outage isn't bailed out by other regions. The windows are spring (Mar-May) "
+                "and fall (Sep-Oct); summer is protected for driving-season gasoline. Past the dotted "
+                "line is non-Exxon H2, unconfirmed, a floor that grows as operators book."),
             foot="Day-weighted concurrent capacity offline by month, stacked by PADD. P1 NE, P2 Midwest, "
                  "P3 Gulf, P4 Rockies, P5 West.")
 
@@ -325,67 +339,58 @@ class Deck:
             "Naphtha Balance: CDU Supply vs Reformer Demand",
             "2027 outages read as naphtha length. CDU makes naphtha; reformers consume it",
             self.a["naphtha_balance"],
-            [f"Crude makes naphtha (~{ny}% of the barrel); reformers run on it. CDU down removes naphtha "
-             "supply, reformer down removes demand.",
-             f"All of 2027 sits in {state} (net {kbd(nb['annual_net'])} kbd): crude turnarounds pull more "
-             "naphtha off than reformer turnarounds free up.",
-             f"Tightest in {m1} ({kbd(v1)}) and {m2} ({kbd(v2)}) kbd, the autumn crude stack. Deficit = "
-             "naphtha short, bullish reformate margins.",
-             "Reformer down frees naphtha but cuts reformate (~85% of feed = octane), squeezing the "
-             "gasoline pool's octane."],
+            notes=(
+                f"Crude makes naphtha (~{ny}% of the barrel); reformers run on it to make reformate, the "
+                "octane in gasoline. A CDU outage removes naphtha supply; a reformer outage removes "
+                f"demand. All of 2027 sits in {state} (net {kbd(nb['annual_net'])} kbd): crude turnarounds "
+                f"pull more naphtha off than reformer turnarounds free up, so naphtha is structurally "
+                f"short, which is bullish reformate and octane. Tightest in {m1} ({kbd(v1)}) and {m2} "
+                f"({kbd(v2)}) kbd, the autumn crude stack. When a reformer is down it frees naphtha but "
+                "cuts ~85% of its feed as reformate, squeezing the gasoline pool's octane."),
             foot=f"Net = reformer offline x {nb['reformer_intake']:.0f} (demand) minus CDU offline x "
                  f"{nb['naphtha_yield']:.2f} (supply), day-weighted. + surplus / - deficit. "
                  "H2 non-Exxon is indicative.")
 
-    def exxon_slide(self):
-        ev = self.ctx["exxon_verify"]["events"]
-        conf = ev[ev["focus"].isin(engine.FOCUS_ORDER) & (ev["verified"] == True)]   # noqa: E712
-        has_plan = len(conf) > 0          # corporate-plan reconciliation available (optional)
-        bullets = [
-            "ExxonMobil is the only operator with a full-year 2027 plan, so its H2 is the only confirmed "
-            "H2. Everyone else is H1-only.",
-            "Per unit, never summed: the 'Exxon ~700 kbd' figure was 8 Joliet units in one April "
-            "turnaround added together. It's really ~250 kbd of crude.",
-            (f"Reconciled to Exxon's own corporate plan ({len(conf)} units): " if has_plan
-             else "Exxon's verified 2027 slate: ")
-            + "Baytown & Beaumont FCC in Q1, Joliet crude Apr-May, Baton Rouge crude in autumn.",
-        ]
+    def unplanned_context_slide(self):
         self.wide_chart_slide(
-            "ExxonMobil 2027 by Unit",
-            "Each unit's turnaround as its own bar, nameplate capacity offline (kbd)",
-            self.a["exxon_gantt"], bullets,
-            foot=("Cross-checked against ExxonMobil's corporate turnaround plan; match = same refinery + "
-                  "unit class, overlapping months." if has_plan
-                  else "Per-unit nameplate offline from the verified outage book."))
+            "Unplanned Offline: 2024-2026 Context",
+            "What unplanned actually looked like in recent years, to ground the 2027 scenario",
+            self.a["unplanned_context"],
+            notes=(
+                "2027 has no unplanned actuals yet, so the scenario is anchored on what really happened. "
+                "2024-2026 show the recurring shape: the February freeze spike and the September-October "
+                "turnaround overlap, with summer quieter. This is the seasonal magnitude and range to "
+                "carry into 2027 on top of the booked plan. Crude and the gasoline-making units (FCC, "
+                "reformer) drive the spikes; distillate units add to the winter and fall windows. 2026 is "
+                "reported through June, so its H2 is still filling in."),
+            foot="Actual unplanned capacity offline by month, day-weighted. 2026 reported through June.")
 
     def scenario_slide(self):
-        sc = self.ctx["scenario"]
         fan = self.ctx["scenario_fan"]
-        cons = float(fan["Conservative"].sum()); avg = float(fan["Average"].sum()); act = float(fan["Active"].sum())
-        pl = float(sc["planned_2027"])
-        self.charts_bullets_slide(
+        pk_avg = float(max(fan["Average"]))
+        self.wide_chart_slide(
             "2027 Unplanned Scenario: the Risk on Top of Planned",
-            "Potential unplanned offline (kbd) modeled on the 2023-26 seasonal pattern",
-            [self.a["fan"], self.a["scenario_total"]],
-            ["2027 has no actual unplanned yet: this is the risk range on top of the booked plan.",
-             f"Average ~{kbd(avg)} kbd unplanned; Conservative ~{kbd(cons)} (calm year), Active ~{kbd(act)} "
-             f"(heavy). Booked planned is ~{kbd(pl)} kbd.",
-             f"Implied total ~{kbd(cons + pl)} / ~{kbd(avg + pl)} / ~{kbd(act + pl)} kbd "
-             "(Conservative / Average / Active).",
-             "Risk peaks in Feb (winter freeze) and Sep-Oct (turnaround overlap); summer is the trough.",
-             "Trade it: Active = stress case for supply tightness; Conservative = the floor."],
+            "Potential unplanned offline (kbd per month) modeled on the 2023-26 seasonal pattern",
+            self.a["fan"],
+            notes=(
+                "2027 has no actual unplanned yet, so this is the monthly risk range to carry on top of "
+                "the booked plan. Conservative, Average and Active scale the 2023-26 monthly shape by "
+                "0.8, 1.0 and 1.3. Read it month by month, not as an annual total: risk peaks in February "
+                "(freeze) and Sep-Oct (turnaround overlap), with summer the trough. The Average path "
+                f"peaks near ~{kbd(pk_avg)} kbd of unplanned offline in the worst month. Trade the Active "
+                "path as the supply-tightness stress case and Conservative as the floor."),
             foot="Scenario = mean 2023-26 monthly unplanned shape (completeness-aware) x {0.8 / 1.0 / 1.3}. "
-                 "A risk range, not a forecast.")
+                 "Monthly concurrent offline, a risk range, not a forecast. Not an annual sum.")
 
     def build(self):
         self.title_slide()
-        self.total_by_unit_slide()     # total outages by unit
-        self.drivers_slide()           # what's driving the numbers: biggest outages by PADD
-        self.h1_compare_slide()        # H1 2025/26 vs H1 2027 planned, per unit
-        self.padd_by_unit_slide()      # outages by PADD by unit
-        self.naphtha_slide()           # CDU supply vs reformer demand: naphtha balance
-        self.exxon_slide()             # ExxonMobil outages
-        self.scenario_slide()          # 2027 unplanned scenario
+        self.total_by_unit_slide()        # total outages by unit
+        self.drivers_slide()              # biggest outages by PADD
+        self.h1_compare_slide()           # H1 2025/26 vs 2027 planned, per unit & month
+        self.padd_by_unit_slide()         # outages by PADD by unit
+        self.naphtha_slide()              # naphtha balance
+        self.unplanned_context_slide()    # 2024-2026 unplanned context
+        self.scenario_slide()             # 2027 unplanned scenario (monthly)
 
     def save(self, path):
         self.prs.save(path)
