@@ -101,19 +101,30 @@ sheet, and the Naphtha and Forecast sheets recompute live off them.
 
 ## Excel model sheets
 
-`outage_model.xlsx`, eight sheets, each with its detail table and the matching
-deck chart embedded:
+`outage_model.xlsx`, fifteen sheets. The analysis computes off a single `Data`
+source with **visible Excel formulas** (SUMIFS / AVERAGE / CORREL / SLOPE /
+RSQ ...), so any number on a slide can be traced to a cell and you can see how it
+is calculated. The shaded gold cells are editable inputs that the dependent
+sheets recompute off. Every deck chart is embedded, and Historicals / Regression
+add **native, live Excel charts**.
 
 | Sheet | What's in it |
 |---|---|
-| **Assumptions** | As-of date, yields (incl. naphtha), reformer intake, scenario multipliers, baseline window, methodology. Shaded input cells drive the live sheets. |
-| **Per-Unit** | CDU / FCC / hydrocracker / reformer concurrent offline by month and year (day-weighted), plus busiest-month peaks. |
+| **Index** | Maps each deck slide to its model sheet and how it is calculated. |
+| **Assumptions** | As-of date, yields (incl. naphtha), reformer intake, scenario multipliers, baseline window, methodology. Drives the live sheets. |
+| **Data** | The source: one row per year/month/plant/unit/type (day-weighted kbd + nameplate), filterable. Everything SUMIFS over this. |
+| **Historicals** | Monthly 2023-2027: total / planned / unplanned, unplanned %, per focus unit, per PADD, annual + YoY%, with a live line chart. |
+| **Per-Unit** | CDU / FCC / hydrocracker / reformer concurrent offline by month and year, plus busiest-month peaks (=MAX). |
 | **Biggest** | The biggest individual 2027 outages: refinery, unit, class, PADD, kbd, window, confirmed vs indicative. |
-| **H1 by Unit** | H1 (Jan-Jun) planned offline per unit and month for 2025 / 2026 / 2027, plus the H1 averages. |
+| **H1 by Unit** | H1 (Jan-Jun) planned offline per unit and month for 2025 / 2026 / 2027, plus the H1 averages (=AVERAGE). |
 | **PADD by Unit** | 2027 CDU and FCC offline by PADD and month. |
-| **Naphtha** | CDU supply vs reformer demand balance, **live** off the Assumptions yields, with the monthly net. |
+| **Naphtha** | CDU supply vs reformer demand balance, **live** off the Assumptions yields. |
 | **ExxonMobil** | Per-unit 2027 turnarounds, verified against the corporate plan. |
 | **Forecast** | Completeness-aware baseline and the Conservative / Average / Active scenario, **live** off the multipliers, with implied totals and history bands. |
+| **Sensitivity** | 2027 implied total across an unplanned-multiplier x one-off-shock grid (editable heatmap). |
+| **Stress Test** | Named shocks (USGC hurricane, winter freeze, CDU trips, fall overlap) on the 2027 book, with tunable shock cells. |
+| **Statistics** | Descriptive stats (mean / median / stdev / percentiles) and a Pearson correlation matrix over the historical series. |
+| **Regression** | Least-squares best-fit (slope, intercept, R-squared, std err) on key relationships, each with a scatter + trendline chart. |
 
 ---
 

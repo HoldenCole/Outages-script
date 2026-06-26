@@ -80,6 +80,9 @@ def _formats(wb):
                                "border_color": "#BFBFBF"}),
         "num": wb.add_format({**base, "num_format": "#,##0", "border": 1, "border_color": "#E2E2E2"}),
         "f2": wb.add_format({**base, "num_format": "0.00", "border": 1, "border_color": "#E2E2E2"}),
+        "pct": wb.add_format({**base, "num_format": "0%", "border": 1, "border_color": "#E2E2E2"}),
+        "inph": wb.add_format({**base, "num_format": "#,##0", "bg_color": "#FFF2CC", "border": 1,
+                               "border_color": "#BF9000", "align": "center"}),
         "txt": wb.add_format({**base, "border": 1, "border_color": "#E2E2E2"}),
         "txtw": wb.add_format({**base, "text_wrap": True, "valign": "top"}),
         "inp": wb.add_format({**base, "bold": True, "num_format": "0.00", "bg_color": "#FFF2CC",
@@ -130,6 +133,19 @@ def _index(wb, fm):
     ws.write(r0 + len(rows) + 1, 0,
              "Source of truth: the Data sheet (one row per year/month/plant/unit/type). The analysis "
              "sheets compute off it so the calculations are visible.", fm["key"])
+    # analysis tabs beyond the deck
+    ar = r0 + len(rows) + 3
+    ws.write(ar, 0, "Analysis tabs (beyond the deck)", fm["secn"])
+    extra = [
+        ("Historicals", "Monthly 2023-2027: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
+        ("Statistics", "Descriptive stats (mean/median/stdev/percentiles) and a correlation matrix."),
+        ("Regression", "Least-squares best-fit (slope, R-squared, std err) + scatter trendlines."),
+        ("Sensitivity", "2027 implied total across multiplier x one-off shock (editable heatmap)."),
+        ("Stress Test", "Named shocks (hurricane, freeze, CDU trips) on the 2027 book, tunable."),
+    ]
+    for i, (sh, what) in enumerate(extra):
+        ws.write(ar + 1 + i, 2, sh, fm["rowh"])
+        ws.write(ar + 1 + i, 3, what, fm["txt"])
 
 
 def _assumptions(wb, fm, ctx):
@@ -181,18 +197,10 @@ def _assumptions(wb, fm, ctx):
         ws.merge_range(19 + i, 0, 19 + i, 5, f"- {n}", fm["txtw"])
 
 
-def _data_sheet(wb, fm, ctx):
+def _data_sheet(wb, fm, base):
     """One row per (year, month, plant, unit, type): the pullable source the
     analysis sheets SUMIFS over. Day-weighted cap (kbd) and nameplate (raw)."""
-    df = ctx["df"].copy()
-    df["focus"] = df["focus"].fillna("")
-    df["padd"] = df["padd"].fillna("")
-    g = (df.groupby(["year", "month", "plant", "unit_name", "type"], dropna=False)
-         .agg(cap_kbd=("cap_kbd", "max"), cap_raw=("cap_raw", "max"),
-              operator=("operator", "first"), padd=("padd", "first"),
-              focus=("focus", "first"), unit_cat=("unit_cat", "first")).reset_index())
-    g = g.dropna(subset=["year", "month"])
-    g["year"] = g["year"].astype(int); g["month"] = g["month"].astype(int)
+    g = base.copy()
     g["month_name"] = g["month"].map(lambda m: MONTHS[m - 1])
     g = g.sort_values(["year", "month", "cap_kbd"], ascending=[True, True, False]).reset_index(drop=True)
 
@@ -459,20 +467,300 @@ def _forecast(wb, fm, ctx, assets):
     ws.insert_image(26, 15, assets["scenario_total"], IMG)
 
 
-# Colored tabs grouped by purpose: navigation, source, per-unit analysis, balance, forecast
+def _base(df):
+    """Deduped per (year, month, plant, unit, type) base used for the Data sheet
+    and every aggregate, so SUMIFS recomputes match the cached values exactly."""
+    d = df.copy()
+    d["focus"] = d["focus"].fillna(""); d["padd"] = d["padd"].fillna("")
+    g = (d.groupby(["year", "month", "plant", "unit_name", "type"], dropna=False)
+         .agg(cap_kbd=("cap_kbd", "max"), cap_raw=("cap_raw", "max"),
+              operator=("operator", "first"), padd=("padd", "first"),
+              focus=("focus", "first"), unit_cat=("unit_cat", "first")).reset_index())
+    g = g.dropna(subset=["year", "month"])
+    g["year"] = g["year"].astype(int); g["month"] = g["month"].astype(int)
+    return g
+
+
+def _ym(base, **f):
+    """year/month Series of summed cap_kbd for the given equality filters."""
+    d = base
+    for k, v in f.items():
+        d = d[d[k] == v]
+    return d.groupby(["year", "month"])["cap_kbd"].sum()
+
+
+def _g(s, y, m):
+    return float(s.get((y, m), 0.0))
+
+
+def _historicals(wb, fm, base):
+    ws = wb.add_worksheet("Historicals")
+    ws.set_column(0, 1, 6); ws.set_column(2, 2, 9); ws.set_column(3, 16, 8)
+    _title(ws, fm, "Historicals: monthly offline 2023-2027 (kbd) = SUMIFS over Data",
+           "Total / planned / unplanned, unplanned %, per focus unit and per PADD. The series the stats use.")
+    tot, pl, un = _ym(base), _ym(base, type="PLANNED"), _ym(base, type="UNPLANNED")
+    cdu, fcc = _ym(base, focus="CDU"), _ym(base, focus="FCC")
+    hdc, refm = _ym(base, focus="Hydrocracker"), _ym(base, focus="Reformer")
+    padd = {k: _ym(base, padd=f"PADD {k}") for k in range(1, 6)}
+    heads = ["Year", "Mon", "Period", "Total", "Planned", "Unplanned", "Unpl %",
+             "CDU", "FCC", "HydroCk", "Reformer", "PADD1", "PADD2", "PADD3", "PADD4", "PADD5", "Naph net"]
+    r0 = 3
+    for j, h in enumerate(heads):
+        ws.write(r0, j, h, fm["h"] if j >= 3 else fm["hl"])
+    years = [2023, 2024, 2025, 2026, 2027]
+    i = 0
+    for y in years:
+        for mi, mo in enumerate(MONTHS, 1):
+            rr = r0 + 1 + i
+            xl = rr + 1
+            ws.write_number(rr, 0, y, fm["txt"]); ws.write_number(rr, 1, mi, fm["txt"])
+            ws.write(rr, 2, f"{mo} {str(y)[2:]}", fm["rowh"])
+            ws.write_formula(rr, 3, _si("K", ("A", y), ("B", mi)), fm["num"], _g(tot, y, mi))
+            ws.write_formula(rr, 4, _si("K", ("A", y), ("B", mi), ("J", "PLANNED")), fm["num"], _g(pl, y, mi))
+            ws.write_formula(rr, 5, _si("K", ("A", y), ("B", mi), ("J", "UNPLANNED")), fm["num"], _g(un, y, mi))
+            ws.write_formula(rr, 6, f"=IFERROR(F{xl}/D{xl},0)", fm["f2"],
+                             (_g(un, y, mi) / _g(tot, y, mi)) if _g(tot, y, mi) else 0.0)
+            for c, (s, foc) in enumerate([(cdu, "CDU"), (fcc, "FCC"), (hdc, "Hydrocracker"), (refm, "Reformer")]):
+                ws.write_formula(rr, 7 + c, _si("K", ("A", y), ("B", mi), ("G", foc)), fm["num"], _g(s, y, mi))
+            for c, k in enumerate(range(1, 6)):
+                ws.write_formula(rr, 11 + c, _si("K", ("A", y), ("B", mi), ("F", f"PADD {k}")),
+                                 fm["num"], _g(padd[k], y, mi))
+            ws.write_formula(rr, 16, f"=K{xl}*ref_intake-H{xl}*naph_yield", fm["num"],
+                             engine.REFORMER_NAPHTHA_INTAKE * _g(refm, y, mi) - engine.NAPHTHA_YIELD * _g(cdu, y, mi))
+            i += 1
+    ws.freeze_panes(r0 + 1, 3)
+    ws.autofilter(r0, 0, r0 + 60, len(heads) - 1)
+    # annual summary with YoY%
+    ta = tot.groupby(level=0).sum(); pa = pl.groupby(level=0).sum(); ua = un.groupby(level=0).sum()
+    a0 = r0 + 62
+    ws.write(a0, 0, "Annual (kbd) and YoY%", fm["secn"])
+    ah = a0 + 1
+    for j, h in enumerate(["Year", "Total", "Planned", "Unplanned", "Unpl %", "Total YoY%"]):
+        ws.write(ah, j, h, fm["h"] if j else fm["hl"])
+    for k, y in enumerate(years):
+        rr = ah + 1 + k; xl = rr + 1
+        tv, uv = float(ta.get(y, 0.0)), float(ua.get(y, 0.0))
+        ws.write_number(rr, 0, y, fm["rowh"])
+        ws.write_formula(rr, 1, _si("K", ("A", y)), fm["num"], tv)
+        ws.write_formula(rr, 2, _si("K", ("A", y), ("J", "PLANNED")), fm["num"], float(pa.get(y, 0.0)))
+        ws.write_formula(rr, 3, _si("K", ("A", y), ("J", "UNPLANNED")), fm["num"], uv)
+        ws.write_formula(rr, 4, f"=IFERROR(D{xl}/B{xl},0)", fm["f2"], (uv / tv) if tv else 0.0)
+        if k == 0:
+            ws.write(rr, 5, "n/a", fm["txt"])
+        else:
+            prev = float(ta.get(years[k - 1], 0.0))
+            ws.write_formula(rr, 5, f"=IFERROR(B{xl}/B{xl-1}-1,0)", fm["pct"],
+                             (tv / prev - 1) if prev else 0.0)
+    # live line chart of total/planned/unplanned by month
+    ch = wb.add_chart({"type": "line"})
+    for col, nm, color in [(3, "Total", "#1F3864"), (4, "Planned", "#BF9000"), (5, "Unplanned", "#C00000")]:
+        ch.add_series({"name": nm, "categories": ["Historicals", r0 + 1, 2, r0 + 60, 2],
+                       "values": ["Historicals", r0 + 1, col, r0 + 60, col],
+                       "line": {"color": color, "width": 1.75}})
+    ch.set_title({"name": "US Capacity Offline by Month (kbd)"})
+    ch.set_size({"width": 760, "height": 320})
+    ch.set_legend({"position": "bottom"})
+    ws.insert_chart(r0, 18, ch)
+    return r0  # header row (data rows r0+1 .. r0+60)
+
+
+# stats window: 2023-2025 = 36 fully-reported months (rows 5..40 in Historicals, 1-based)
+STAT_HEADS = [("Total", "D"), ("Planned", "E"), ("Unplanned", "F"), ("CDU", "H"),
+              ("FCC", "I"), ("HydroCk", "J"), ("Reformer", "K"), ("Naph net", "Q")]
+STAT_R1, STAT_R2 = 5, 40       # Historicals 1-based data rows for 2023-2025
+
+
+def _stat_series(base):
+    keys = [(y, m) for y in (2023, 2024, 2025) for m in range(1, 13)]
+    s = {"Total": _ym(base), "Planned": _ym(base, type="PLANNED"), "Unplanned": _ym(base, type="UNPLANNED"),
+         "CDU": _ym(base, focus="CDU"), "FCC": _ym(base, focus="FCC"),
+         "HydroCk": _ym(base, focus="Hydrocracker"), "Reformer": _ym(base, focus="Reformer")}
+    out = {nm: np.array([_g(s[nm], y, m) for (y, m) in keys]) for nm in s}
+    out["Naph net"] = engine.REFORMER_NAPHTHA_INTAKE * out["Reformer"] - engine.NAPHTHA_YIELD * out["CDU"]
+    return out
+
+
+def _statistics(wb, fm, base):
+    ws = wb.add_worksheet("Statistics")
+    ws.set_column(0, 0, 16); ws.set_column(1, 9, 11)
+    _title(ws, fm, "Statistics (2023-2025 monthly, n=36)",
+           "Descriptive stats and a correlation matrix over the Historicals series. Live =formulas.")
+    arr = _stat_series(base)
+    names = [n for n, _ in STAT_HEADS]
+    # descriptive
+    ws.write(3, 0, "Descriptive (kbd)", fm["secn"])
+    rows = [("Mean", "AVERAGE", lambda a: np.mean(a)),
+            ("Median", "MEDIAN", lambda a: np.median(a)),
+            ("Std dev", "STDEV", lambda a: np.std(a, ddof=1)),
+            ("Min", "MIN", lambda a: np.min(a)),
+            ("P25", None, lambda a: np.percentile(a, 25)),
+            ("P75", None, lambda a: np.percentile(a, 75)),
+            ("Max", "MAX", lambda a: np.max(a))]
+    ws.write(4, 0, "Statistic", fm["hl"])
+    for j, (nm, col) in enumerate(STAT_HEADS):
+        ws.write(4, 1 + j, nm, fm["h"])
+    for i, (lab, fn, pyf) in enumerate(rows):
+        ws.write(5 + i, 0, lab, fm["rowh"])
+        for j, (nm, col) in enumerate(STAT_HEADS):
+            rng = f"Historicals!${col}${STAT_R1}:${col}${STAT_R2}"
+            if fn:
+                form = f"={fn}({rng})"
+            else:
+                pct = 0.25 if lab == "P25" else 0.75
+                form = f"=PERCENTILE({rng},{pct})"
+            ws.write_formula(5 + i, 1 + j, form, fm["num"], float(pyf(arr[nm])))
+    # correlation matrix
+    cr = 5 + len(rows) + 2
+    ws.write(cr, 0, "Correlation matrix (Pearson)", fm["secn"])
+    ws.write(cr + 1, 0, "", fm["hl"])
+    for j, nm in enumerate(names):
+        ws.write(cr + 1, 1 + j, nm, fm["h"])
+    M = np.corrcoef([arr[n] for n in names])
+    for i, ni in enumerate(names):
+        ws.write(cr + 2 + i, 0, ni, fm["rowh"])
+        for j, nj in enumerate(names):
+            ci, cj = STAT_HEADS[i][1], STAT_HEADS[j][1]
+            form = (f"=CORREL(Historicals!${ci}${STAT_R1}:${ci}${STAT_R2},"
+                    f"Historicals!${cj}${STAT_R1}:${cj}${STAT_R2})")
+            ws.write_formula(cr + 2 + i, 1 + j, form, fm["f2"], float(M[i, j]))
+    ws.conditional_format(cr + 2, 1, cr + 1 + len(names), len(names),
+                          {"type": "3_color_scale", "min_color": "#C00000",
+                           "mid_color": "#FFFFFF", "max_color": "#2E5496",
+                           "min_value": -1, "mid_value": 0, "max_value": 1,
+                           "min_type": "num", "mid_type": "num", "max_type": "num"})
+    ws.write(cr + 3 + len(names), 0,
+             "+1 move together, -1 move opposite. Crude vs reformer turnaround clustering, "
+             "planned vs unplanned substitution, etc.", fm["key"])
+
+
+def _reg_block(wb, ws, fm, r, title, xlab, ylab, xname, yname, x, y):
+    """Write one regression block (slope/intercept/R2/SE/corr/n) + a scatter+trendline."""
+    xc, yc = STAT_HEADS_MAP[xname], STAT_HEADS_MAP[yname]
+    rng = lambda c: f"Historicals!${c}${STAT_R1}:${c}${STAT_R2}"
+    slope, intercept = np.polyfit(x, y, 1)
+    r2 = float(np.corrcoef(x, y)[0, 1] ** 2)
+    resid = y - (slope * x + intercept)
+    steyx = float(np.sqrt(np.sum(resid ** 2) / (len(x) - 2)))
+    ws.write(r, 0, title, fm["secn"])
+    items = [("Slope", f"=SLOPE({rng(yc)},{rng(xc)})", slope),
+             ("Intercept", f"=INTERCEPT({rng(yc)},{rng(xc)})", intercept),
+             ("R-squared", f"=RSQ({rng(yc)},{rng(xc)})", r2),
+             ("Correlation", f"=CORREL({rng(yc)},{rng(xc)})", float(np.corrcoef(x, y)[0, 1])),
+             ("Std err (STEYX)", f"=STEYX({rng(yc)},{rng(xc)})", steyx),
+             ("n", f"=COUNT({rng(xc)})", float(len(x)))]
+    for i, (lab, form, val) in enumerate(items):
+        ws.write(r + 1 + i, 0, lab, fm["rowh"])
+        ws.write_formula(r + 1 + i, 1, form, fm["f2"], val)
+    ch = wb.add_chart({"type": "scatter"})
+    ch.add_series({"name": f"{yname} vs {xname}",
+                   "categories": rng(xc), "values": rng(yc),
+                   "marker": {"type": "circle", "size": 5, "fill": {"color": "#2E5496"}},
+                   "trendline": {"type": "linear", "display_equation": True,
+                                 "display_r_squared": True, "line": {"color": "#C00000", "width": 1.5}}})
+    ch.set_title({"name": f"{ylab} vs {xlab}"})
+    ch.set_x_axis({"name": xlab}); ch.set_y_axis({"name": ylab})
+    ch.set_legend({"none": True}); ch.set_size({"width": 430, "height": 300})
+    ws.insert_chart(r, 3, ch)
+    return r + 9
+
+
+STAT_HEADS_MAP = {n: c for n, c in STAT_HEADS}
+
+
+def _regression(wb, fm, base):
+    ws = wb.add_worksheet("Regression")
+    ws.set_column(0, 0, 18); ws.set_column(1, 1, 12)
+    _title(ws, fm, "Regression / best-fit (2023-2025 monthly, n=36)",
+           "Least-squares fits with R-squared; the chart trendline is the best-fit line.")
+    arr = _stat_series(base)
+    r = 3
+    r = _reg_block(wb, ws, fm, r, "1) Reformer offline vs CDU offline (turnaround clustering)",
+                   "CDU offline (kbd)", "Reformer offline (kbd)", "CDU", "Reformer",
+                   arr["CDU"], arr["Reformer"]) + 2
+    r = _reg_block(wb, ws, fm, r, "2) Unplanned vs Planned offline (substitution?)",
+                   "Planned offline (kbd)", "Unplanned offline (kbd)", "Planned", "Unplanned",
+                   arr["Planned"], arr["Unplanned"]) + 2
+    _reg_block(wb, ws, fm, r, "3) Naphtha net vs CDU offline (supply mechanic)",
+               "CDU offline (kbd)", "Naphtha net (kbd)", "CDU", "Naph net",
+               arr["CDU"], arr["Naph net"])
+
+
+def _sensitivity(wb, fm, ctx):
+    ws = wb.add_worksheet("Sensitivity")
+    ws.set_column(0, 0, 22); ws.set_column(1, 7, 12)
+    _title(ws, fm, "Sensitivity: 2027 implied total offline (kbd)",
+           "Rows = unplanned multiplier x baseline; columns = one-off shock added. Off the Forecast cells.")
+    mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
+    shocks = [0, 250, 500, 750, 1000]
+    base_cell, plan_cell = "Forecast!$N$5", "Forecast!$B$10"   # baseline annual, booked planned
+    baseline = float(engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).sum())
+    planned = float(ctx["summary"].loc[2027, "Planned"]) if 2027 in ctx["summary"].index else 0.0
+    r0 = 3                                   # header row (Excel r0+1); shock values are editable here
+    hxl = r0 + 1
+    ws.write(r0, 0, "mult v / shock >", fm["hl"])
+    for j, sh in enumerate(shocks):
+        ws.write_number(r0, 1 + j, sh, fm["inph"])
+    for i, mu in enumerate(mults):
+        rr = r0 + 1 + i; xl = rr + 1
+        ws.write_number(rr, 0, mu, fm["inp"])
+        for j in range(len(shocks)):
+            col = chr(ord("B") + j)
+            form = f"=$A{xl}*{base_cell}+{col}${hxl}+{plan_cell}"
+            ws.write_formula(rr, 1 + j, form, fm["num"], mu * baseline + shocks[j] + planned)
+    ws.conditional_format(r0 + 1, 1, r0 + len(mults), len(shocks),
+                          {"type": "3_color_scale", "min_color": "#63BE7B",
+                           "mid_color": "#FFEB84", "max_color": "#F8696B"})
+    ws.write(r0 + len(mults) + 2, 0, "Editable: shock row and multiplier column are gold. Implied total = "
+             "baseline x multiplier + one-off shock + booked planned. Base case = mult 1.0, shock 0.", fm["sub"])
+
+
+def _stress(wb, fm, ctx):
+    ws = wb.add_worksheet("Stress Test")
+    ws.set_column(0, 0, 26); ws.set_column(1, 1, 46); ws.set_column(2, 5, 14)
+    _title(ws, fm, "Stress test: named shocks on the 2027 book",
+           "Edit the gold shock cells. Implied total and naphtha impact recompute live.")
+    avg_implied = "Forecast!$D$14"     # Average implied total
+    base_avg = float(ctx["scenario"]["implied_total"])
+    ny = engine.NAPHTHA_YIELD
+    rows = [
+        ("USGC hurricane", "PADD 3 unplanned spike, ~1-2 months", 800, 0),
+        ("Winter freeze (Uri-like)", "National unplanned spike in Feb", 0, 2000),
+        ("Two large CDUs trip", "~500 kbd crude unplanned, 1 month", 500, 0),
+        ("Heavy fall TA overlap", "Sep-Oct planned overlap adds load", 0, 600),
+        ("Quiet year", "Light unplanned, fewer surprises", 0, -1500),
+    ]
+    r0 = 3
+    for j, h in enumerate(["Scenario", "Description", "Crude shock (kbd)", "Other shock (kbd)",
+                           "Implied total", "Naphtha net impact"]):
+        ws.write(r0, j, h, fm["h"] if j >= 2 else fm["hl"])
+    for i, (nm, desc, crude, other) in enumerate(rows):
+        rr = r0 + 1 + i; xl = rr + 1
+        ws.write(rr, 0, nm, fm["rowh"]); ws.write(rr, 1, desc, fm["txt"])
+        ws.write_number(rr, 2, crude, fm["inph"]); ws.write_number(rr, 3, other, fm["inph"])
+        ws.write_formula(rr, 4, f"={avg_implied}+C{xl}+D{xl}", fm["num"], base_avg + crude + other)
+        ws.write_formula(rr, 5, f"=-naph_yield*C{xl}", fm["num"], -ny * crude)
+    ws.write(r0 + len(rows) + 2, 0, "Implied total = Average scenario implied + crude shock + other "
+             "shock. Naphtha impact = -naphtha_yield x crude shock (more crude down = shorter naphtha).",
+             fm["sub"])
+
+
+# Colored tabs grouped by purpose: navigation, source, per-unit analysis, balance, forecast, stats
 TAB = {"Index": "#1F3864", "Assumptions": "#BF9000", "Data": "#808080",
-       "Per-Unit": "#2E5496", "Biggest": "#2E5496", "H1 by Unit": "#2E5496",
-       "PADD by Unit": "#2E5496", "Naphtha": "#548235", "ExxonMobil": "#2E5496",
-       "Forecast": "#C55A11"}
+       "Historicals": "#538DD5", "Per-Unit": "#2E5496", "Biggest": "#2E5496",
+       "H1 by Unit": "#2E5496", "PADD by Unit": "#2E5496", "Naphtha": "#548235",
+       "ExxonMobil": "#2E5496", "Forecast": "#C55A11", "Sensitivity": "#C55A11",
+       "Stress Test": "#C55A11", "Statistics": "#7030A0", "Regression": "#7030A0"}
 
 
 def build_workbook(ctx, assets, path):
     """Write the Excel model. `assets` is the render_all() chart dict."""
     wb = xlsxwriter.Workbook(path, {"nan_inf_to_errors": True})
     fm = _formats(wb)
+    base = _base(ctx["df"])
     _index(wb, fm)
     _assumptions(wb, fm, ctx)
-    _data_sheet(wb, fm, ctx)
+    _data_sheet(wb, fm, base)
+    _historicals(wb, fm, base)
     _per_unit(wb, fm, ctx, assets)
     _biggest(wb, fm, ctx, assets)
     _h1(wb, fm, ctx, assets)
@@ -480,6 +768,10 @@ def build_workbook(ctx, assets, path):
     _naphtha(wb, fm, ctx, assets)
     _exxon(wb, fm, ctx, assets)
     _forecast(wb, fm, ctx, assets)
+    _sensitivity(wb, fm, ctx)
+    _stress(wb, fm, ctx)
+    _statistics(wb, fm, base)
+    _regression(wb, fm, base)
     # professional polish: colored tabs, hidden gridlines (except the data table)
     for ws in wb.worksheets():
         ws.set_tab_color(TAB.get(ws.name, "#808080"))
