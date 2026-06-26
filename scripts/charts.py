@@ -291,8 +291,9 @@ def scenario_total_bars(ctx, path):
         ax.text(i, pl + u / 2, f"+{u:,.0f}", ha="center", va="center", fontsize=8, color="white")
         ax.text(i, pl / 2, f"{pl:,.0f}", ha="center", va="center", fontsize=8, color="white")
     ax.set_xticks(x, [f"{n}\n(x{mult[n]})" for n in names])
+    ax.set_xlabel("2027 unplanned scenario")
     ax.yaxis.set_major_formatter(_thousands)
-    ax.set_ylabel("kbd")
+    ax.set_ylabel("kbd offline")
     ax.set_ylim(top=(pl + max(unpl)) * 1.16)
     ax.set_title("2027 Implied Total Offline by Scenario (kbd)")
     ax.legend(frameon=False, ncol=2, loc="upper left", fontsize=8.5)
@@ -520,8 +521,9 @@ def scenario_fan_chart(ctx, path):
         ax.plot(x, [mu.loc[2025, m] for m in MONTHS], color=GRAY, lw=2.0, ls=":", zorder=2,
                 label="2025 actual")
     ax.set_xticks(x, MONTHS)
+    ax.set_xlabel("Month (2027)")
     ax.yaxis.set_major_formatter(_thousands)
-    ax.set_ylabel("kbd")
+    ax.set_ylabel("kbd offline")
     ax.set_title("2027 Unplanned Forecast - Conservative / Average / Active (kbd)")
     ax.set_ylim(top=ax.get_ylim()[1] * 1.04)
     ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=8.5)
@@ -814,8 +816,9 @@ def focus_padd_bars(ctx, focus, year, path, figsize=(7.4, 4.1)):
         ax.bar(x, vals, bottom=bottom, color=cols[pd_], label=pd_.replace("PADD ", "P"), zorder=3)
         bottom += vals
     ax.set_xticks(x, [mo[0] for mo in MONTHS])
+    ax.set_xlabel(f"Month ({year})")
     ax.yaxis.set_major_formatter(_thousands)
-    ax.set_ylabel("kbd")
+    ax.set_ylabel("kbd offline")
     ax.set_title(f"{focus} Offline by Month & PADD - {year} (kbd)")
     ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
     _clean(ax)
@@ -835,7 +838,7 @@ def splits_2027(ctx, path):
     NON-EXXON H2 (still being booked, not confirmed). 2x2, one panel per unit."""
     fig, axes = plt.subplots(2, 2, figsize=(11.6, 6.6))
     x = np.arange(12)
-    for ax, f in zip(axes.reshape(-1), engine.FOCUS_ORDER):
+    for idx, (ax, f) in enumerate(zip(axes.reshape(-1), engine.FOCUS_ORDER)):
         sp = ctx["confirmed2027"][f]
         conf, ind = np.array(sp["confirmed"]), np.array(sp["indicative"])
         ax.bar(x, conf, color=FOCUS_COLOR.get(f, NAVY), zorder=3)
@@ -844,6 +847,10 @@ def splits_2027(ctx, path):
         ax.axvline(5.5, color=GRAY, ls=":", lw=1.2, zorder=2)
         ax.set_xticks(x, [mo[0] for mo in MONTHS], fontsize=7.5)
         ax.yaxis.set_major_formatter(_thousands)
+        if idx % 2 == 0:                       # left column -> y units
+            ax.set_ylabel("kbd offline", fontsize=9)
+        if idx >= 2:                           # bottom row -> x units
+            ax.set_xlabel("Month (2027)", fontsize=9)
         ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
         _clean(ax)
     handles = [plt.Rectangle((0, 0), 1, 1, color=NAVY),
@@ -881,6 +888,7 @@ def exxon_gantt(ctx, path):
                 va="center", fontsize=8, color=RED if flagged else "#23272e")
     ax.set_yticks(range(len(foc)), [r["focus"] for _, r in foc.iterrows()], fontsize=7.5)
     ax.set_xticks(range(12), MONTHS)
+    ax.set_xlabel("Month (2027)")
     ax.set_xlim(0, 17.5)
     ax.set_ylim(-0.6, len(foc) - 0.4)
     ax.invert_yaxis()
