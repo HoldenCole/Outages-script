@@ -1044,6 +1044,43 @@ def h1_monthly_by_unit(ctx, path):
     return path
 
 
+def naphtha_balance_chart(ctx, path):
+    """2027 naphtha balance from CDU vs reformer outages. Reformer outages remove
+    naphtha DEMAND (up bars, length); CDU outages remove naphtha SUPPLY (down bars,
+    tightness). The net line is the balance: above zero = surplus, below = deficit."""
+    nb = ctx["naphtha_balance"]
+    x = np.arange(12)
+    demand = np.array(nb["demand_removed"])
+    supply = np.array(nb["supply_removed"])
+    net = np.array(nb["net"])
+    fig, ax = plt.subplots(figsize=(10.2, 5.0))
+    ax.bar(x, demand, width=0.62, color="#70AD47", zorder=3,
+           label=f"Reformer down: naphtha demand removed (x{nb['reformer_intake']:.0f})")
+    ax.bar(x, -supply, width=0.62, color="#2E5496", zorder=3,
+           label=f"CDU down: naphtha supply removed (x{nb['naphtha_yield']:.2f})")
+    ax.fill_between(x, 0, net, where=(net <= 0), interpolate=True, color=RED, alpha=0.12, zorder=2)
+    ax.fill_between(x, 0, net, where=(net >= 0), interpolate=True, color=GREEN, alpha=0.12, zorder=2)
+    ax.plot(x, net, color="#23272e", lw=3, marker="o", ms=5, zorder=5, label="Net naphtha balance")
+    ax.axhline(0, color="#23272e", lw=1.4, zorder=4)
+    ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
+    ax.set_xticks(x, MONTHS)
+    ax.set_xlabel("Month, 2027")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd of naphtha")
+    top, bot = max(demand.max(), 10.0), min(net.min(), float((-supply).min()))
+    ax.set_ylim(bot * 1.16, top * 1.7 + 25)
+    ax.text(11.4, top * 0.7 + 20, "surplus\n(naphtha long)", ha="right", va="center",
+            fontsize=8, color=GREEN, style="italic")
+    ax.text(11.4, bot * 0.5, "deficit\n(naphtha short)", ha="right", va="center",
+            fontsize=8, color=RED, style="italic")
+    ax.text(8.8, top * 1.5, "H1 | H2: non-Exxon H2 indicative", ha="center", va="top",
+            fontsize=7.5, color=RED, style="italic")
+    ax.set_title("2027 Naphtha Balance from Outages: CDU Supply vs Reformer Demand (kbd)")
+    ax.legend(frameon=False, ncol=1, fontsize=8.3, loc="upper left")
+    _clean(ax, ygrid=True)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path.
 
@@ -1064,6 +1101,8 @@ def render_all(ctx, outdir):
         # 2) outages by PADD by unit
         "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
         "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),
+        # 2b) naphtha balance: CDU (supply) vs reformer (demand) outages
+        "naphtha_balance": naphtha_balance_chart(ctx, p("naphtha_balance.png")),
         # 3) ExxonMobil outages (per unit, verified)
         "exxon_gantt": exxon_gantt(ctx, p("exxon_gantt.png")),
         # 4) 2027 unplanned scenario analysis

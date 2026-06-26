@@ -79,6 +79,13 @@ STATE_PADD = {
 # Mogas yield buckets (from Yields.txt). Unit category -> bucket -> yield factor.
 YIELD_FACTOR = {"CDU": 0.175, "FCC": 0.65, "Ref": 0.85,
                 "HDC": 0.05, "Coker": 0.20, "Other": 0.0}
+
+# Naphtha balance assumptions: crude MAKES naphtha (the naphtha cut is ~35% of
+# crude); a reformer's charge is essentially naphtha, so it CONSUMES ~1.0x its
+# capacity. A CDU outage removes naphtha supply; a reformer outage removes naphtha
+# demand. (Reformate, the gasoline/octane the reformer makes, is YIELD_FACTOR['Ref'].)
+NAPHTHA_YIELD = 0.35            # naphtha produced per barrel of crude run (CDU)
+REFORMER_NAPHTHA_INTAKE = 1.0   # naphtha consumed per barrel of reformer capacity
 UNITCAT_TO_BUCKET = {
     "ATMOS DISTILLATION": "CDU",
     "VACUUM DISTILLATION": "CDU",
@@ -1241,6 +1248,42 @@ def h1_focus_planned(df, years=(2025, 2026, 2027)):
     return pd.DataFrame(data).T.reindex(FOCUS_ORDER)
 
 
+def naphtha_balance(df, year=2027):
+    """CDU vs reformer outages read as a naphtha supply/demand balance.
+
+    Crude distillation MAKES naphtha (~35% of crude); reformers CONSUME it (their
+    charge is naphtha). So a CDU outage removes naphtha SUPPLY and a reformer
+    outage removes naphtha DEMAND. The net per month says whether outages leave
+    naphtha long (surplus) or short (deficit):
+
+        supply_removed = CDU offline  x NAPHTHA_YIELD            (~0.35)
+        demand_removed = Reformer offline x REFORMER_NAPHTHA_INTAKE (~1.0)
+        net            = demand_removed - supply_removed   (+ surplus / - deficit)
+
+    Day-weighted concurrent offline, each unit once per month. Also returns the
+    reformate (gasoline/octane) the offline reformers would have made, valued at
+    YIELD_FACTOR['Ref'], for the octane read. Returns a dict of 12-month lists
+    plus summary scalars."""
+    cdu = unit_offline_monthly(df, focus="CDU")
+    ref = unit_offline_monthly(df, focus="Reformer")
+    cdu_m = [float(cdu.loc[year, m]) if year in cdu.index else 0.0 for m in MONTHS]
+    ref_m = [float(ref.loc[year, m]) if year in ref.index else 0.0 for m in MONTHS]
+    supply = [c * NAPHTHA_YIELD for c in cdu_m]
+    demand = [r * REFORMER_NAPHTHA_INTAKE for r in ref_m]
+    net = [d - s for d, s in zip(demand, supply)]
+    reformate = [r * YIELD_FACTOR["Ref"] for r in ref_m]      # gasoline/octane lost when reformer is down
+    return {
+        "year": year, "months": MONTHS,
+        "cdu_offline": cdu_m, "ref_offline": ref_m,
+        "supply_removed": supply, "demand_removed": demand, "net": net,
+        "reformate_lost": reformate,
+        "annual_net": float(sum(net)),
+        "n_deficit": int(sum(1 for v in net if v < -1e-6)),
+        "n_surplus": int(sum(1 for v in net if v > 1e-6)),
+        "naphtha_yield": NAPHTHA_YIELD, "reformer_intake": REFORMER_NAPHTHA_INTAKE,
+    }
+
+
 H1_MONTHS = [1, 2, 3, 4, 5, 6]
 
 
@@ -1496,6 +1539,7 @@ def build_context(path):
         "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
         "focus_peak": focus_annual_peak(df),
         "h1_focus_planned": h1_focus_planned(df),       # H1 planned per unit, 2025/26/27
+        "naphtha_balance": naphtha_balance(df, 2027),   # CDU supply vs reformer demand
         "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
                        for y in (2026, 2027)},
         "confirmed2027": {f: focus_2027_split(df, f) for f in FOCUS_ORDER},

@@ -6,8 +6,9 @@ Trading-desk deck (python-pptx): the things a trader needs, kept simple --
     2. What's driving the numbers  (the biggest individual outages, by PADD)
     3. H1 planned per unit & month (2025 vs 2026 vs 2027, like-for-like)
     4. Outages by PADD by unit     (where it tightens)
-    5. ExxonMobil outages          (per unit, verified vs their corporate plan)
-    6. 2027 unplanned scenario     (the risk on top of the booked plan)
+    5. Naphtha balance             (CDU supply vs reformer demand, surplus/deficit)
+    6. ExxonMobil outages          (per unit, verified vs their corporate plan)
+    7. 2027 unplanned scenario     (the risk on top of the booked plan)
 
 Everything is per-unit capacity offline (never a summed "total"), 2027-forward.
 2027 completeness is asymmetric: only ExxonMobil gave a full-year plan (verified
@@ -312,6 +313,30 @@ class Deck:
             foot="Day-weighted concurrent capacity offline by month, stacked by PADD. P1 NE, P2 Midwest, "
                  "P3 Gulf, P4 Rockies, P5 West.")
 
+    def naphtha_slide(self):
+        nb = self.ctx["naphtha_balance"]
+        net = nb["net"]
+        order = sorted(range(12), key=lambda i: net[i])           # most negative first
+        m1, m2 = engine.MONTHS[order[0]], engine.MONTHS[order[1]]
+        v1, v2 = net[order[0]], net[order[1]]
+        ny = int(round(nb["naphtha_yield"] * 100))
+        state = "deficit" if nb["annual_net"] < 0 else "surplus"
+        self.wide_chart_slide(
+            "Naphtha Balance: CDU Supply vs Reformer Demand",
+            "2027 outages read as naphtha length. CDU makes naphtha; reformers consume it",
+            self.a["naphtha_balance"],
+            [f"Crude makes naphtha (~{ny}% of the barrel); reformers run on it. CDU down removes naphtha "
+             "supply, reformer down removes demand.",
+             f"All of 2027 sits in {state} (net {kbd(nb['annual_net'])} kbd): crude turnarounds pull more "
+             "naphtha off than reformer turnarounds free up.",
+             f"Tightest in {m1} ({kbd(v1)}) and {m2} ({kbd(v2)}) kbd, the autumn crude stack. Deficit = "
+             "naphtha short, bullish reformate margins.",
+             "Reformer down frees naphtha but cuts reformate (~85% of feed = octane), squeezing the "
+             "gasoline pool's octane."],
+            foot=f"Net = reformer offline x {nb['reformer_intake']:.0f} (demand) minus CDU offline x "
+                 f"{nb['naphtha_yield']:.2f} (supply), day-weighted. + surplus / - deficit. "
+                 "H2 non-Exxon is indicative.")
+
     def exxon_slide(self):
         ev = self.ctx["exxon_verify"]["events"]
         conf = ev[ev["focus"].isin(engine.FOCUS_ORDER) & (ev["verified"] == True)]   # noqa: E712
@@ -358,6 +383,7 @@ class Deck:
         self.drivers_slide()           # what's driving the numbers: biggest outages by PADD
         self.h1_compare_slide()        # H1 2025/26 vs H1 2027 planned, per unit
         self.padd_by_unit_slide()      # outages by PADD by unit
+        self.naphtha_slide()           # CDU supply vs reformer demand: naphtha balance
         self.exxon_slide()             # ExxonMobil outages
         self.scenario_slide()          # 2027 unplanned scenario
 

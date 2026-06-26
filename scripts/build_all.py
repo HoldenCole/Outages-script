@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 build_all.py
-One-shot builder: loads the outage export once and produces both deliverables
-(PowerPoint deck, HTML dashboard) from the same data context, so they always
-agree.
+One-shot builder: loads the outage export once and produces all three
+deliverables (PowerPoint deck, Excel model, HTML dashboard) from the same data
+context and the same rendered charts, so they always agree.
 
 Usage:
     python build_all.py                          # uses the default input
@@ -21,6 +21,7 @@ import engine
 import charts
 import build_slides
 import build_dashboard
+import build_workbook
 
 _ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
 DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
@@ -35,22 +36,30 @@ def main():
     os.makedirs(args.outdir, exist_ok=True)
     out = lambda n: os.path.join(args.outdir, n)
 
-    print(f"[1/3] Loading {args.excel.strip()} ...")
+    print(f"[1/4] Loading {args.excel.strip()} ...")
     ctx = engine.build_context(args.excel)
     d = ctx["diag"]
     print(f"      {d['rows']:,} rows | {d['events_distinct']:,} distinct outages | "
           f"years {d['years'][0]}-{d['years'][1]}")
 
-    print("[2/3] Slide deck ...")
-    deck_path = out("outage_deck.pptx")
+    # Render the charts once and share them across the deck and the Excel model
+    # (every chart is embedded in the workbook too, so they are copy-and-paste).
     with tempfile.TemporaryDirectory() as tmp:
         assets = charts.render_all(ctx, tmp)
+
+        print("[2/4] Slide deck ...")
+        deck_path = out("outage_deck.pptx")
         deck = build_slides.Deck(ctx, assets)
         deck.build()
         deck.save(deck_path)
-    print(f"      -> {deck_path}")
+        print(f"      -> {deck_path}")
 
-    print("[3/3] HTML dashboard ...")
+        print("[3/4] Excel model ...")
+        model_path = out("outage_model.xlsx")
+        build_workbook.build_workbook(ctx, assets, model_path)
+        print(f"      -> {model_path}")
+
+    print("[4/4] HTML dashboard ...")
     dash_path = out("outage_dashboard.html")
     data = build_dashboard.build_data(ctx)
     cjs = build_dashboard.fetch_chartjs()
@@ -63,7 +72,7 @@ def main():
         f.write(html)
     print(f"      -> {dash_path}")
 
-    print("\nDone. The deck and dashboard are self-contained.")
+    print("\nDone. Deck, Excel model and dashboard are self-contained and agree.")
 
 
 if __name__ == "__main__":
