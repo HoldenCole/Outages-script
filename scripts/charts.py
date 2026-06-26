@@ -519,7 +519,7 @@ def scenario_fan_chart(ctx, path):
     for name, prof in fan.items():
         c, ls, lw = styles[name]
         ax.plot(x, prof.values, color=c, lw=lw, ls=ls, marker="o", ms=6,
-                label=f"{name} (~{prof.sum():,.0f} kbd)", zorder=3)
+                label=name, zorder=3)
     if FY - 2 in mu.index:
         ax.plot(x, [mu.loc[FY - 2, m] for m in MONTHS], color=GRAY, lw=2.0, ls=":", zorder=2,
                 label=f"{FY - 2} actual")
@@ -826,12 +826,10 @@ def focus_padd_bars(ctx, focus, year, path, figsize=(7.4, 4.1)):
     ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
     _clean(ax)
     if year == FY:                         # mark the H1 (confirmed) | H2 (non-Exxon unconfirmed) line
-        ax.set_ylim(top=ax.get_ylim()[1] * 1.15)
-        top = ax.get_ylim()[1]
+        ax.set_ylim(top=ax.get_ylim()[1] * 1.12)
         ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
-        ax.text(2.6, top * 0.99, "H1 confirmed", ha="center", va="top", fontsize=8, color=GRAY)
-        ax.text(8.8, top * 0.99, "H2: non-Exxon unconfirmed", ha="center", va="top",
-                fontsize=7.5, color=RED, style="italic")
+        ax.text(2.6, ax.get_ylim()[1] * 0.99, "H1 confirmed", ha="center", va="top",
+                fontsize=8, color=GRAY)
     return _save(fig, path)
 
 
