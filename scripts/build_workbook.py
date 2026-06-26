@@ -343,22 +343,68 @@ def _h1(wb, fm, ctx, assets):
     ws.insert_image(3, 9, assets["h1_month_by_unit"], IMG)
 
 
-def _padd(wb, fm, ctx, assets):
+def _padd(wb, fm, ctx, base, assets):
     ws = wb.add_worksheet("PADD by Unit")
-    ws.set_column(0, 0, 11); ws.set_column(1, 12, 8)
-    _title(ws, fm, "2027 Offline by PADD & Month, per Unit (kbd) = SUMIFS over Data",
-           "Where it tightens. CDU (crude) and FCC (cat cracker), each kept separate.")
-    mnum = {mo: i + 1 for i, mo in enumerate(MONTHS)}
-    r = 3
-    for f in ("CDU", "FCC"):
-        g = ctx["focus_padd"][2027][f]
-        ws.write(r, 0, f"{engine.FOCUS_LABEL[f]} by PADD", fm["secn"])
-        r = _matrix_formula(
-            ws, fm, r + 1, 0, list(g.index), MONTHS,
-            lambda p, mo, _f=f: _si("K", ("A", 2027), ("B", mnum[mo]), ("G", _f), ("F", p)),
-            lambda p, mo, _g=g: _g.loc[p, mo], "PADD") + 2
-    ws.insert_image(3, 14, assets["cdu_padd_27"], IMG)
-    ws.insert_image(22, 14, assets["fcc_padd_27"], IMG)
+    ws.set_column(0, 0, 7); ws.set_column(1, 1, 7); ws.set_column(2, 2, 6)
+    ws.set_column(3, 3, 5); ws.set_column(4, 4, 9); ws.set_column(5, 7, 9)
+    _title(ws, fm, "Outages by PADD by Unit: full history with MoM% and YoY% = SUMIFS over Data",
+           "CDU and FCC offline by PADD and month, 2023-2027: level, month-over-month % and year-over-year %.")
+    units = [("CDU", "Crude (CDU)"), ("FCC", "FCC (cat cracker)")]
+    padds = [f"PADD {k}" for k in range(1, 6)]
+    years = [2023, 2024, 2025, 2026, 2027]
+    series = {(f, p): _ym(base, focus=f, padd=p) for f, _ in units for p in padds}
+    # tidy monthly fact table: one row per unit/PADD/month, with MoM% and YoY%
+    r0 = 3
+    for j, h in enumerate(["Unit", "PADD", "Year", "Mon", "Period", "kbd", "MoM %", "YoY %"]):
+        ws.write(r0, j, h, fm["h"] if j >= 5 else fm["hl"])
+    rr = r0 + 1
+    for f, _lbl in units:
+        for p in padds:
+            vals = [_g(series[(f, p)], y, mi) for y in years for mi in range(1, 13)]
+            if sum(vals) <= 0:
+                continue                   # skip unit/PADD combos with no outages
+            for k in range(60):
+                y, mi = years[k // 12], (k % 12) + 1
+                xl = rr + 1
+                ws.write(rr, 0, f, fm["txt"]); ws.write(rr, 1, p.replace("PADD ", "P"), fm["txt"])
+                ws.write_number(rr, 2, y, fm["txt"]); ws.write_number(rr, 3, mi, fm["txt"])
+                ws.write(rr, 4, f"{MONTHS[mi-1]} {str(y)[2:]}", fm["rowh"])
+                ws.write_formula(rr, 5, _si("K", ("A", y), ("B", mi), ("G", f), ("F", p)), fm["num"], vals[k])
+                if k >= 1:
+                    pv = vals[k - 1]
+                    ws.write_formula(rr, 6, f'=IFERROR(F{xl}/F{xl-1}-1,"")', fm["pct"],
+                                     (vals[k] / pv - 1) if pv else "")
+                if k >= 12:
+                    pv = vals[k - 12]
+                    ws.write_formula(rr, 7, f'=IFERROR(F{xl}/F{xl-12}-1,"")', fm["pct"],
+                                     (vals[k] / pv - 1) if pv else "")
+                rr += 1
+    ws.autofilter(r0, 0, rr - 1, 7)
+    ws.freeze_panes(r0 + 1, 0)
+    ws.insert_image(r0, 9, assets["cdu_padd_27"], IMG)
+    ws.insert_image(r0 + 21, 9, assets["fcc_padd_27"], IMG)
+    # annual pivot per unit: PADD x year level + YoY%
+    ar = rr + 2
+    for f, lbl in units:
+        ws.write(ar, 0, f"{lbl}: annual by PADD (kbd) and YoY%", fm["secn"])
+        h = ar + 1
+        ws.write(h, 0, "PADD", fm["hl"])
+        for j, y in enumerate(years):
+            ws.write(h, 1 + j, y, fm["h"])
+        for j, y in enumerate(years[1:], 1):
+            ws.write(h, len(years) + j, f"{y} YoY%", fm["h"])
+        for i, p in enumerate(padds):
+            rr2 = h + 1 + i; xl = rr2 + 1
+            ws.write(rr2, 0, p.replace("PADD ", "P"), fm["rowh"])
+            ann = {y: float(series[(f, p)].get(y, pd.Series(dtype=float)).sum()) for y in years}
+            for j, y in enumerate(years):
+                ws.write_formula(rr2, 1 + j, _si("K", ("A", y), ("G", f), ("F", p)), fm["num"], ann[y])
+            for j, y in enumerate(years[1:], 1):
+                col = chr(ord("B") + j)      # this year's level column
+                pcol = chr(ord("B") + j - 1)
+                ws.write_formula(rr2, len(years) + j, f'=IFERROR({col}{xl}/{pcol}{xl}-1,"")', fm["pct"],
+                                 (ann[y] / ann[years[j-1]] - 1) if ann[years[j-1]] else "")
+        ar = h + len(padds) + 2
 
 
 def _naphtha(wb, fm, ctx, assets):
@@ -764,7 +810,7 @@ def build_workbook(ctx, assets, path):
     _per_unit(wb, fm, ctx, assets)
     _biggest(wb, fm, ctx, assets)
     _h1(wb, fm, ctx, assets)
-    _padd(wb, fm, ctx, assets)
+    _padd(wb, fm, ctx, base, assets)
     _naphtha(wb, fm, ctx, assets)
     _exxon(wb, fm, ctx, assets)
     _forecast(wb, fm, ctx, assets)
