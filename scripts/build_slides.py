@@ -272,7 +272,7 @@ class Deck:
             "turnaround added together; it's really ~250 kbd of crude.",
             (f"Reconciled to Exxon's own corporate plan ({len(conf)} units): " if has_plan
              else "Exxon's verified 2027 slate: ")
-            + "Baytown & Beaumont FCC in Q1, Joliet crude+vacuum Apr-May, Baton Rouge crude in autumn.",
+            + "Baytown & Beaumont FCC in Q1, Joliet crude Apr-May, Baton Rouge crude in autumn.",
         ]
         self.wide_chart_slide(
             "ExxonMobil 2027 - Per Unit",

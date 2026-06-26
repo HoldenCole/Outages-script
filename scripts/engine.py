@@ -116,13 +116,13 @@ DEFAULT_WINDOW = "2023-2025"   # 2022 unplanned coverage is sparse; 2023-25 are 
 # context. Hydrocracker = HYDROCRACKING only (NOT hydrotreating, a different unit).
 FOCUS_ORDER = ["CDU", "FCC", "Hydrocracker", "Reformer"]
 FOCUS_LABEL = {
-    "CDU": "Crude / Distillation (CDU+VDU)",
+    "CDU": "Crude (CDU)",
     "FCC": "FCC (cat cracker)",
     "Hydrocracker": "Hydrocracker",
     "Reformer": "Reformer",
 }
 UNITCAT_TO_FOCUS = {
-    "ATMOS DISTILLATION": "CDU", "VACUUM DISTILLATION": "CDU",
+    "ATMOS DISTILLATION": "CDU",          # atmospheric crude ONLY -- vacuum (VDU) is not folded in
     "FLUID CAT CRACKING": "FCC",
     "HYDROCRACKING": "Hydrocracker", "RESID_HYDROCRACKING": "Hydrocracker",
     "REFORMING": "Reformer",
