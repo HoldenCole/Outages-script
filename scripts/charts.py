@@ -997,26 +997,28 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     return _save(fig, path)
 
 
+# bright, high-contrast year palette for the cross-year comparison bars
+YEAR_COLOR = {2025: "#5B9BD5", 2026: "#FFC000", 2027: "#ED7D31"}
+
+
 def h1_monthly_by_unit(ctx, path):
     """H1 (Jan-Jun) planned offline per focus unit, BY MONTH - 2x2 small multiples,
-    one panel per unit, a line per year (2025/26/27). Day-weighted kbd, planned
-    only; per-panel y-axis so each unit's monthly shape is readable. The
-    like-for-like monthly read (2027 confirmed through H1), each unit on its own."""
+    one panel per unit, grouped bars per month (one bright bar per year,
+    2025/26/27). Day-weighted kbd, planned only; per-panel y-axis so each unit's
+    monthly shape is readable. Like-for-like (2027 confirmed through H1)."""
     fp = ctx["focus_planned"]
     H1 = MONTHS[:6]
     years = [2025, 2026, 2027]
-    styles = {2025: ("#A6A6A6", 1.8, "o"), 2026: (GOLD, 2.0, "s"), 2027: (NAVY, 3.0, "o")}
     fig, axes = plt.subplots(2, 2, figsize=(11.4, 6.4))
     x = np.arange(6)
+    w = 0.82 / len(years)
     for idx, (ax, f) in enumerate(zip(axes.reshape(-1), engine.FOCUS_ORDER)):
         m = fp[f]
-        for y in years:
-            if y not in m.index:
-                continue
-            c, lw, mk = styles[y]
-            ax.plot(x, [m.loc[y, mo] for mo in H1], color=c, lw=lw, marker=mk, ms=4.5,
-                    label=f"H1 {y}", zorder=4 if y == 2027 else 3)
-        ax.set_xticks(x, H1, fontsize=8.5)
+        for i, y in enumerate(years):
+            vals = [float(m.loc[y, mo]) if y in m.index else 0.0 for mo in H1]
+            ax.bar(x + i * w, vals, w, color=YEAR_COLOR[y], label=f"H1 {y}",
+                   edgecolor="white", linewidth=0.4, zorder=3)
+        ax.set_xticks(x + w, H1, fontsize=8.5)
         ax.yaxis.set_major_formatter(_thousands)
         ax.set_ylim(bottom=0)
         if idx % 2 == 0:
@@ -1025,10 +1027,9 @@ def h1_monthly_by_unit(ctx, path):
             ax.set_xlabel("Month", fontsize=9)
         ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
         _clean(ax)
-    handles = [plt.Line2D([0], [0], color=styles[y][0], lw=styles[y][1], marker=styles[y][2], ms=5)
-               for y in years]
+    handles = [plt.Rectangle((0, 0), 1, 1, color=YEAR_COLOR[y]) for y in years]
     fig.legend(handles, [f"H1 {y}" for y in years], loc="lower center", ncol=3,
-               frameon=False, fontsize=10)
+               frameon=False, fontsize=10.5)
     fig.suptitle("H1 Planned Offline by Unit & Month - 2025 / 2026 / 2027 (kbd, day-weighted)",
                  fontsize=13, fontweight="bold", color=NAVY)
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])

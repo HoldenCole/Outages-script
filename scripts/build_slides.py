@@ -291,8 +291,8 @@ class Deck:
             self.a["h1_month_by_unit"],
             ["H1 is the only honest cross-year read for 2027 - the book is confirmed through June; H2 is "
              "still being scheduled.",
-             "2027 runs heavier than 2025 and 2026 in most H1 months across the units - the navy line sits "
-             "on top.",
+             "2027 runs heavier than 2025 and 2026 in most H1 months across the units - the orange (2027) "
+             "bar stands tallest.",
              f"Crude (CDU) H1 averages ~{kbd(cdu27)} kbd vs ~{kbd(cdu26)} (2026) / ~{kbd(cdu25)} (2025), "
              f"and crests in {pmo} (~{kbd(pval)} kbd) - the spring turnaround peak.",
              "Read each unit and each month on its own, never added together - a heavier spring = tighter "
