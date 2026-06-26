@@ -1200,6 +1200,23 @@ def focus_annual_peak(df, type_filter=None, y0=START_YEAR, y1=END_YEAR):
     return pd.DataFrame(out).reindex(range(y0, y1 + 1))
 
 
+def h1_focus_planned(df, years=(2025, 2026, 2027)):
+    """H1 (Jan-Jun) PLANNED offline per focus unit, day-weighted average kbd, by
+    year. The like-for-like window: 2027 is booked only through H1, so comparing
+    the Jan-Jun planned slate year-on-year avoids 2027's still-incomplete H2.
+    Returns a DataFrame (rows = focus units, columns = years) of the average kbd
+    offline across Jan-Jun -- each unit counted once per month, never summed
+    across unit classes."""
+    fp = focus_unit_monthly(df, type_filter="PLANNED")
+    h1 = MONTHS[:6]
+    data = {}
+    for f in FOCUS_ORDER:
+        m = fp[f]
+        data[f] = {int(y): (float(np.mean([m.loc[y, mo] for mo in h1])) if y in m.index else 0.0)
+                   for y in years}
+    return pd.DataFrame(data).T.reindex(FOCUS_ORDER)
+
+
 H1_MONTHS = [1, 2, 3, 4, 5, 6]
 
 
@@ -1454,6 +1471,7 @@ def build_context(path):
         "focus_monthly": focus_unit_monthly(df),                       # all outages
         "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
         "focus_peak": focus_annual_peak(df),
+        "h1_focus_planned": h1_focus_planned(df),       # H1 planned per unit, 2025/26/27
         "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
                        for y in (2026, 2027)},
         "confirmed2027": {f: focus_2027_split(df, f) for f in FOCUS_ORDER},

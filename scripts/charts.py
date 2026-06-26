@@ -997,6 +997,36 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     return _save(fig, path)
 
 
+def h1_planned_by_unit(ctx, path):
+    """H1 (Jan-Jun) planned offline per focus unit, 2025 vs 2026 vs 2027 - grouped
+    bars (day-weighted avg kbd). The like-for-like read: 2027's book is confirmed
+    only through H1, so this compares the booked H1 slate across years, per unit
+    (each unit on its own, never summed across classes)."""
+    h1 = ctx["h1_focus_planned"]
+    years = [int(c) for c in h1.columns]
+    fig, ax = plt.subplots(figsize=(10, 4.7))
+    x = np.arange(len(engine.FOCUS_ORDER))
+    w = 0.8 / max(1, len(years))
+    cols = {2025: "#A6A6A6", 2026: GOLD, 2027: NAVY}
+    for i, y in enumerate(years):
+        vals = [float(h1.loc[f, y]) for f in engine.FOCUS_ORDER]
+        bars = ax.bar(x + i * w, vals, w, color=cols.get(y, BLUE), label=f"H1 {y}", zorder=3)
+        for b, v in zip(bars, vals):
+            if v > 0:
+                ax.text(b.get_x() + b.get_width() / 2, v, f"{v:,.0f}", ha="center",
+                        va="bottom", fontsize=7.6, color="#23272e")
+    ax.set_xticks(x + (len(years) - 1) * w / 2,
+                  [engine.FOCUS_LABEL[f] for f in engine.FOCUS_ORDER])
+    ax.set_xlabel("focus unit")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("avg kbd offline, Jan-Jun")
+    ax.set_ylim(top=ax.get_ylim()[1] * 1.16)
+    ax.set_title("H1 Planned Offline per Unit - 2025 vs 2026 vs 2027 (avg kbd, Jan-Jun)")
+    ax.legend(frameon=False, ncol=3, loc="upper right", fontsize=9)
+    _clean(ax)
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path.
 
@@ -1012,6 +1042,8 @@ def render_all(ctx, outdir):
         "splits_2027": splits_2027(ctx, p("splits_2027.png")),
         # 1b) what's driving the numbers - biggest individual outages, by PADD
         "biggest_outages": biggest_outages(ctx, p("biggest_outages.png")),
+        # 1c) H1 like-for-like: planned offline per unit, 2025 vs 2026 vs 2027
+        "h1_by_unit": h1_planned_by_unit(ctx, p("h1_by_unit.png")),
         # 2) outages by PADD by unit
         "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
         "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),
