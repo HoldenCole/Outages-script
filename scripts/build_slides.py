@@ -242,8 +242,8 @@ class Deck:
              "Read units separately, never added: a 250-kbd CDU plus a 100-kbd FCC is not '350 offline'.",
              "Solid = confirmed (Exxon full-year + everyone's H1). Hatched = non-Exxon H2, still being "
              "booked - don't trade the autumn spike as real."],
-            foot="Concurrent capacity offline, each unit counted once per month. Non-Exxon H2 2027 is a floor "
-                 "that fills in. Verified-bad Exxon records excluded.")
+            foot="Day-weighted concurrent capacity offline (a unit offline part of a month counts only for its "
+                 "days down), each unit once per month. Non-Exxon H2 2027 is a floor that fills in.")
 
     def padd_by_unit_slide(self):
         self.charts_bullets_slide(
@@ -258,8 +258,8 @@ class Deck:
              "driving-season gasoline.",
              "Past the dotted line (H2) is non-Exxon-unconfirmed - those autumn bars are a floor and grow "
              "as operators book."],
-            foot="Concurrent capacity offline by month, stacked by PADD. P1 NE, P2 Midwest, P3 Gulf, "
-                 "P4 Rockies, P5 West.")
+            foot="Day-weighted concurrent capacity offline by month, stacked by PADD. P1 NE, P2 Midwest, "
+                 "P3 Gulf, P4 Rockies, P5 West.")
 
     def exxon_slide(self):
         ev = self.ctx["exxon_verify"]["events"]

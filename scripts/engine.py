@@ -1136,15 +1136,19 @@ def period_change(df):
 
 # ----------------------------------------------------------------------------- per-unit capacity offline
 def unit_offline_monthly(df, focus=None, type_filter=None, padd=None,
-                         y0=START_YEAR, y1=END_YEAR, value="cap_raw"):
+                         y0=START_YEAR, y1=END_YEAR, value="cap_kbd"):
     """Concurrent capacity offline (kbd) by month for one focus unit class.
 
-    The honest 'per-unit' read: for each (year, month) we sum each *distinct
-    physical unit's* offline capacity once (deduped on plant+unit), so a unit
-    down across several months is never double-counted across months, and we
-    never add a CDU to an FCC. Returns a year x month matrix (Jan..Dec).
-    Nameplate offline (`cap_raw`) by default -- 'how much of this unit class is
-    down', the way the desk thinks about it ("250 kbd of crude offline")."""
+    The honest 'per-unit' read: for each (year, month) we take each *distinct
+    physical unit's* offline capacity once (deduped on plant+unit), so a unit is
+    never double-counted across months and we never add a CDU to an FCC. Returns
+    a year x month matrix (Jan..Dec).
+
+    Day-weighted (`cap_kbd`) by default: a unit offline only part of a month is
+    credited only for the days it is actually down (nameplate x days-down /
+    days-in-month) -- which equals the average daily concurrent offline that
+    month, and never carries a unit's capacity into a month it is back online.
+    Pass value="cap_raw" for the full-nameplate 'peak in-month' read instead."""
     sub = df[(df["year"] >= y0) & (df["year"] <= y1)].dropna(subset=["month"]).copy()
     if focus:
         sub = sub[sub["focus"].eq(focus)]
@@ -1169,9 +1173,9 @@ def focus_unit_monthly(df, type_filter=None, **kw):
             for f in FOCUS_ORDER}
 
 
-def focus_unit_padd_month(df, focus, year, value="cap_raw"):
-    """PADD x month concurrent offline for one focus unit in one year -- the
-    'timeline by month and PADD' view (each unit kept separate)."""
+def focus_unit_padd_month(df, focus, year, value="cap_kbd"):
+    """PADD x month concurrent offline (day-weighted kbd) for one focus unit in
+    one year -- the 'timeline by month and PADD' view (each unit kept separate)."""
     sub = df[(df["year"] == year) & df["focus"].eq(focus)
              & df["padd"].isin(PADD_ORDER)].dropna(subset=["month"])
     if sub.empty:
@@ -1185,10 +1189,10 @@ def focus_unit_padd_month(df, focus, year, value="cap_raw"):
 
 
 def focus_annual_peak(df, type_filter=None, y0=START_YEAR, y1=END_YEAR):
-    """year x focus-class table of the PEAK concurrent monthly offline (kbd):
-    'at its worst this year, how much of each unit class was down at once'.
-    Summing a unit's months would double-count; the peak month is the honest
-    scalar to compare across years."""
+    """year x focus-class table of the busiest month's concurrent offline (kbd,
+    day-weighted): 'at its worst month this year, how much of each unit class was
+    offline on an average day'. Summing a unit's months would double-count; the
+    single worst month is the honest scalar to compare across years."""
     out = {}
     for f in FOCUS_ORDER:
         m = unit_offline_monthly(df, focus=f, type_filter=type_filter, y0=y0, y1=y1)
@@ -1199,8 +1203,8 @@ def focus_annual_peak(df, type_filter=None, y0=START_YEAR, y1=END_YEAR):
 H1_MONTHS = [1, 2, 3, 4, 5, 6]
 
 
-def focus_2027_split(df, focus, value="cap_raw"):
-    """The 2027 data-completeness split for one focus unit.
+def focus_2027_split(df, focus, value="cap_kbd"):
+    """The 2027 data-completeness split for one focus unit (day-weighted kbd).
 
     We have ExxonMobil's full-year 2027 plan (verified against their corporate
     schedule), but for every other operator only H1-2027 (Jan-Jun) is actually
