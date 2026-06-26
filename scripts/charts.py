@@ -997,34 +997,44 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     return _save(fig, path)
 
 
-def h1_planned_by_unit(ctx, path):
-    """H1 (Jan-Jun) planned offline per focus unit, 2025 vs 2026 vs 2027 - grouped
-    bars (day-weighted avg kbd). The like-for-like read: 2027's book is confirmed
-    only through H1, so this compares the booked H1 slate across years, per unit
-    (each unit on its own, never summed across classes)."""
-    h1 = ctx["h1_focus_planned"]
-    years = [int(c) for c in h1.columns]
-    fig, ax = plt.subplots(figsize=(10, 4.7))
-    x = np.arange(len(engine.FOCUS_ORDER))
-    w = 0.8 / max(1, len(years))
-    cols = {2025: "#A6A6A6", 2026: GOLD, 2027: NAVY}
-    for i, y in enumerate(years):
-        vals = [float(h1.loc[f, y]) for f in engine.FOCUS_ORDER]
-        bars = ax.bar(x + i * w, vals, w, color=cols.get(y, BLUE), label=f"H1 {y}", zorder=3)
-        for b, v in zip(bars, vals):
-            if v > 0:
-                ax.text(b.get_x() + b.get_width() / 2, v, f"{v:,.0f}", ha="center",
-                        va="bottom", fontsize=7.6, color="#23272e")
-    ax.set_xticks(x + (len(years) - 1) * w / 2,
-                  [engine.FOCUS_LABEL[f] for f in engine.FOCUS_ORDER])
-    ax.set_xlabel("focus unit")
-    ax.yaxis.set_major_formatter(_thousands)
-    ax.set_ylabel("avg kbd offline, Jan-Jun")
-    ax.set_ylim(top=ax.get_ylim()[1] * 1.16)
-    ax.set_title("H1 Planned Offline per Unit - 2025 vs 2026 vs 2027 (avg kbd, Jan-Jun)")
-    ax.legend(frameon=False, ncol=3, loc="upper right", fontsize=9)
-    _clean(ax)
-    return _save(fig, path)
+def h1_monthly_by_unit(ctx, path):
+    """H1 (Jan-Jun) planned offline per focus unit, BY MONTH - 2x2 small multiples,
+    one panel per unit, a line per year (2025/26/27). Day-weighted kbd, planned
+    only; per-panel y-axis so each unit's monthly shape is readable. The
+    like-for-like monthly read (2027 confirmed through H1), each unit on its own."""
+    fp = ctx["focus_planned"]
+    H1 = MONTHS[:6]
+    years = [2025, 2026, 2027]
+    styles = {2025: ("#A6A6A6", 1.8, "o"), 2026: (GOLD, 2.0, "s"), 2027: (NAVY, 3.0, "o")}
+    fig, axes = plt.subplots(2, 2, figsize=(11.4, 6.4))
+    x = np.arange(6)
+    for idx, (ax, f) in enumerate(zip(axes.reshape(-1), engine.FOCUS_ORDER)):
+        m = fp[f]
+        for y in years:
+            if y not in m.index:
+                continue
+            c, lw, mk = styles[y]
+            ax.plot(x, [m.loc[y, mo] for mo in H1], color=c, lw=lw, marker=mk, ms=4.5,
+                    label=f"H1 {y}", zorder=4 if y == 2027 else 3)
+        ax.set_xticks(x, H1, fontsize=8.5)
+        ax.yaxis.set_major_formatter(_thousands)
+        ax.set_ylim(bottom=0)
+        if idx % 2 == 0:
+            ax.set_ylabel("kbd offline", fontsize=9)
+        if idx >= 2:
+            ax.set_xlabel("Month", fontsize=9)
+        ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
+        _clean(ax)
+    handles = [plt.Line2D([0], [0], color=styles[y][0], lw=styles[y][1], marker=styles[y][2], ms=5)
+               for y in years]
+    fig.legend(handles, [f"H1 {y}" for y in years], loc="lower center", ncol=3,
+               frameon=False, fontsize=10)
+    fig.suptitle("H1 Planned Offline by Unit & Month - 2025 / 2026 / 2027 (kbd, day-weighted)",
+                 fontsize=13, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0.05, 1, 0.95])
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
 
 
 def render_all(ctx, outdir):
@@ -1042,8 +1052,8 @@ def render_all(ctx, outdir):
         "splits_2027": splits_2027(ctx, p("splits_2027.png")),
         # 1b) what's driving the numbers - biggest individual outages, by PADD
         "biggest_outages": biggest_outages(ctx, p("biggest_outages.png")),
-        # 1c) H1 like-for-like: planned offline per unit, 2025 vs 2026 vs 2027
-        "h1_by_unit": h1_planned_by_unit(ctx, p("h1_by_unit.png")),
+        # 1c) H1 like-for-like: planned offline per unit & month, 2025 vs 2026 vs 2027
+        "h1_month_by_unit": h1_monthly_by_unit(ctx, p("h1_month_by_unit.png")),
         # 2) outages by PADD by unit
         "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
         "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),

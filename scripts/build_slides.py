@@ -4,7 +4,7 @@ build_slides.py
 Trading-desk deck (python-pptx): the things a trader needs, kept simple --
     1. Total 2027 outages by unit  (and what each unit tightens)
     2. What's driving the numbers  (the biggest individual outages, by PADD)
-    3. H1 planned per unit         (2025 vs 2026 vs 2027, like-for-like)
+    3. H1 planned per unit & month (2025 vs 2026 vs 2027, like-for-like)
     4. Outages by PADD by unit     (where it tightens)
     5. ExxonMobil outages          (per unit, verified vs their corporate plan)
     6. 2027 unplanned scenario     (the risk on top of the booked plan)
@@ -278,21 +278,27 @@ class Deck:
             return float(h1.loc[f, y]) if (f in h1.index and y in h1.columns) else 0.0
         cdu27, cdu26, cdu25 = v("CDU", 2027), v("CDU", 2026), v("CDU", 2025)
         d = (cdu27 / cdu26 - 1) if cdu26 else 0.0
-        order = sorted(engine.FOCUS_ORDER, key=lambda f: v(f, 2027), reverse=True)
-        self.charts_bullets_slide(
-            "H1 Planned Outages per Unit - 2025 / 2026 / 2027",
-            "Like-for-like Jan-Jun planned offline, per unit (2027's book is confirmed through H1)",
-            [self.a["h1_by_unit"]],
-            ["H1 is the only honest cross-year read for 2027: the book is confirmed through June; H2 is "
-             "still being scheduled, so a full-year comparison would understate 2027.",
-             f"Crude (CDU): H1 2027 ~{kbd(cdu27)} kbd vs ~{kbd(cdu26)} in 2026 and ~{kbd(cdu25)} in 2025 - "
-             f"{'heavier' if d >= 0 else 'lighter'} than last year ({d:+.0%}).",
-             f"Heaviest booked H1 2027 slate: {engine.FOCUS_LABEL[order[0]]}, then "
-             f"{engine.FOCUS_LABEL[order[1]]} - each unit read on its own, never added together.",
-             "A heavier H1 = more crude / cat-cracker capacity in planned turnaround = tighter product "
-             "supply through the spring window."],
-            foot="Day-weighted average capacity offline across Jan-Jun, planned only, each unit counted "
-                 "once per month. 2025/26 actuals; 2027 the booked plan.")
+        cm = self.ctx["focus_planned"]["CDU"]
+        h1m = engine.MONTHS[:6]
+        if 2027 in cm.index:
+            pmo = max(h1m, key=lambda mo: cm.loc[2027, mo])
+            pval = float(cm.loc[2027, pmo])
+        else:
+            pmo, pval = "Mar", 0.0
+        self.wide_chart_slide(
+            "H1 Planned Outages per Unit & Month - 2025 / 2026 / 2027",
+            "Like-for-like Jan-Jun planned offline, broken out by unit and month (2027 confirmed through H1)",
+            self.a["h1_month_by_unit"],
+            ["H1 is the only honest cross-year read for 2027 - the book is confirmed through June; H2 is "
+             "still being scheduled.",
+             "2027 runs heavier than 2025 and 2026 in most H1 months across the units - the navy line sits "
+             "on top.",
+             f"Crude (CDU) H1 averages ~{kbd(cdu27)} kbd vs ~{kbd(cdu26)} (2026) / ~{kbd(cdu25)} (2025), "
+             f"and crests in {pmo} (~{kbd(pval)} kbd) - the spring turnaround peak.",
+             "Read each unit and each month on its own, never added together - a heavier spring = tighter "
+             "product supply."],
+            foot="Day-weighted capacity offline by month, planned only, each unit counted once per month. "
+                 "Per-panel y-axis. 2025/26 actuals; 2027 the booked plan.")
 
     def padd_by_unit_slide(self):
         self.charts_bullets_slide(
