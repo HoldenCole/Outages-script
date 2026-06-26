@@ -9,12 +9,18 @@ recomputes everything. The window is always **2023 .. current year + 1** (2023-2
 today) and rolls forward on its own. One data pipeline feeds three deliverables
 that always agree:
 
-1. **Slide deck** (`output/outage_deck.pptx`): a chart-forward, gasoline- and
-   distillate-focused deck (the talk-track lives in the **speaker notes**, so you
-   talk through each slide). Total 2027 outages by unit, the biggest individual
-   outages by PADD, the like-for-like H1 read per unit and month, outages by PADD
-   by unit, the naphtha balance (CDU supply vs reformer demand), recent
-   2024-2026 unplanned context, and the 2027 unplanned scenario (monthly).
+1. **Slide decks** (`output/outage_deck.pptx`, `output/outage_deck_naphtha.pptx`):
+   two chart-forward decks (presenter brings their own notes, so the slides are
+   the charts). The **main deck** is gasoline/distillate-focused on the forward
+   outlook year: total outages by unit, the biggest individual outages by PADD,
+   the like-for-like H1 read per unit and month, outages by PADD by unit, the
+   naphtha balance, recent unplanned context, and the unplanned scenario. The
+   **naphtha / chem-feed deck** is the parallel octane & petrochemical-feedstock
+   read, headlining the in-progress year ("rest of <yy>", H1 actual vs H2 booked)
+   and tilted to **reformers**: rest-of-year outages by unit, the biggest outages,
+   reformers (the octane read), the naphtha balance, the naphtha/octane/chem-feed
+   complex (reforming + isomerization + aromatics/BTX), reformer & crude by PADD,
+   and unplanned context. Both read the same engine context, so they agree.
 2. **Excel model** (`output/outage_model.xlsx`): every number the deck looks at,
    calculates or forecasts, in detail, with the exact deck charts embedded on
    each sheet (just copy and paste). It is **live off the Snowflake**: the `Data`

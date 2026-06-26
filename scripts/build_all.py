@@ -20,6 +20,7 @@ from pathlib import Path
 import engine
 import charts
 import build_slides
+import build_slides_naphtha
 import build_dashboard
 import build_workbook
 
@@ -47,12 +48,19 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         assets = charts.render_all(ctx, tmp)
 
-        print("[2/4] Slide deck ...")
+        print("[2/4] Slide decks ...")
         deck_path = out("outage_deck.pptx")
         deck = build_slides.Deck(ctx, assets)
         deck.build()
         deck.save(deck_path)
         print(f"      -> {deck_path}")
+        # parallel naphtha / chem-feed / reformer deck (headlines the in-progress year)
+        nap_assets = charts.render_naphtha_assets(ctx, tmp)
+        nap_path = out("outage_deck_naphtha.pptx")
+        ndeck = build_slides_naphtha.NaphthaDeck(ctx, nap_assets)
+        ndeck.build()
+        ndeck.save(nap_path)
+        print(f"      -> {nap_path}")
 
         print("[3/4] Excel model ...")
         model_path = out("outage_model.xlsx")
@@ -72,7 +80,7 @@ def main():
         f.write(html)
     print(f"      -> {dash_path}")
 
-    print("\nDone. Deck, Excel model and dashboard are self-contained and agree.")
+    print("\nDone. Both decks, the Excel model and the dashboard are self-contained and agree.")
 
 
 if __name__ == "__main__":

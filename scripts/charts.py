@@ -29,6 +29,7 @@ LT = "#D6E0F0"
 MONTHS = engine.MONTHS
 PADDS = engine.PADD_ORDER
 FY = engine.FOCUS_YEAR              # forward outlook year (current year + 1); rolls with the data
+CY = engine.CURRENT_YEAR           # the in-progress year (H1 actual, H2 still coming)
 Y0 = engine.START_YEAR             # 2023
 
 plt.rcParams.update({
@@ -968,7 +969,10 @@ def biggest_outages(ctx, path, year=FY, topn=12):
         ax.axis("off")
         return _save(fig, path)
     ev["is_exxon"] = ev["operator"].astype(str).str.upper().str.contains("EXXON", na=False)
-    ev["indic"] = (~ev["is_exxon"]) & ev["months"].apply(lambda m: bool(m) and min(m) >= 7)
+    # only the outlook year carries the "non-Exxon H2 not yet booked" caveat; for the
+    # in-progress year H2 is the current booked plan, so don't flag it as indicative
+    mark_indic = year >= FY
+    ev["indic"] = mark_indic & (~ev["is_exxon"]) & ev["months"].apply(lambda m: bool(m) and min(m) >= 7)
     ev = ev.sort_values("kbd", ascending=False).head(topn).sort_values("kbd")   # biggest -> top
     ev = ev.reset_index(drop=True)
     xmax = float(ev["kbd"].max())
@@ -999,7 +1003,7 @@ def biggest_outages(ctx, path, year=FY, topn=12):
     ax.grid(axis="y", visible=False)
     ax.tick_params(length=0)
     if bool(ev["indic"].any()):
-        fig.text(0.5, 0.004, f"* non-Exxon H2 {FY}, still being booked (indicative floor, not confirmed).",
+        fig.text(0.5, 0.004, f"* non-Exxon H2 {year}, still being booked (indicative floor, not confirmed).",
                  ha="center", fontsize=7.5, color=RED, style="italic")
     return _save(fig, path)
 
@@ -1070,11 +1074,13 @@ def unplanned_context(ctx, path):
     return _save(fig, path)
 
 
-def naphtha_balance_chart(ctx, path):
-    """2027 naphtha balance from CDU vs reformer outages. Reformer outages remove
-    naphtha DEMAND (up bars, length); CDU outages remove naphtha SUPPLY (down bars,
-    tightness). The net line is the balance: above zero = surplus, below = deficit."""
-    nb = ctx["naphtha_balance"]
+def naphtha_balance_chart(ctx, path, key="naphtha_balance", h2_note="non-Exxon H2 indicative"):
+    """Naphtha balance from CDU vs reformer outages. Reformer outages remove naphtha
+    DEMAND (up bars, length); CDU outages remove naphtha SUPPLY (down bars,
+    tightness). The net line is the balance: above zero = surplus, below = deficit.
+    `key` picks the year's balance dict (naphtha_balance = outlook yr, _cy = this yr)."""
+    nb = ctx[key]
+    yr = nb["year"]
     x = np.arange(12)
     demand = np.array(nb["demand_removed"])
     supply = np.array(nb["supply_removed"])
@@ -1090,7 +1096,7 @@ def naphtha_balance_chart(ctx, path):
     ax.axhline(0, color="#23272e", lw=1.4, zorder=4)
     ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
     ax.set_xticks(x, MONTHS)
-    ax.set_xlabel(f"Month, {FY}")
+    ax.set_xlabel(f"Month, {yr}")
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd of naphtha")
     top, bot = max(demand.max(), 10.0), min(net.min(), float((-supply).min()))
@@ -1099,12 +1105,163 @@ def naphtha_balance_chart(ctx, path):
             fontsize=8, color=GREEN, style="italic")
     ax.text(11.4, bot * 0.5, "deficit\n(naphtha short)", ha="right", va="center",
             fontsize=8, color=RED, style="italic")
-    ax.text(8.8, top * 1.5, "H1 | H2: non-Exxon H2 indicative", ha="center", va="top",
-            fontsize=7.5, color=RED, style="italic")
-    ax.set_title(f"{FY} Naphtha Balance from Outages: CDU Supply vs Reformer Demand (kbd)")
+    if h2_note:
+        ax.text(8.8, top * 1.5, f"H1 | H2: {h2_note}", ha="center", va="top",
+                fontsize=7.5, color=RED, style="italic")
+    ax.set_title(f"{yr} Naphtha Balance from Outages: CDU Supply vs Reformer Demand (kbd)")
     ax.legend(frameon=False, ncol=1, fontsize=8.3, loc="upper left")
     _clean(ax, ygrid=True)
     return _save(fig, path)
+
+
+# =========================================================================== #
+#  Rest-of-current-year, naphtha / chem-feed, reformer-tilted charts            #
+#  (parallel deck: headlines the in-progress year, H1 actual + H2 still coming) #
+# =========================================================================== #
+def cy_unit_splits(ctx, path, year=None):
+    """Per-unit capacity offline for the in-progress year: H1 is actual (solid),
+    H2 is the booked plan still to come (hatched) - the 'rest of the year' read.
+    2x2, one panel per focus unit. Day-weighted kbd, each unit once per month."""
+    year = CY if year is None else year
+    fm, fp = ctx["focus_monthly"], ctx["focus_planned"]
+    fig, axes = plt.subplots(2, 2, figsize=(11.6, 6.6))
+    x = np.arange(12)
+    for idx, (ax, f) in enumerate(zip(axes.reshape(-1), engine.FOCUS_ORDER)):
+        tot = np.array([float(fm[f].loc[year, m]) if year in fm[f].index else 0.0 for m in MONTHS])
+        pln = np.array([float(fp[f].loc[year, m]) if year in fp[f].index else 0.0 for m in MONTHS])
+        h1 = tot.copy(); h1[6:] = 0.0                 # actual (Jan-Jun)
+        h2 = pln.copy(); h2[:6] = 0.0                 # booked, still to come (Jul-Dec)
+        ax.bar(x, h1, color=FOCUS_COLOR.get(f, NAVY), zorder=3)
+        ax.bar(x, h2, color="#E2E2E2", hatch="////", edgecolor=FOCUS_COLOR.get(f, NAVY),
+               lw=0.5, zorder=3)
+        ax.axvline(5.5, color=GRAY, ls=":", lw=1.2, zorder=2)
+        ax.set_xticks(x, [mo[0] for mo in MONTHS], fontsize=7.5)
+        ax.yaxis.set_major_formatter(_thousands)
+        if idx % 2 == 0:
+            ax.set_ylabel("kbd offline", fontsize=9)
+        if idx >= 2:
+            ax.set_xlabel(f"Month ({year})", fontsize=9)
+        ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
+        _clean(ax)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=NAVY),
+               plt.Rectangle((0, 0), 1, 1, facecolor="#E2E2E2", hatch="////", edgecolor=NAVY)]
+    fig.legend(handles, ["H1 actual (reported)", "H2 booked plan (still to come)"],
+               loc="lower center", ncol=2, frameon=False, fontsize=9.5)
+    fig.suptitle(f"{year} Capacity Offline by Unit: H1 Actual vs Rest-of-Year Booked (kbd/month)",
+                 fontsize=13, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0.05, 1, 0.95])
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def reformer_focus(ctx, path, year=None):
+    """The reformer read for the in-progress year: catalytic-reformer capacity
+    offline by month, stacked by PADD (where the octane goes down), with the prior
+    year as a context line and the reformate (octane) lost called out. H1 actual |
+    H2 still-to-come divider. Reformers run naphtha -> reformate, the octane in the
+    gasoline pool, so a reformer down tightens octane even if crude runs hold."""
+    year = CY if year is None else year
+    g = ctx["focus_padd"][year]["Reformer"]                    # PADD x 12
+    prev = ctx["focus_monthly"]["Reformer"]
+    refrate = float(engine.YIELD_FACTOR["Ref"])
+    x = np.arange(12)
+    fig, ax = plt.subplots(figsize=(10.6, 5.2))
+    bottom = np.zeros(12)
+    tot = np.zeros(12)
+    for pd_ in PADDS:
+        vals = g.loc[pd_].values if pd_ in g.index else np.zeros(12)
+        ax.bar(x, vals, bottom=bottom, color=PADD_COLOR[pd_], zorder=3,
+               label=pd_.replace("PADD ", "P"))
+        bottom += vals; tot += vals
+    if (year - 1) in prev.index:                               # prior-year context line
+        pv = [float(prev.loc[year - 1, m]) for m in MONTHS]
+        ax.plot(x, pv, color="#23272e", lw=2.0, ls="--", marker="o", ms=3.5, zorder=5,
+                label=f"{year-1} reformer (total)")
+    ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
+    ax.set_xticks(x, MONTHS)
+    ax.set_xlabel(f"Month, {year}")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("reformer capacity offline (kbd)")
+    top = max(tot.max(), max([0.0] + ([float(prev.loc[year-1, m]) for m in MONTHS] if (year-1) in prev.index else [0.0])))
+    ax.set_ylim(0, top * 1.30 + 20)
+    ax.text(2.6, top * 1.22, "H1 actual", ha="center", va="top", fontsize=8, color=GRAY)
+    ax.text(8.8, top * 1.22, "H2 booked (rest of year)", ha="center", va="top",
+            fontsize=8, color=RED, style="italic")
+    ax.text(0.02, 0.97, f"~{tot.sum() * refrate:,.0f} kbd of reformate (octane) offline over {year}",
+            transform=ax.transAxes, ha="left", va="top", fontsize=8.5, color=GOLD, style="italic")
+    ax.set_title(f"{year} Reformer Outages by Month & PADD - the Octane Read (kbd)")
+    ax.legend(frameon=False, ncol=6, fontsize=8, loc="upper right")
+    _clean(ax)
+    return _save(fig, path)
+
+
+def naphtha_complex_chart(ctx, path):
+    """The naphtha / octane / chem-feed complex - catalytic reforming, isomerization
+    and aromatics/BTX - capacity offline by year, planned vs unplanned. This is the
+    feedstock external CDU-only trackers miss: naphtha is the steam-cracker /
+    petrochemical charge and the reformer's feed, so this is the chem-feed and
+    octane availability read. The current and outlook years are highlighted."""
+    na = ctx["naphtha"]
+    ann = na["annual"]
+    years = [int(y) for y in ann.index if Y0 <= int(y) <= FY]
+    x = np.arange(len(years))
+    planned = [float(ann.loc[y, "Planned"]) for y in years]
+    unpl = [float(ann.loc[y, "Unplanned"]) for y in years]
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11.4, 5.0), gridspec_kw={"width_ratios": [2.1, 1]})
+    edges = ["#23272e" if y in (CY, FY) else "white" for y in years]
+    lws = [1.8 if y in (CY, FY) else 0.4 for y in years]
+    ax.bar(x, planned, width=0.62, color=BLUE, zorder=3, label="Planned",
+           edgecolor=edges, linewidth=lws)
+    ax.bar(x, unpl, bottom=planned, width=0.62, color=ORANGE, zorder=3, label="Unplanned",
+           edgecolor=edges, linewidth=lws)
+    for i, y in enumerate(years):
+        tag = f"{planned[i]+unpl[i]:,.0f}" + ("  (this yr)" if y == CY else ("  (outlook)" if y == FY else ""))
+        ax.text(i, planned[i] + unpl[i] + max(planned + unpl) * 0.015, tag,
+                ha="center", va="bottom", fontsize=8.2,
+                color=RED if y == CY else ("#23272e"), fontweight="bold" if y in (CY, FY) else "normal")
+    ax.set_xticks(x, years)
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("naphtha/octane-complex offline (kbd)")
+    ax.set_title("Naphtha / Octane / Chem-Feed Complex Offline by Year (kbd)", fontsize=11.5)
+    ax.legend(frameon=False, ncol=2, fontsize=9, loc="upper right")
+    _clean(ax)
+    # by-unit split (what the complex is made of)
+    bu = na["by_unit"]
+    bu = bu[bu > 0]
+    labels = [str(u).title().replace("Reforming", "Reforming (octane)") for u in bu.index]
+    cols = [GOLD, BLUE, GREEN, RED, GRAY][:len(bu)]
+    ax2.barh(np.arange(len(bu))[::-1], bu.values, color=cols, zorder=3)
+    for i, (u, v) in enumerate(zip(bu.index, bu.values)):
+        ax2.text(v + bu.values.max() * 0.02, len(bu) - 1 - i, f"{v:,.0f}", va="center",
+                 fontsize=8, color="#23272e")
+    ax2.set_yticks(np.arange(len(bu))[::-1], labels, fontsize=8.5)
+    ax2.xaxis.set_major_formatter(_thousands)
+    ax2.set_xlim(0, bu.values.max() * 1.22)
+    ax2.set_title(f"Complex make-up\n({Y0}-{FY} total kbd)", fontsize=10)
+    _clean(ax2)
+    ax2.grid(axis="y", visible=False)
+    return _save(fig, path)
+
+
+def render_naphtha_assets(ctx, outdir):
+    """Charts for the parallel rest-of-current-year naphtha / chem-feed deck.
+    Reuses biggest_outages / focus_padd_bars / unplanned_context for the current
+    year (CY) and adds the reformer- and naphtha-complex-specific renders."""
+    import os
+    os.makedirs(outdir, exist_ok=True)
+    p = lambda n: os.path.join(outdir, n)
+    return {
+        "cy_splits": cy_unit_splits(ctx, p("cy_splits.png")),
+        "biggest_cy": biggest_outages(ctx, p("biggest_cy.png"), year=CY),
+        "reformer_focus": reformer_focus(ctx, p("reformer_focus.png")),
+        "naphtha_balance_cy": naphtha_balance_chart(ctx, p("naphtha_balance_cy.png"),
+                                                    key="naphtha_balance_cy", h2_note="H2 booked, still filling in"),
+        "naphtha_complex": naphtha_complex_chart(ctx, p("naphtha_complex.png")),
+        "ref_padd_cy": focus_padd_bars(ctx, "Reformer", CY, p("ref_padd_cy.png")),
+        "cdu_padd_cy": focus_padd_bars(ctx, "CDU", CY, p("cdu_padd_cy.png")),
+        "unplanned_context": unplanned_context(ctx, p("unplanned_context.png")),
+    }
 
 
 def render_all(ctx, outdir):

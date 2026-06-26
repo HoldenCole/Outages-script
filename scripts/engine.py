@@ -110,6 +110,8 @@ PADD_ORDER = ["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]
 START_YEAR = 2023
 END_YEAR = max(2027, date.today().year + 1)
 FOCUS_YEAR = END_YEAR                  # the forward outlook year the deck + model headline
+CURRENT_YEAR = FOCUS_YEAR - 1          # the in-progress year (H1 actual, H2 still coming) -- the
+                                       # "rest of <yy>" naphtha/chem-feed deck headlines this one
 
 # Years that are partial / special-cased (rendered grey-italic, footnoted).
 PARTIAL_YEARS = [FOCUS_YEAR - 1, FOCUS_YEAR]   # current (partial actuals) + outlook (planned only)
@@ -1575,7 +1577,8 @@ def build_context(path):
         "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
         "focus_peak": focus_annual_peak(df),
         "h1_focus_planned": h1_focus_planned(df),       # H1 planned per unit, 2025/26/27
-        "naphtha_balance": naphtha_balance(df, FOCUS_YEAR),   # CDU supply vs reformer demand
+        "naphtha_balance": naphtha_balance(df, FOCUS_YEAR),   # CDU supply vs reformer demand (outlook yr)
+        "naphtha_balance_cy": naphtha_balance(df, CURRENT_YEAR),   # same, for the in-progress year
         "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
                        for y in (FOCUS_YEAR - 1, FOCUS_YEAR)},
         "confirmed2027": {f: focus_2027_split(df, f) for f in FOCUS_ORDER},
