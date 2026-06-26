@@ -103,13 +103,14 @@ OUTLIER_YEARS = [2020, 2021]          # COVID / Winter Storm Uri -- excluded fro
 
 # Forecast baseline windows offered in the scenario model.
 BASELINE_WINDOWS = {
+    "2023-2026": [2023, 2024, 2025, 2026],
     "2022-2025": [2022, 2023, 2024, 2025],
     "2023-2025": [2023, 2024, 2025],
     "2018-19 & 22-25": [2018, 2019, 2022, 2023, 2024, 2025],
     "All ex-2020/21": [2014, 2015, 2016, 2017, 2018, 2019,
                        2022, 2023, 2024, 2025],
 }
-DEFAULT_WINDOW = "2023-2025"   # 2022 unplanned coverage is sparse; 2023-25 are the robust years
+DEFAULT_WINDOW = "2023-2026"   # complete 2023-25 plus the latest reported 2026 months (completeness-aware)
 
 # Focus units, in the priority order the desk reads them (CDU first, then FCC,
 # hydrocracker, reformer). These four are reported per-unit; everything else is
@@ -423,19 +424,32 @@ def unit_year_matrix(df, value="cap_kbd", type_filter=None):
 def seasonality(df, years, type_filter="UNPLANNED", padd=None, value="cap_kbd"):
     """Average monthly profile (kbd/month) across the given years.
 
-    This is the backbone of the 2027 scenario: the mean calendar-month shape of
-    unplanned capacity offline over a chosen baseline window.
+    Completeness-aware: the most recent year in the window is usually partial
+    (reported only through some month), so the months it has not reported yet are
+    left out of those months' average instead of being counted as zero. A fresh
+    partial year (e.g. the current year's H1) therefore sharpens the early-month
+    baseline without dragging the unreported later months toward zero. Backbone of
+    the 2027 scenario: the mean calendar-month shape of unplanned offline over the
+    chosen window.
     """
     sub = df[df["type"].eq(type_filter) & df["year"].isin(years)]
     if padd:
         sub = sub[sub["padd"].eq(padd)]
     by_ym = (sub.groupby(["year", "month"])[value].sum()
-             .unstack("month").reindex(columns=range(1, 13)).fillna(0.0))
+             .unstack("month").reindex(columns=range(1, 13)))
     # average over the window years actually present in the data (so a dataset
     # that only reaches back to 2024 isn't diluted by dividing over empty years)
     present = [y for y in years if y in by_ym.index]
-    prof = (by_ym.reindex(present).mean(axis=0) if present
-            else pd.Series(0.0, index=range(1, 13)))
+    if not present:
+        prof = pd.Series(0.0, index=range(1, 13))
+        prof.index = MONTHS
+        return prof
+    by_ym = by_ym.reindex(present).fillna(0.0)
+    cy, cm = latest_actual_month(df) or (max(present), 12)
+    for y in present:                       # blank a partial current year's unreported tail
+        if y >= cy and cm < 12:
+            by_ym.loc[y, [m for m in range(cm + 1, 13)]] = np.nan
+    prof = by_ym.mean(axis=0, skipna=True).reindex(range(1, 13)).fillna(0.0)
     prof.index = MONTHS
     return prof
 
@@ -718,6 +732,7 @@ def monthly_range_band(df, type_filter="UNPLANNED", years=None, padd=None):
     window) - the shaded 'N-yr range' band behind the seasonality lines."""
     if years is None:
         years = BASELINE_WINDOWS[DEFAULT_WINDOW]
+    years = _complete_years(df, years)        # a partial current year would floor the band at 0
     sub = df[df["type"].eq(type_filter) & df["year"].isin(years)]
     if padd:
         sub = sub[sub["padd"].eq(padd)]
@@ -839,8 +854,9 @@ def top_movers(df):
 
 def scenario_bands(df, window_key=DEFAULT_WINDOW):
     """P25 / P50 / P90 of historical annual unplanned over the window -> a range
-    around the point forecast."""
-    years = BASELINE_WINDOWS[window_key]
+    around the point forecast. Fully-reported years only (a partial current year
+    would understate the annual total)."""
+    years = _complete_years(df, BASELINE_WINDOWS[window_key])
     annuals = [df[df["type"].eq("UNPLANNED") & df["year"].eq(y)]["cap_kbd"].sum() for y in years]
     annuals = [a for a in annuals if a]
     if not annuals:
@@ -1066,6 +1082,14 @@ def latest_actual_month(df, min_frac=0.4):
         return None
     y, m = max(good.index)
     return int(y), int(m)
+
+
+def _complete_years(df, years):
+    """Subset of `years` that are fully reported through December. Drops a partial
+    current year (whose unreported tail would distort annual or range statistics);
+    leaves complete historical years untouched."""
+    cy, cm = latest_actual_month(df) or ((max(years) if len(years) else 0), 12)
+    return [y for y in years if (y < cy) or (y == cy and cm >= 12)]
 
 
 def period_change(df):

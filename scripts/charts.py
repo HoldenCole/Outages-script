@@ -524,7 +524,7 @@ def scenario_fan_chart(ctx, path):
     ax.set_xlabel("Month (2027)")
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd offline")
-    ax.set_title("2027 Unplanned Forecast - Conservative / Average / Active (kbd)")
+    ax.set_title("2027 Unplanned Forecast: Conservative / Average / Active (kbd)")
     ax.set_ylim(top=ax.get_ylim()[1] * 1.04)
     ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=8.5)
     _clean(ax)
@@ -819,7 +819,7 @@ def focus_padd_bars(ctx, focus, year, path, figsize=(7.4, 4.1)):
     ax.set_xlabel(f"Month ({year})")
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd offline")
-    ax.set_title(f"{focus} Offline by Month & PADD - {year} (kbd)")
+    ax.set_title(f"{focus} Offline by Month & PADD, {year} (kbd)")
     ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
     _clean(ax)
     if year == 2027:                       # mark the H1 (confirmed) | H2 (non-Exxon unconfirmed) line
@@ -856,9 +856,9 @@ def splits_2027(ctx, path):
     handles = [plt.Rectangle((0, 0), 1, 1, color=NAVY),
                plt.Rectangle((0, 0), 1, 1, facecolor="#E2E2E2", hatch="////", edgecolor="#A6A6A6")]
     fig.legend(handles, ["Confirmed  (Exxon full-year + all others H1)",
-                         "Non-Exxon H2  (still being booked - not confirmed)"],
+                         "Non-Exxon H2  (still being booked, not confirmed)"],
                loc="lower center", ncol=2, frameon=False, fontsize=9.5)
-    fig.suptitle("2027 Capacity Offline by Unit - Confirmed vs Not-Yet-Confirmed (kbd/month)",
+    fig.suptitle("2027 Capacity Offline by Unit: Confirmed vs Not-Yet-Confirmed (kbd/month)",
                  fontsize=13, fontweight="bold", color=NAVY)
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     fig.savefig(path, dpi=200, bbox_inches="tight")
@@ -867,37 +867,43 @@ def splits_2027(ctx, path):
 
 
 def exxon_gantt(ctx, path):
-    """Per-unit timeline of ExxonMobil's 2027 focus-unit turnarounds, each bar a
-    single unit (plant-unit, nameplate kbd) spanning its outage months, colored by
-    unit class. Confirmed against Exxon's corporate plan = solid; flagged (no plan
-    match) = red hatched. Replaces the meaningless summed-Exxon total."""
+    """ExxonMobil's 2027 focus-unit turnarounds as a clean timeline: one row per
+    unit, the refinery and unit on the axis, each bar spanning its outage months,
+    colored by unit class and labelled with nameplate kbd. Cross-checked against
+    Exxon's corporate plan (any mismatch outlined in red)."""
     ev = ctx["exxon_verify"]["events"]
     foc = ev[ev["focus"].isin(engine.FOCUS_ORDER)].copy()
     foc["m0"] = foc["months"].apply(lambda m: min(m) if m else 13)
     foc["m1"] = foc["months"].apply(lambda m: max(m) if m else 0)
     foc = foc.sort_values(["m0", "kbd"], ascending=[True, False]).reset_index(drop=True)
-    fig, ax = plt.subplots(figsize=(10.6, max(3.4, 0.52 * len(foc) + 1.1)))
+    fig, ax = plt.subplots(figsize=(10.4, max(3.2, 0.64 * len(foc) + 1.2)))
     for i, (_, r) in enumerate(foc.iterrows()):
         s, w = r["m0"] - 1, r["m1"] - r["m0"] + 1
-        flagged = (r["verified"] is False) or (r["verified"] == False)  # noqa: E712
-        ax.barh(i, w, left=s, height=0.62, color=FOCUS_COLOR.get(r["focus"], GRAY),
-                edgecolor=RED if flagged else "white", lw=2.4 if flagged else 0.5,
+        flagged = (r["verified"] == False)                       # noqa: E712
+        ax.barh(i, w, left=s, height=0.58, color=FOCUS_COLOR.get(r["focus"], GRAY),
+                edgecolor=RED if flagged else "white", lw=2.4 if flagged else 0.6,
                 hatch="///" if flagged else None, zorder=3)
-        lbl = f"{r['plant'].replace(' Refinery', '')} {str(r['unit_name'])[:17]} ({r['kbd']:.0f})"
-        ax.text(s + w + 0.15, i, lbl + ("   (!) not in plan" if flagged else ""),
-                va="center", fontsize=8, color=RED if flagged else "#23272e")
-    ax.set_yticks(range(len(foc)), [r["focus"] for _, r in foc.iterrows()], fontsize=7.5)
+        if w >= 2:                                               # kbd inside wide bars, else just after
+            ax.text(s + w / 2, i, f"{r['kbd']:.0f}", ha="center", va="center",
+                    fontsize=8, fontweight="bold", color="white", zorder=4)
+        else:
+            ax.text(s + w + 0.12, i, f"{r['kbd']:.0f}", ha="left", va="center",
+                    fontsize=8, color="#23272e", zorder=4)
+    labels = [f"{r['plant'].replace(' Refinery', '')}: {str(r['unit_name']).split('(')[0].strip()}"
+              for _, r in foc.iterrows()]
+    ax.set_yticks(range(len(foc)), labels, fontsize=8.5)
     ax.set_xticks(range(12), MONTHS)
-    ax.set_xlabel("Month (2027)")
-    ax.set_xlim(0, 17.5)
+    ax.set_xlabel("Month, 2027")
+    ax.set_xlim(-0.4, 12)
     ax.set_ylim(-0.6, len(foc) - 0.4)
     ax.invert_yaxis()
     handles = [plt.Rectangle((0, 0), 1, 1, color=FOCUS_COLOR[f]) for f in engine.FOCUS_ORDER]
-    ax.legend(handles, engine.FOCUS_ORDER, frameon=False, ncol=4, fontsize=8,
-              loc="lower right")
-    ax.set_title("ExxonMobil 2027 - Focus-Unit Turnarounds, per unit (kbd), verified vs corporate plan",
-                 fontsize=11.5)
+    ax.legend(handles, [engine.FOCUS_LABEL[f] for f in engine.FOCUS_ORDER], frameon=False,
+              ncol=2, fontsize=8.5, loc="upper right", columnspacing=1.0, handletextpad=0.5)
+    ax.set_title("ExxonMobil 2027 Focus-Unit Turnarounds (kbd, verified vs corporate plan)",
+                 fontsize=12)
     ax.grid(axis="x", zorder=0)
+    ax.grid(axis="y", visible=False)
     ax.tick_params(length=0)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -978,13 +984,13 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     ax.set_yticks(range(len(ev)), labels, fontsize=8)
     ax.set_ylim(-0.7, len(ev) - 0.3)
     ax.xaxis.set_major_formatter(_thousands)
-    ax.set_xlabel("nameplate capacity offline (kbd) - per unit, never summed")
+    ax.set_xlabel("nameplate capacity offline (kbd), per unit, never summed")
     ax.set_xlim(0, xmax * 1.5)
     present = [p for p in PADDS if p in set(ev["padd"])]
     handles = [plt.Rectangle((0, 0), 1, 1, color=PADD_COLOR[p]) for p in present]
     ax.legend(handles, present, frameon=False, ncol=len(present), fontsize=8.5,
               loc="lower right", title="Region", title_fontsize=8.5)
-    ax.set_title(f"Biggest {year} Outages by Unit - colored by PADD (where the tonnage sits)",
+    ax.set_title(f"Biggest {year} Outages by Unit, colored by PADD (where the tonnage sits)",
                  fontsize=12)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -992,7 +998,7 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     ax.grid(axis="y", visible=False)
     ax.tick_params(length=0)
     if bool(ev["indic"].any()):
-        fig.text(0.5, 0.004, "* non-Exxon H2 2027 - still being booked (indicative floor, not confirmed).",
+        fig.text(0.5, 0.004, "* non-Exxon H2 2027, still being booked (indicative floor, not confirmed).",
                  ha="center", fontsize=7.5, color=RED, style="italic")
     return _save(fig, path)
 
@@ -1030,7 +1036,7 @@ def h1_monthly_by_unit(ctx, path):
     handles = [plt.Rectangle((0, 0), 1, 1, color=YEAR_COLOR[y]) for y in years]
     fig.legend(handles, [f"H1 {y}" for y in years], loc="lower center", ncol=3,
                frameon=False, fontsize=10.5)
-    fig.suptitle("H1 Planned Offline by Unit & Month - 2025 / 2026 / 2027 (kbd, day-weighted)",
+    fig.suptitle("H1 Planned Offline by Unit & Month: 2025 / 2026 / 2027 (kbd, day-weighted)",
                  fontsize=13, fontweight="bold", color=NAVY)
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     fig.savefig(path, dpi=200, bbox_inches="tight")
