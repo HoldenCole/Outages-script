@@ -944,6 +944,59 @@ def joliet_decode(ctx, path):
     return _save(fig, path)
 
 
+PADD_COLOR = {"PADD 1": "#9DB0CE", "PADD 2": BLUE, "PADD 3": NAVY, "PADD 4": GREEN, "PADD 5": GOLD}
+
+
+def biggest_outages(ctx, path, year=2027, topn=12):
+    """'What's driving the numbers': the single biggest focus-unit outages in
+    `year`, one bar per physical unit (nameplate kbd), colored by PADD so you see
+    WHERE the big tonnage sits. Units are never added together - each bar stands
+    alone. Non-Exxon H2 outages (still being booked) are hatched and tagged: an
+    indicative floor, not confirmed."""
+    ev = engine.unit_events(ctx["df"], year=year)
+    ev = ev[ev["focus"].isin(engine.FOCUS_ORDER)].copy()
+    fig, ax = plt.subplots(figsize=(10.8, max(3.6, 0.5 * min(topn, len(ev)) + 1.3)))
+    if ev.empty:
+        ax.axis("off")
+        return _save(fig, path)
+    ev["is_exxon"] = ev["operator"].astype(str).str.upper().str.contains("EXXON", na=False)
+    ev["indic"] = (~ev["is_exxon"]) & ev["months"].apply(lambda m: bool(m) and min(m) >= 7)
+    ev = ev.sort_values("kbd", ascending=False).head(topn).sort_values("kbd")   # biggest -> top
+    ev = ev.reset_index(drop=True)
+    xmax = float(ev["kbd"].max())
+    for i, r in ev.iterrows():
+        c = PADD_COLOR.get(r["padd"], GRAY)
+        ind = bool(r["indic"])
+        ax.barh(i, r["kbd"], height=0.66, color=c, zorder=3,
+                alpha=0.5 if ind else 1.0, hatch="////" if ind else None,
+                edgecolor="#7F7F7F" if ind else c, lw=0.6)
+        note = f"  {r['kbd']:,.0f}   {r['focus']} · {r['span']}" + ("  H2*" if ind else "")
+        ax.text(r["kbd"] + xmax * 0.015, i, note, va="center",
+                fontsize=8.2, color=RED if ind else "#23272e")
+    labels = [f"{str(r['plant']).replace(' Refinery', '')[:24]}: {str(r['unit_name'])[:16]}"
+              for _, r in ev.iterrows()]
+    ax.set_yticks(range(len(ev)), labels, fontsize=8)
+    ax.set_ylim(-0.7, len(ev) - 0.3)
+    ax.xaxis.set_major_formatter(_thousands)
+    ax.set_xlabel("nameplate capacity offline (kbd) - per unit, never summed")
+    ax.set_xlim(0, xmax * 1.5)
+    present = [p for p in PADDS if p in set(ev["padd"])]
+    handles = [plt.Rectangle((0, 0), 1, 1, color=PADD_COLOR[p]) for p in present]
+    ax.legend(handles, present, frameon=False, ncol=len(present), fontsize=8.5,
+              loc="lower right", title="Region", title_fontsize=8.5)
+    ax.set_title(f"Biggest {year} Outages by Unit - colored by PADD (where the tonnage sits)",
+                 fontsize=12)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="x", zorder=0)
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(length=0)
+    if bool(ev["indic"].any()):
+        fig.text(0.5, 0.004, "* non-Exxon H2 2027 - still being booked (indicative floor, not confirmed).",
+                 ha="center", fontsize=7.5, color=RED, style="italic")
+    return _save(fig, path)
+
+
 def render_all(ctx, outdir):
     """Render every deck chart into outdir; return a dict name -> path.
 
@@ -957,6 +1010,8 @@ def render_all(ctx, outdir):
     out = {
         # 1) total outages by unit (2027, confirmed vs not-yet-booked)
         "splits_2027": splits_2027(ctx, p("splits_2027.png")),
+        # 1b) what's driving the numbers - biggest individual outages, by PADD
+        "biggest_outages": biggest_outages(ctx, p("biggest_outages.png")),
         # 2) outages by PADD by unit
         "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
         "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),

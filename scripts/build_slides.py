@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 build_slides.py
-Trading-desk deck (python-pptx): four things a trader needs, kept simple --
+Trading-desk deck (python-pptx): the things a trader needs, kept simple --
     1. Total 2027 outages by unit  (and what each unit tightens)
-    2. Outages by PADD by unit     (where it tightens)
-    3. ExxonMobil outages          (per unit, verified vs their corporate plan)
-    4. 2027 unplanned scenario     (the risk on top of the booked plan)
+    2. What's driving the numbers  (the biggest individual outages, by PADD)
+    3. Outages by PADD by unit     (where it tightens)
+    4. ExxonMobil outages          (per unit, verified vs their corporate plan)
+    5. 2027 unplanned scenario     (the risk on top of the booked plan)
 
 Everything is per-unit capacity offline (never a summed "total"), 2027-forward.
 2027 completeness is asymmetric: only ExxonMobil gave a full-year plan (verified
@@ -245,6 +246,30 @@ class Deck:
             foot="Day-weighted concurrent capacity offline (a unit offline part of a month counts only for its "
                  "days down), each unit once per month. Non-Exxon H2 2027 is a floor that fills in.")
 
+    def drivers_slide(self):
+        ev = engine.unit_events(self.ctx["df"], year=2027)
+        ev = ev[ev["focus"].isin(engine.FOCUS_ORDER)].sort_values("kbd", ascending=False)
+        top = ev.head(3)
+        names = ", ".join(f"{r['plant'].replace(' Refinery', '')} ({kbd(r['kbd'])} kbd)"
+                          for _, r in top.iterrows())
+        mx = float(top.iloc[0]["kbd"]) if len(top) else 0.0
+        p_tot = ev.head(12).groupby("padd")["kbd"].sum().sort_values(ascending=False)
+        lead = p_tot.index[0] if len(p_tot) else "PADD 3"
+        self.wide_chart_slide(
+            "What's Driving the Numbers - the Biggest Outages",
+            "Each bar is one unit's nameplate offline (kbd) in 2027, colored by PADD (region)",
+            self.a["biggest_outages"],
+            [f"The big tonnage sits in {lead} - that's where one outage moves USGC supply and the export "
+             "barrel most.",
+             f"Biggest single outages: {names} - mostly crude (CDU). One crude unit down cuts the whole "
+             "site's run, every product.",
+             f"Read each bar alone - these are individual units, never added. The biggest single outage is "
+             f"~{kbd(mx)} kbd, not a summed total.",
+             "Hatched bars are non-Exxon H2 - still being booked, so those autumn names are an indicative "
+             "floor, not confirmed."],
+            foot="Per-unit nameplate offline, the 12 biggest focus-unit outages of 2027. Color = PADD "
+                 "region; hatched = non-Exxon H2 (indicative).")
+
     def padd_by_unit_slide(self):
         self.charts_bullets_slide(
             "Outages by PADD by Unit - Where It Tightens",
@@ -304,10 +329,11 @@ class Deck:
 
     def build(self):
         self.title_slide()
-        self.total_by_unit_slide()     # 4) total outages by unit
-        self.padd_by_unit_slide()      # 1) outages by PADD by unit
-        self.exxon_slide()             # 2) ExxonMobil outages
-        self.scenario_slide()          # 3) 2027 unplanned scenario
+        self.total_by_unit_slide()     # total outages by unit
+        self.drivers_slide()           # what's driving the numbers - biggest outages by PADD
+        self.padd_by_unit_slide()      # outages by PADD by unit
+        self.exxon_slide()             # ExxonMobil outages
+        self.scenario_slide()          # 2027 unplanned scenario
 
     def save(self, path):
         self.prs.save(path)
