@@ -144,9 +144,9 @@ add **native, live Excel charts**.
 | **PADD by Unit** | 2027 CDU and FCC offline by PADD and month. |
 | **Naphtha** | CDU supply vs reformer demand balance, **live** off the Assumptions yields. |
 | **ExxonMobil** | Per-unit 2027 turnarounds, verified against the corporate plan. |
-| **Forecast** | Completeness-aware baseline and the Conservative / Average / Active scenario, **live** off the multipliers, with implied totals and history bands. |
-| **Sensitivity** | 2027 implied total across an unplanned-multiplier x one-off-shock grid (editable heatmap). |
-| **Stress Test** | Named shocks (USGC hurricane, winter freeze, CDU trips, fall overlap) on the 2027 book, with tunable shock cells. |
+| **Forecast** | Completeness-aware baseline and the Conservative / Average / Active scenario, **live** off the multipliers. Implied offline is read **by month** (peak month + average month = real kbd levels), never summed into a year. |
+| **Sensitivity** | 2027 **peak-month** implied offline across an unplanned-multiplier x one-off-shock grid (editable heatmap). |
+| **Stress Test** | Named shocks (USGC hurricane, winter freeze, CDU trips, fall overlap) on the 2027 book (peak-month basis), with tunable shock cells. |
 | **Statistics** | Descriptive stats (mean / median / stdev / percentiles) and a Pearson correlation matrix over the historical series. |
 | **Regression** | Least-squares best-fit (slope, intercept, R-squared, std err) on key relationships, each with a scatter + trendline chart. |
 

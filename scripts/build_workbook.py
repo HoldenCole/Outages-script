@@ -131,7 +131,7 @@ def _index(wb, fm):
         ("7", f"ExxonMobil {FY} by Unit", "ExxonMobil",
          f"Per-unit ExxonMobil {FY} turnarounds, verified against the corporate plan."),
         ("8", f"{FY} Unplanned Scenario", "Forecast",
-         "baseline x multiplier (live off Assumptions); implied total = scenario unplanned + booked planned."),
+         "baseline x multiplier (live off Assumptions); implied offline read by month - peak & average month, not an annual sum."),
     ]
     r0 = 3
     for j, h in enumerate(rows[0]):
@@ -149,7 +149,7 @@ def _index(wb, fm):
         ("Historicals", f"Monthly {Y0}-{FY}: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
         ("Statistics", "Descriptive stats (mean/median/stdev/percentiles) and a correlation matrix."),
         ("Regression", "Least-squares best-fit (slope, R-squared, std err) + scatter trendlines."),
-        ("Sensitivity", f"{FY} implied total across multiplier x one-off shock (editable heatmap)."),
+        ("Sensitivity", f"{FY} peak-month implied offline across multiplier x one-off shock (editable heatmap)."),
         ("Stress Test", f"Named shocks (hurricane, freeze, CDU trips) on the {FY} book, tunable."),
     ]
     for i, (sh, what) in enumerate(extra):
@@ -493,47 +493,63 @@ def _exxon(wb, fm, ctx, assets):
 
 def _forecast(wb, fm, ctx, assets):
     ws = wb.add_worksheet("Forecast")
-    ws.set_column(0, 0, 22); ws.set_column(1, 12, 9); ws.set_column(13, 13, 11)
-    _title(ws, fm, f"{FY} Unplanned Scenario (kbd) = baseline x multiplier (live)",
-           "Each path recomputes off the Assumptions multipliers. A risk range, not a forecast.")
+    ws.set_column(0, 0, 26); ws.set_column(1, 12, 8); ws.set_column(13, 14, 11)
+    _title(ws, fm, f"{FY} Unplanned Scenario (kbd/month) = baseline x multiplier (live)",
+           "Read by month, never summed across the year. Peak month = the worst single month "
+           "offline (the tradeable level). Each path recomputes off the Assumptions multipliers.")
+    dff = ctx["df"]
     base = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"])
+    fan = ctx["scenario_fan"]
+    planned_m = [float(dff[(dff["year"] == FY) & (dff["type"] == "PLANNED") & (dff["month"] == m)]["cap_kbd"].sum())
+                 for m in range(1, 13)]
     r0 = 3
-    ws.write(r0, 0, "Series", fm["hl"])
+    # --- monthly scenario paths (unplanned), peak & avg per month (levels, not sums) ---
+    ws.write(r0, 0, "Unplanned scenario (kbd/mo)", fm["hl"])
     for j, mo in enumerate(MONTHS):
         ws.write(r0, 1 + j, mo, fm["h"])
-    ws.write(r0, 13, "Annual", fm["h"])
+    ws.write(r0, 13, "Peak/mo", fm["h"]); ws.write(r0, 14, "Avg/mo", fm["h"])
     ws.write(r0 + 1, 0, f"Baseline ({ctx['scenario']['window']}, completeness-aware)", fm["rowh"])
     for j, mo in enumerate(MONTHS):
         ws.write_number(r0 + 1, 1 + j, float(base[mo]), fm["num"])
-    ws.write_formula(r0 + 1, 13, f"=SUM(B{r0+2}:M{r0+2})", fm["num"], float(base.sum()))
-    fan = ctx["scenario_fan"]
-    for k, (nm, ref) in enumerate([("Conservative", "mult_cons"), ("Average", "mult_avg"),
-                                   ("Active", "mult_act")]):
+    ws.write_formula(r0 + 1, 13, f"=MAX(B{r0+2}:M{r0+2})", fm["num"], float(base.max()))
+    ws.write_formula(r0 + 1, 14, f"=AVERAGE(B{r0+2}:M{r0+2})", fm["num"], float(base.mean()))
+    for k, ref in enumerate(["mult_cons", "mult_avg", "mult_act"]):
+        nm = ["Conservative", "Average", "Active"][k]
         rr = r0 + 2 + k
         ws.write(rr, 0, nm, fm["rowh"])
         for j in range(12):
             col = chr(ord("B") + j)
             ws.write_formula(rr, 1 + j, f"={col}{r0+2}*{ref}", fm["num"], float(fan[nm].iloc[j]))
-        ws.write_formula(rr, 13, f"=SUM(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].sum()))
-    pl = float(ctx["summary"].loc[FY, "Planned"]) if FY in ctx["summary"].index else 0.0
-    br = r0 + 6
-    ws.write(br, 0, f"Booked planned {FY}", fm["lbl"]); ws.write_number(br, 1, pl, fm["num"])
-    ws.write(br + 1, 0, "Implied total (planned + unplanned)", fm["secn"])
-    ws.write(br + 2, 0, "Scenario", fm["hl"])
-    ws.write(br + 2, 1, "Unplanned", fm["h"]); ws.write(br + 2, 2, "+ Planned", fm["h"])
-    ws.write(br + 2, 3, "Implied total", fm["h"])
+        ws.write_formula(rr, 13, f"=MAX(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].max()))
+        ws.write_formula(rr, 14, f"=AVERAGE(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].mean()))
+    # --- booked planned by month (so implied is a real monthly level) ---
+    pr = r0 + 5                                            # planned row (Excel row pr+1)
+    ws.write(pr, 0, f"Booked planned {FY} (by month)", fm["rowh"])
+    for j in range(12):
+        ws.write_formula(pr, 1 + j, _si("K", ("A", FY), ("B", j + 1), ("J", "PLANNED")),
+                         fm["num"], planned_m[j])
+    ws.write_formula(pr, 13, f"=MAX(B{pr+1}:M{pr+1})", fm["num"], max(planned_m))
+    ws.write_formula(pr, 14, f"=AVERAGE(B{pr+1}:M{pr+1})", fm["num"], sum(planned_m) / 12)
+    # --- implied total offline BY MONTH = scenario unplanned + booked planned ---
+    ir = r0 + 7
+    ws.write(ir, 0, "Implied total offline by month = scenario unplanned + booked planned", fm["secn"])
+    ws.write(ir + 1, 0, "Scenario", fm["hl"])
+    for j, mo in enumerate(MONTHS):
+        ws.write(ir + 1, 1 + j, mo, fm["h"])
+    ws.write(ir + 1, 13, "Peak month", fm["h"]); ws.write(ir + 1, 14, "Avg month", fm["h"])
     for k, nm in enumerate(["Conservative", "Average", "Active"]):
-        rr = br + 3 + k
-        srow = r0 + 3 + k                   # 1-based Excel row of this scenario's annual cell
+        rr = ir + 2 + k
+        srow = r0 + 3 + k                                  # this scenario's path row (Excel)
+        impl = [float(fan[nm].iloc[j]) + planned_m[j] for j in range(12)]
         ws.write(rr, 0, nm, fm["rowh"])
-        ws.write_formula(rr, 1, f"=N{srow}", fm["num"], float(fan[nm].sum()))
-        ws.write_formula(rr, 2, f"=$B${br+1}", fm["num"], pl)
-        ws.write_formula(rr, 3, f"=B{rr+1}+C{rr+1}", fm["num"], float(fan[nm].sum()) + pl)
-    sb = ctx["scenario_bands"]
-    ws.write(br + 7, 0, "History (complete years, annual unplanned)", fm["secn"])
-    for k, (lab, key) in enumerate([("P25", "p25"), ("Median", "p50"), ("P90", "p90"), ("Mean", "mean")]):
-        ws.write(br + 8 + k, 0, lab, fm["lbl"]); ws.write_number(br + 8 + k, 1, float(sb[key]), fm["num"])
-    ws.insert_image(3, 15, assets["fan"], IMG)
+        for j in range(12):
+            col = chr(ord("B") + j)
+            ws.write_formula(rr, 1 + j, f"={col}{srow}+{col}{pr+1}", fm["num"], impl[j])
+        ws.write_formula(rr, 13, f"=MAX(B{rr+1}:M{rr+1})", fm["num"], max(impl))
+        ws.write_formula(rr, 14, f"=AVERAGE(B{rr+1}:M{rr+1})", fm["num"], sum(impl) / 12)
+    ws.write(ir + 5, 0, "Peak month = the worst single month's total capacity offline -- the level to trade. "
+             "Never add the twelve months into a year.", fm["sub"])
+    ws.insert_image(3, 16, assets["fan"], IMG)
 
 
 def _base(df):
@@ -774,13 +790,16 @@ def _regression(wb, fm, base):
 def _sensitivity(wb, fm, ctx):
     ws = wb.add_worksheet("Sensitivity")
     ws.set_column(0, 0, 22); ws.set_column(1, 7, 12)
-    _title(ws, fm, f"Sensitivity: {FY} implied total offline (kbd)",
-           "Rows = unplanned multiplier x baseline; columns = one-off shock added. Off the Forecast cells.")
+    _title(ws, fm, f"Sensitivity: {FY} peak-month implied offline (kbd)",
+           "Worst single month of total capacity offline. Rows = unplanned multiplier x baseline; "
+           "columns = one-off shock added to that month. Live off the Forecast monthly cells.")
     mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
     shocks = [0, 250, 500, 750, 1000]
-    base_cell, plan_cell = "Forecast!$N$5", "Forecast!$B$10"   # baseline annual, booked planned
-    baseline = float(engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).sum())
-    planned = float(ctx["summary"].loc[FY, "Planned"]) if FY in ctx["summary"].index else 0.0
+    base_rng, plan_rng = "Forecast!$B$5:$M$5", "Forecast!$B$9:$M$9"   # monthly baseline & planned
+    base_m = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).values
+    dff = ctx["df"]
+    plan_m = [float(dff[(dff["year"] == FY) & (dff["type"] == "PLANNED") & (dff["month"] == m)]["cap_kbd"].sum())
+              for m in range(1, 13)]
     r0 = 3                                   # header row (Excel r0+1); shock values are editable here
     hxl = r0 + 1
     ws.write(r0, 0, "mult v / shock >", fm["hl"])
@@ -789,24 +808,30 @@ def _sensitivity(wb, fm, ctx):
     for i, mu in enumerate(mults):
         rr = r0 + 1 + i; xl = rr + 1
         ws.write_number(rr, 0, mu, fm["inp"])
+        peak = max(mu * base_m[m] + plan_m[m] for m in range(12))   # worst combined month
         for j in range(len(shocks)):
             col = chr(ord("B") + j)
-            form = f"=$A{xl}*{base_cell}+{col}${hxl}+{plan_cell}"
-            ws.write_formula(rr, 1 + j, form, fm["num"], mu * baseline + shocks[j] + planned)
+            form = f"{{=MAX($A{xl}*{base_rng}+{plan_rng})+{col}${hxl}}}"
+            ws.write_array_formula(rr, 1 + j, rr, 1 + j, form, fm["num"], peak + shocks[j])
     ws.conditional_format(r0 + 1, 1, r0 + len(mults), len(shocks),
                           {"type": "3_color_scale", "min_color": "#63BE7B",
                            "mid_color": "#FFEB84", "max_color": "#F8696B"})
-    ws.write(r0 + len(mults) + 2, 0, "Editable: shock row and multiplier column are gold. Implied total = "
-             "baseline x multiplier + one-off shock + booked planned. Base case = mult 1.0, shock 0.", fm["sub"])
+    ws.write(r0 + len(mults) + 2, 0, "Editable: shock row and multiplier column are gold. Peak-month implied = "
+             "worst month of (baseline x multiplier + booked planned) + one-off shock. Base = mult 1.0, shock 0.",
+             fm["sub"])
 
 
 def _stress(wb, fm, ctx):
     ws = wb.add_worksheet("Stress Test")
     ws.set_column(0, 0, 26); ws.set_column(1, 1, 46); ws.set_column(2, 5, 14)
-    _title(ws, fm, f"Stress test: named shocks on the {FY} book",
-           "Edit the gold shock cells. Implied total and naphtha impact recompute live.")
-    avg_implied = "Forecast!$D$14"     # Average implied total
-    base_avg = float(ctx["scenario"]["implied_total"])
+    _title(ws, fm, f"Stress test: named shocks on the {FY} book (peak-month kbd)",
+           "Edit the gold shock cells. Peak-month implied offline and naphtha impact recompute live.")
+    avg_peak = "Forecast!$N$14"        # Average scenario implied, peak month (a level)
+    dff = ctx["df"]
+    base_m = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).values
+    plan_m = [float(dff[(dff["year"] == FY) & (dff["type"] == "PLANNED") & (dff["month"] == m)]["cap_kbd"].sum())
+              for m in range(1, 13)]
+    base_peak = max(base_m[m] + plan_m[m] for m in range(12))   # Average implied peak month
     ny = engine.NAPHTHA_YIELD
     rows = [
         ("USGC hurricane", "PADD 3 unplanned spike, ~1-2 months", 800, 0),
@@ -817,16 +842,16 @@ def _stress(wb, fm, ctx):
     ]
     r0 = 3
     for j, h in enumerate(["Scenario", "Description", "Crude shock (kbd)", "Other shock (kbd)",
-                           "Implied total", "Naphtha net impact"]):
+                           "Peak-month implied", "Naphtha net impact"]):
         ws.write(r0, j, h, fm["h"] if j >= 2 else fm["hl"])
     for i, (nm, desc, crude, other) in enumerate(rows):
         rr = r0 + 1 + i; xl = rr + 1
         ws.write(rr, 0, nm, fm["rowh"]); ws.write(rr, 1, desc, fm["txt"])
         ws.write_number(rr, 2, crude, fm["inph"]); ws.write_number(rr, 3, other, fm["inph"])
-        ws.write_formula(rr, 4, f"={avg_implied}+C{xl}+D{xl}", fm["num"], base_avg + crude + other)
+        ws.write_formula(rr, 4, f"={avg_peak}+C{xl}+D{xl}", fm["num"], base_peak + crude + other)
         ws.write_formula(rr, 5, f"=-naph_yield*C{xl}", fm["num"], -ny * crude)
-    ws.write(r0 + len(rows) + 2, 0, "Implied total = Average scenario implied + crude shock + other "
-             "shock. Naphtha impact = -naphtha_yield x crude shock (more crude down = shorter naphtha).",
+    ws.write(r0 + len(rows) + 2, 0, "Peak-month implied = Average scenario's worst-month offline + crude shock "
+             "+ other shock. Naphtha impact = -naphtha_yield x crude shock (more crude down = shorter naphtha).",
              fm["sub"])
 
 
