@@ -182,9 +182,9 @@ class Deck:
 
     # ----------------------------------------------------------------- chart layouts
     def _notes(self, s, text):
-        """Put the talk-track in the speaker notes (slides stay chart-forward)."""
-        if text:
-            s.notes_slide.notes_text_frame.text = text
+        """Slides are charts only; the presenter brings their own notes, so we
+        leave the speaker-notes pane empty (kept as a no-op hook)."""
+        return
 
     def charts_bullets_slide(self, title, sub, imgs, notes=None, foot=None):
         """1-2 charts, no on-slide bullets; the talk-track lives in speaker notes."""
