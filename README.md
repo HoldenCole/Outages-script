@@ -2,8 +2,12 @@
 
 A trading-desk view of refinery outages built around **per-unit capacity
 offline**: how much of each key unit (CDU, FCC, hydrocracker, reformer) is down,
-by month, region and operator, with the 2027 outlook front and center. One data
-pipeline feeds three deliverables that always agree:
+by month, region and operator, with the forward outlook (the current year + 1)
+front and center. It runs off the **Snowflake golden record** and is **dynamic**:
+the Excel model is built around the same data, so a refreshed or expanded export
+recomputes everything. The window is always **2023 .. current year + 1** (2023-2027
+today) and rolls forward on its own. One data pipeline feeds three deliverables
+that always agree:
 
 1. **Slide deck** (`output/outage_deck.pptx`): a chart-forward, gasoline- and
    distillate-focused deck (the talk-track lives in the **speaker notes**, so you
@@ -13,8 +17,12 @@ pipeline feeds three deliverables that always agree:
    2024-2026 unplanned context, and the 2027 unplanned scenario (monthly).
 2. **Excel model** (`output/outage_model.xlsx`): every number the deck looks at,
    calculates or forecasts, in detail, with the exact deck charts embedded on
-   each sheet (just copy and paste). The Naphtha and Forecast sheets are **live
-   models**: change the shaded input cells and they recompute.
+   each sheet (just copy and paste). It is **live off the Snowflake**: the `Data`
+   sheet holds the golden-record rows and every analysis sheet is `=SUMIFS` over
+   it, with **Focus and PADD derived by Excel formula** (so pasted rows classify
+   themselves) and spare formula rows below the data, so when you paste a refreshed
+   or larger Snowflake into `Data` the whole model recomputes. The Naphtha and
+   Forecast sheets additionally recompute off the shaded Assumptions input cells.
 3. **HTML dashboard** (`output/outage_dashboard.html`): a single self-contained
    file with a focus-year selector, outlook strip and live 2027 scenario panel.
 
@@ -32,7 +40,7 @@ pip install -r requirements.txt
 python scripts/build_all.py          # builds deck + Excel model + dashboard
 ```
 
-That reads `data/Refinery_Outages_Enhanced.xlsx` and writes all three outputs to
+That reads `data/Golden_Record_Snowflake.xlsx` and writes all three outputs to
 `output/`. **The input data is not committed**: drop your outage export at that
 path (or pass one as an argument). Paths resolve relative to the repo root, so it
 runs from any directory, and no network is required to build.
@@ -53,15 +61,21 @@ or F5 "Build all deliverables", or the default build task).
 
 The engine **auto-detects the schema**:
 
-* **"Refinery Outages Enhanced" breakdown (primary):** one row per outage event,
-  columns `Source`, `Country/Region`, `Owner`, `Plant`, `Start Date`,
-  `End Date`, `Unit Name`, `Outage Type`, `Offline Capacity (KBD)`. Each event is
-  expanded to the calendar months it spans, and the free-text `Unit Name` is
-  mapped to a unit class (CDU / FCC / hydrocracker / reformer). Only verified
-  years (2023+) are kept; obvious placeholder spans are dropped.
-* **Legacy Snowflake `Query1` export:** also recognised automatically
-  (`CAP_OFFLINE_ADJUSTED_KBD`, `OUTAGE_YEAR`, `OUTAGE_MONTH`, plus the usual
-  `OUTAGE_TYPE` / `PAD_DIST` / `UNIT_CATEGORY` / `REFINERY_OPERATOR` columns).
+* **Snowflake golden record (primary):** the day-weighted monthly export
+  (`CAP_OFFLINE_ADJUSTED_KBD`, `OUTAGE_YEAR`, `OUTAGE_MONTH`, `OUTAGE_TYPE`,
+  `PAD_DIST`, `UNIT_CATEGORY`, `UNIT_NAME`, `REFINERY_OPERATOR`, `PLANT_NAME`, ...).
+  `CAP_OFFLINE_ADJUSTED_KBD` is already day-weighted, so the desk metric is a
+  straight `SUMIFS` over it — exactly what the live Excel model does. The window is
+  clipped to 2023 .. current year + 1.
+* **"Refinery Outages Enhanced" breakdown (also recognised):** one row per outage
+  event (`Plant`, `Start Date`, `End Date`, `Unit Name`, `Outage Type`,
+  `Offline Capacity (KBD)`, ...); each event is expanded to the months it spans and
+  the free-text `Unit Name` is mapped to a unit class.
+
+In both schemas, `UNIT_CATEGORY` maps to a focus class (CDU / FCC / hydrocracker /
+reformer), and a **vacuum pipe still mislabelled `ATMOS DISTILLATION`** (name with
+`VPS` or starting `VACUUM`) is demoted out of CDU — CDU is atmospheric crude only.
+That same rule is mirrored in the Excel `Focus` formula, so the live model agrees.
 
 ---
 
@@ -72,11 +86,14 @@ chart and table.
 
 * **Per unit, never summed.** CDU, FCC, hydrocracker and reformer are each read
   on their own. A 250-kbd CDU plus a 100-kbd FCC is never "350 offline".
-* **Day-weighted concurrent offline.** For each month, every distinct physical
-  unit is counted once at its days-down share of nameplate (nameplate x days-down
-  / days-in-month). A unit offline only part of a month counts only for the days
-  it is actually down, and it is never carried into a month it is back online.
-* **CDU is atmospheric crude only.** Vacuum (VDU) is not folded in.
+* **Day-weighted offline, summed.** Each Snowflake row's `CAP_OFFLINE_ADJUSTED_KBD`
+  is already the day-weighted share of nameplate (nameplate x days-down /
+  days-in-month), so a unit offline part of a month counts only for the days it is
+  down. The monthly figure is a straight **sum** of those rows — exactly what the
+  live `SUMIFS` model computes — so the deck and the workbook agree, and both keep
+  working as the Snowflake grows.
+* **CDU is atmospheric crude only.** Vacuum (VDU) is not folded in — including a
+  vacuum pipe still the source mislabels `ATMOS DISTILLATION` (demoted by unit name).
 * **2027 completeness is asymmetric.** ExxonMobil gave a full-year plan (verified
   vs their corporate schedule); every other operator is H1-confirmed only, so
   non-Exxon H2 is shown as an indicative floor, not confirmed. H1 is the honest
@@ -113,7 +130,7 @@ add **native, live Excel charts**.
 |---|---|
 | **Index** | Maps each deck slide to its model sheet and how it is calculated. |
 | **Assumptions** | As-of date, yields (incl. naphtha), reformer intake, scenario multipliers, baseline window, methodology. Drives the live sheets. |
-| **Data** | The source: one row per year/month/plant/unit/type (day-weighted kbd + nameplate), filterable. Everything SUMIFS over this. |
+| **Data** | The source = the Snowflake golden record (one row per year/month/plant/unit/type, day-weighted kbd + nameplate). `Focus` and `PADD` are Excel formulas; spare formula rows sit below the data. Paste a refresh here and everything recomputes. |
 | **Historicals** | Monthly 2023-2027: total / planned / unplanned, unplanned %, per focus unit, per PADD, annual + YoY%, with a live line chart. |
 | **Per-Unit** | CDU / FCC / hydrocracker / reformer concurrent offline by month and year, plus busiest-month peaks (=MAX). |
 | **Biggest** | The biggest individual 2027 outages: refinery, unit, class, PADD, kbd, window, confirmed vs indicative. |
@@ -141,7 +158,7 @@ add **native, live Excel charts**.
 │   ├── build_dashboard.py   self-contained HTML dashboard (Chart.js inlined)
 │   ├── build_all.py         orchestrator: load once, render once, build all three
 │   └── audit_exxon.py       reconcile the Exxon slate vs the corporate plan
-├── data/         live input: Refinery_Outages_Enhanced.xlsx (not committed)
+├── data/         live input: Golden_Record_Snowflake.xlsx (not committed)
 ├── output/       generated deliverables (.pptx / .xlsx / .html)
 ├── docs/         build spec and "what good output looks like"
 ├── README.md  ·  ROADMAP.md  ·  requirements.txt

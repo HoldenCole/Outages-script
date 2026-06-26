@@ -25,8 +25,9 @@ from pathlib import Path
 import engine
 
 _ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
-INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
+INPUT_PATH = str(_ROOT / "data" / "Golden_Record_Snowflake.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_dashboard.html")
+FY = engine.FOCUS_YEAR              # forward outlook year (current year + 1); rolls with the data
 CHARTJS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
 
 
@@ -47,7 +48,7 @@ def fetch_chartjs():
 def build_data(ctx):
     s = ctx["summary"]
     df = ctx["df"]
-    years = [int(y) for y in s.index if 2016 <= int(y) <= 2027]
+    years = [int(y) for y in s.index if 2016 <= int(y) <= FY]
     ly = max(y for y in s.index if y not in engine.PARTIAL_YEARS and s.loc[y, "Unplanned"] > 0)
 
     summary = {}
@@ -67,7 +68,7 @@ def build_data(ctx):
                      ("planned", ctx["padd_planned"])]:
         for p in engine.PADD_ORDER:
             padd.setdefault(p, {})[key] = {int(y): float(mat.loc[p, y])
-                                           for y in mat.columns if 2016 <= int(y) <= 2027}
+                                           for y in mat.columns if 2016 <= int(y) <= FY}
 
     um = ctx["unit_total"]
     units = []
@@ -75,13 +76,13 @@ def build_data(ctx):
         units.append({"name": str(u).title(),
                       "total": float(um.loc[u].sum()),
                       "by_year": {int(y): float(um.loc[u, y]) for y in um.columns
-                                  if 2016 <= int(y) <= 2027}})
+                                  if 2016 <= int(y) <= FY}})
 
     monthly = {}
     for key, mat in [("total", ctx["monthly_total"]), ("planned", ctx["monthly_planned"]),
                      ("unplanned", ctx["monthly_unplanned"])]:
         monthly[key] = {int(y): [float(mat.loc[y, m]) for m in engine.MONTHS]
-                        for y in mat.index if 2018 <= int(y) <= 2027}
+                        for y in mat.index if 2018 <= int(y) <= FY}
 
     # per-PADD monthly (for the PADD-filtered seasonality view)
     padd_monthly = {}
@@ -90,19 +91,19 @@ def build_data(ctx):
         for key in ("total", "planned", "unplanned"):
             mat = ctx["padd_month"][p][key]
             padd_monthly[p][key] = {int(y): [float(mat.loc[y, m]) for m in engine.MONTHS]
-                                    for y in mat.index if 2018 <= int(y) <= 2027}
+                                    for y in mat.index if 2018 <= int(y) <= FY}
 
     profiles = {w: [float(v) for v in engine.baseline_profile(df, w).values]
                 for w in engine.BASELINE_WINDOWS}
     mp = ctx["monthly_planned"]
     mu = ctx["monthly_unplanned"]
-    planned_2027 = [float(mp.loc[2027, m]) if 2027 in mp.index else 0.0 for m in engine.MONTHS]
+    planned_2027 = [float(mp.loc[FY, m]) if FY in mp.index else 0.0 for m in engine.MONTHS]
     actuals = {str(yr): [float(mu.loc[yr, m]) if yr in mu.index else 0.0 for m in engine.MONTHS]
                for yr in (2024, 2025)}
 
     # forward-looking series: H1 like-for-like, the scenario fan, and the
     # forecast-filled unplanned paths (so 2026/27 carry the forecast, not zero)
-    h1 = {int(y): float(v) for y, v in ctx["h1_planned"].items() if 2024 <= int(y) <= 2027}
+    h1 = {int(y): float(v) for y, v in ctx["h1_planned"].items() if 2024 <= int(y) <= FY}
     fan = ctx["scenario_fan"]
     fan_out = {"conservative": float(fan["Conservative"].sum()),
                "average": float(fan["Average"].sum()),
@@ -111,7 +112,7 @@ def build_data(ctx):
                            for k in ("Conservative", "Average", "Active")}}
     cu = ctx["completed_unplanned"]
     completed = {str(y): {"vals": [float(v) for v in cu[y]["vals"]], "fc_from": int(cu[y]["fc_from"])}
-                 for y in (2024, 2025, 2026, 2027) if y in cu}
+                 for y in (FY - 3, FY - 2, FY - 1, FY) if y in cu}
 
     # market context: $ of refining margin at risk + the gasoline crack overlay
     di = ctx["dollar_impact"]

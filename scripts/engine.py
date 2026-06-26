@@ -22,6 +22,7 @@ Locked decisions (do not re-derive -- see CLAUDE_CODE_BUILD_SPEC.md):
 """
 
 import re
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -103,9 +104,16 @@ UNITCAT_TO_BUCKET = {
 
 PADD_ORDER = ["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]
 
+# The model + slides always cover 2023 .. current year + 1 -- a rolling window that
+# advances itself each January (no manual bump), so a refreshed Snowflake just works.
+# 2027 is a floor: the current curated outlook year, kept even if the clock is behind.
+START_YEAR = 2023
+END_YEAR = max(2027, date.today().year + 1)
+FOCUS_YEAR = END_YEAR                  # the forward outlook year the deck + model headline
+
 # Years that are partial / special-cased (rendered grey-italic, footnoted).
-PARTIAL_YEARS = [2026, 2027]
-PLANNED_ONLY_YEARS = [2027]            # no actual unplanned data exists
+PARTIAL_YEARS = [FOCUS_YEAR - 1, FOCUS_YEAR]   # current (partial actuals) + outlook (planned only)
+PLANNED_ONLY_YEARS = [FOCUS_YEAR]      # no actual unplanned data exists for the outlook year
 OUTLIER_YEARS = [2020, 2021]          # COVID / Winter Storm Uri -- excluded from baselines
 
 # Forecast baseline windows offered in the scenario model.
@@ -135,8 +143,19 @@ UNITCAT_TO_FOCUS = {
     "HYDROCRACKING": "Hydrocracker", "RESID_HYDROCRACKING": "Hydrocracker",
     "REFORMING": "Reformer",
 }
-START_YEAR = 2021          # desk view starts at 2021 (earlier years dropped per request)
-END_YEAR = 2027
+
+
+def _focus_from_unitcat(unit_cat, unit_name):
+    """Map UNIT_CATEGORY -> focus class, then DEMOTE the rows the golden record
+    mislabels: a vacuum pipe still (VPS) tagged ATMOS DISTILLATION is not CDU
+    (CDU is atmospheric crude only -- vacuum is never folded in). A unit is treated
+    as vacuum when its name contains 'VPS' or starts with 'VACUUM'. This rule is
+    mirrored exactly by the Excel _focus_formula (build_workbook.py) so the live,
+    paste-to-refresh model agrees with the engine and keeps working as data grows."""
+    focus = unit_cat.map(UNITCAT_TO_FOCUS)
+    nm = unit_name.astype(str).str.upper().str.strip()
+    is_vac = nm.str.contains("VPS", regex=False, na=False) | nm.str.startswith("VACUUM")
+    return focus.mask(unit_cat.eq("ATMOS DISTILLATION") & is_vac)
 
 
 # ----------------------------------------------------------------------------- load + clean
@@ -312,7 +331,7 @@ def _load_enhanced(raw):
     out["type"] = out["otype"]
     out["padd_source"] = np.where(out["padd"].notna(), "PAD_DIST", "UNRESOLVED")
     out["bucket"] = out["unit_cat"].map(UNITCAT_TO_BUCKET).fillna("Other")
-    out["focus"] = out["unit_cat"].map(UNITCAT_TO_FOCUS)
+    out["focus"] = _focus_from_unitcat(out["unit_cat"], out["unit_name"])
     out["is_exxon"] = out["operator"].astype(str).str.upper().str.contains("EXXON", na=False)
     out["mogas_kbd"] = out["cap_kbd"] * out["bucket"].map(YIELD_FACTOR).fillna(0.0)
     out["month_name"] = out["month"].map(
@@ -365,7 +384,7 @@ def load(path):
 
     # mogas overlay
     out["bucket"] = out["unit_cat"].map(UNITCAT_TO_BUCKET).fillna("Other")
-    out["focus"] = out["unit_cat"].map(UNITCAT_TO_FOCUS)      # NaN for non-focus units
+    out["focus"] = _focus_from_unitcat(out["unit_cat"], out["unit_name"])   # NaN for non-focus / vacuum
     out["is_exxon"] = (out["operator"].astype(str).str.upper()
                        .str.contains("EXXON", na=False))
     out["mogas_kbd"] = out["cap_kbd"] * out["bucket"].map(YIELD_FACTOR).fillna(0.0)
@@ -386,7 +405,7 @@ def diagnostics(df):
         "padd_counts": df["padd"].value_counts(dropna=False).to_dict(),
         "unresolved_padd": int((df["padd"].isna()).sum()),
         "events_distinct": int(df["outage_id"].nunique()),
-        "2027_types": df.loc[df.year.eq(2027), "type"].value_counts().to_dict(),
+        "2027_types": df.loc[df.year.eq(FOCUS_YEAR), "type"].value_counts().to_dict(),
     }
 
 
@@ -604,8 +623,8 @@ def scenario_forecast(df, window_key=DEFAULT_WINDOW, growth=0.0, multiplier=1.0,
     monthly = scaled.copy()
     if stress_month in MONTHS:
         monthly[stress_month] = monthly[stress_month] + oneoff_kbd
-    planned_2027 = float(annual_summary(df).loc[2027, "Planned"]) \
-        if 2027 in annual_summary(df).index else 0.0
+    planned_2027 = float(annual_summary(df).loc[FOCUS_YEAR, "Planned"]) \
+        if FOCUS_YEAR in annual_summary(df).index else 0.0
     return {
         "window": window_key,
         "growth": growth,
@@ -889,7 +908,7 @@ def scenario_bands(df, window_key=DEFAULT_WINDOW):
             "p90": float(np.percentile(annuals, 90)), "mean": float(np.mean(annuals))}
 
 
-def exxon_2027_breakdown(df, operator_contains="EXXON", year=2027):
+def exxon_2027_breakdown(df, operator_contains="EXXON", year=FOCUS_YEAR):
     """Breakdown of a single operator's planned outages for one year (default
     ExxonMobil 2027): offline kbd by refinery, by unit, and a refinery x month
     matrix for a stacked chart. 2027 is planned-only, so this is the booked book."""
@@ -959,7 +978,7 @@ def scenario_fan(df, window_key=DEFAULT_WINDOW, lo=0.8, hi=1.3):
     return {"Conservative": prof * lo, "Average": prof * 1.0, "Active": prof * hi}
 
 
-def completed_unplanned(df, years=(2024, 2025, 2026, 2027)):
+def completed_unplanned(df, years=(FOCUS_YEAR - 3, FOCUS_YEAR - 2, FOCUS_YEAR - 1, FOCUS_YEAR)):
     """Monthly unplanned per year for charts, with the forecast filled in where
     the actuals are clearly incomplete (data still trickling in for the current
     partial year) instead of left at zero. A planned-only year (2027) is all
@@ -1206,10 +1225,10 @@ def unit_offline_monthly(df, focus=None, type_filter=None, padd=None,
         sub = sub[sub["padd"].eq(padd)]
     if sub.empty:
         return pd.DataFrame(0.0, index=list(range(y0, y1 + 1)), columns=MONTHS)
-    # one value per physical unit per month, at its peak nameplate that month
-    dd = (sub.groupby(["year", "month", "plant", "unit_name"], dropna=False)[value]
-            .max().reset_index())
-    g = (dd.groupby(["year", "month"])[value].sum()
+    # sum the day-weighted offline (CAP_OFFLINE_ADJUSTED_KBD) by month -- this is
+    # exactly what a live Excel SUMIFS does, so the deck and the model agree and
+    # both keep working as the Snowflake grows.
+    g = (sub.groupby(["year", "month"])[value].sum()
            .unstack("month").reindex(columns=range(1, 13)))
     g.columns = MONTHS
     return g.reindex(range(y0, y1 + 1)).fillna(0.0)
@@ -1228,9 +1247,7 @@ def focus_unit_padd_month(df, focus, year, value="cap_kbd"):
              & df["padd"].isin(PADD_ORDER)].dropna(subset=["month"])
     if sub.empty:
         return pd.DataFrame(0.0, index=PADD_ORDER, columns=MONTHS)
-    dd = (sub.groupby(["padd", "month", "plant", "unit_name"], dropna=False)[value]
-            .max().reset_index())
-    g = (dd.groupby(["padd", "month"])[value].sum()
+    g = (sub.groupby(["padd", "month"])[value].sum()
            .unstack("month").reindex(index=PADD_ORDER, columns=range(1, 13)))
     g.columns = MONTHS
     return g.fillna(0.0)
@@ -1248,7 +1265,7 @@ def focus_annual_peak(df, type_filter=None, y0=START_YEAR, y1=END_YEAR):
     return pd.DataFrame(out).reindex(range(y0, y1 + 1))
 
 
-def h1_focus_planned(df, years=(2025, 2026, 2027)):
+def h1_focus_planned(df, years=(FOCUS_YEAR - 2, FOCUS_YEAR - 1, FOCUS_YEAR)):
     """H1 (Jan-Jun) PLANNED offline per focus unit, day-weighted average kbd, by
     year. The like-for-like window: 2027 is booked only through H1, so comparing
     the Jan-Jun planned slate year-on-year avoids 2027's still-incomplete H2.
@@ -1265,7 +1282,7 @@ def h1_focus_planned(df, years=(2025, 2026, 2027)):
     return pd.DataFrame(data).T.reindex(FOCUS_ORDER)
 
 
-def naphtha_balance(df, year=2027):
+def naphtha_balance(df, year=FOCUS_YEAR):
     """CDU vs reformer outages read as a naphtha supply/demand balance.
 
     Crude distillation MAKES naphtha (~35% of crude); reformers CONSUME it (their
@@ -1304,7 +1321,7 @@ def naphtha_balance(df, year=2027):
 H1_MONTHS = [1, 2, 3, 4, 5, 6]
 
 
-def focus_2027_split(df, focus, value="cap_kbd"):
+def focus_2027_split(df, focus, value="cap_kbd", year=FOCUS_YEAR):
     """The 2027 data-completeness split for one focus unit (day-weighted kbd).
 
     We have ExxonMobil's full-year 2027 plan (verified against their corporate
@@ -1314,15 +1331,14 @@ def focus_2027_split(df, focus, value="cap_kbd"):
         confirmed  = Exxon (any month)  +  non-Exxon in H1
         indicative = non-Exxon in H2 (incomplete, a floor that fills in)
     Returns {'confirmed': [12], 'indicative': [12]} (kbd)."""
-    sub = df[(df["year"] == 2027) & df["focus"].eq(focus)].dropna(subset=["month"]).copy()
+    sub = df[(df["year"] == year) & df["focus"].eq(focus)].dropna(subset=["month"]).copy()
     conf = sub[sub["is_exxon"] | sub["month"].isin(H1_MONTHS)]
     indic = sub[(~sub["is_exxon"]) & (~sub["month"].isin(H1_MONTHS))]
 
     def monthly(d):
         if d.empty:
             return [0.0] * 12
-        dd = (d.groupby(["month", "plant", "unit_name"], dropna=False)[value].max().reset_index())
-        s = dd.groupby("month")[value].sum().reindex(range(1, 13)).fillna(0.0)
+        s = d.groupby("month")[value].sum().reindex(range(1, 13)).fillna(0.0)
         return [float(s[m]) for m in range(1, 13)]
     return {"confirmed": monthly(conf), "indicative": monthly(indic)}
 
@@ -1414,7 +1430,7 @@ def _months_between(s, e):
     return out
 
 
-def verify_exxon(df, year=2027, plan=None):
+def verify_exxon(df, year=FOCUS_YEAR, plan=None):
     """Cross-check IIR ExxonMobil records for `year` against Exxon's own corporate
     plan, per unit. An IIR event is 'confirmed' when the plan has an outage at the
     same refinery + same focus class overlapping the same months; otherwise it is
@@ -1476,12 +1492,15 @@ def build_context(path):
     interactive scenario/sensitivity cells are live formulas, not these values).
     """
     df = load(path)
+    # the model + slides only ever concern 2023 .. current year + 1 (END_YEAR).
+    # The golden-record Snowflake spans 2010-2038, so clip it to the window here.
+    df = df[df["year"].between(START_YEAR, END_YEAR)].copy()
     _enhanced = ("schema" in df.columns and len(df) and df["schema"].iloc[0] == "enhanced")
     if _enhanced:
         # The Enhanced file is the user's already-reconciled book -> trust it as-is
         # (don't re-flag/drop records the curated source chose to keep).
         _excluded = []
-        exxon_ver = verify_exxon(df, 2027)
+        exxon_ver = verify_exxon(df, FOCUS_YEAR)
         _ev = exxon_ver["events"]
         if "verified" in _ev.columns:
             _ev = _ev.assign(verified=_ev["verified"].map(lambda v: True if v is False else v))
@@ -1492,14 +1511,14 @@ def build_context(path):
         # Legacy Snowflake export: EXCLUDE the ExxonMobil records that fail the
         # corporate-plan check (Joliet Sep-Oct 'Crude' duplicate + the 2027 FCC the
         # plan books in 2026/2030) from every deliverable.
-        _ver0 = verify_exxon(df, 2027)
+        _ver0 = verify_exxon(df, FOCUS_YEAR)
         _excluded = (_ver0["flagged"][["plant", "unit_name", "kbd", "span", "note"]].to_dict("records")
                      if not _ver0["flagged"].empty else [])
         _bad = ({str(x) for x in _ver0["flagged"]["outage_id"].dropna()}
                 if not _ver0["flagged"].empty else set())
         if _bad:
             df = df[~df["outage_id"].astype(str).isin(_bad)].copy()
-        exxon_ver = verify_exxon(df, 2027)
+        exxon_ver = verify_exxon(df, FOCUS_YEAR)
 
     diag = diagnostics(df)
     summary = yoy_delta(df)
@@ -1540,7 +1559,7 @@ def build_context(path):
         "top_movers": top_movers(df),
         "scenario_bands": scenario_bands(df),
         "exxon_2027": exxon_2027_breakdown(df),
-        "ta_2027": {p: turnaround_schedule(df, 2027, padd=p, top=8) for p in PADD_ORDER},
+        "ta_2027": {p: turnaround_schedule(df, FOCUS_YEAR, padd=p, top=8) for p in PADD_ORDER},
         "display_annual": display_annual(df),
         "h1_planned": h1_planned(df),
         "scenario_fan": scenario_fan(df),
@@ -1556,11 +1575,11 @@ def build_context(path):
         "focus_planned": focus_unit_monthly(df, type_filter="PLANNED"),
         "focus_peak": focus_annual_peak(df),
         "h1_focus_planned": h1_focus_planned(df),       # H1 planned per unit, 2025/26/27
-        "naphtha_balance": naphtha_balance(df, 2027),   # CDU supply vs reformer demand
+        "naphtha_balance": naphtha_balance(df, FOCUS_YEAR),   # CDU supply vs reformer demand
         "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
-                       for y in (2026, 2027)},
+                       for y in (FOCUS_YEAR - 1, FOCUS_YEAR)},
         "confirmed2027": {f: focus_2027_split(df, f) for f in FOCUS_ORDER},
-        "unit_events_2027": unit_events(df, year=2027, type_filter="PLANNED"),
+        "unit_events_2027": unit_events(df, year=FOCUS_YEAR, type_filter="PLANNED"),
         "exxon_verify": exxon_ver,
         "deck_excluded": _excluded,
         "padd_month": {p: {
@@ -1570,8 +1589,8 @@ def build_context(path):
         } for p in PADD_ORDER},
         "compare": {
             "2025v2026": compare_block(df, 2025, 2026),
-            "2025v2027": compare_block(df, 2025, 2027),
-            "2026v2027": compare_block(df, 2026, 2027),
+            "2025v2027": compare_block(df, 2025, FOCUS_YEAR),
+            "2026v2027": compare_block(df, FOCUS_YEAR - 1, FOCUS_YEAR),
         },
     }
     return ctx
@@ -1581,6 +1600,6 @@ if __name__ == "__main__":
     import json
     import sys
     from pathlib import Path
-    default = str(Path(__file__).resolve().parent.parent / "data" / "Refinery_Outages_Enhanced.xlsx")
+    default = str(Path(__file__).resolve().parent.parent / "data" / "Golden_Record_Snowflake.xlsx")
     df = load(sys.argv[1] if len(sys.argv) > 1 else default)
     print(json.dumps(diagnostics(df), indent=2, default=str))

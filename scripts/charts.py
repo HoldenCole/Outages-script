@@ -28,6 +28,8 @@ LT = "#D6E0F0"
 
 MONTHS = engine.MONTHS
 PADDS = engine.PADD_ORDER
+FY = engine.FOCUS_YEAR              # forward outlook year (current year + 1); rolls with the data
+Y0 = engine.START_YEAR             # 2023
 
 plt.rcParams.update({
     "font.family": ["Arial", "Liberation Sans", "DejaVu Sans"],
@@ -517,14 +519,14 @@ def scenario_fan_chart(ctx, path):
         c, ls, lw = styles[name]
         ax.plot(x, prof.values, color=c, lw=lw, ls=ls, marker="o", ms=6,
                 label=f"{name} (~{prof.sum():,.0f} kbd)", zorder=3)
-    if 2025 in mu.index:
-        ax.plot(x, [mu.loc[2025, m] for m in MONTHS], color=GRAY, lw=2.0, ls=":", zorder=2,
-                label="2025 actual")
+    if FY - 2 in mu.index:
+        ax.plot(x, [mu.loc[FY - 2, m] for m in MONTHS], color=GRAY, lw=2.0, ls=":", zorder=2,
+                label=f"{FY - 2} actual")
     ax.set_xticks(x, MONTHS)
-    ax.set_xlabel("Month (2027)")
+    ax.set_xlabel(f"Month ({FY})")
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd offline")
-    ax.set_title("2027 Unplanned Forecast: Conservative / Average / Active (kbd)")
+    ax.set_title(f"{FY} Unplanned Forecast: Conservative / Average / Active (kbd)")
     ax.set_ylim(top=ax.get_ylim()[1] * 1.04)
     ax.legend(frameon=False, ncol=2, loc="upper right", fontsize=8.5)
     _clean(ax)
@@ -822,7 +824,7 @@ def focus_padd_bars(ctx, focus, year, path, figsize=(7.4, 4.1)):
     ax.set_title(f"{focus} Offline by Month & PADD, {year} (kbd)")
     ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
     _clean(ax)
-    if year == 2027:                       # mark the H1 (confirmed) | H2 (non-Exxon unconfirmed) line
+    if year == FY:                         # mark the H1 (confirmed) | H2 (non-Exxon unconfirmed) line
         ax.set_ylim(top=ax.get_ylim()[1] * 1.15)
         top = ax.get_ylim()[1]
         ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
@@ -850,7 +852,7 @@ def splits_2027(ctx, path):
         if idx % 2 == 0:                       # left column -> y units
             ax.set_ylabel("kbd offline", fontsize=9)
         if idx >= 2:                           # bottom row -> x units
-            ax.set_xlabel("Month (2027)", fontsize=9)
+            ax.set_xlabel(f"Month ({FY})", fontsize=9)
         ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
         _clean(ax)
     handles = [plt.Rectangle((0, 0), 1, 1, color=NAVY),
@@ -858,7 +860,7 @@ def splits_2027(ctx, path):
     fig.legend(handles, ["Confirmed  (Exxon full-year + all others H1)",
                          "Non-Exxon H2  (still being booked, not confirmed)"],
                loc="lower center", ncol=2, frameon=False, fontsize=9.5)
-    fig.suptitle("2027 Capacity Offline by Unit: Confirmed vs Not-Yet-Confirmed (kbd/month)",
+    fig.suptitle(f"{FY} Capacity Offline by Unit: Confirmed vs Not-Yet-Confirmed (kbd/month)",
                  fontsize=13, fontweight="bold", color=NAVY)
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     fig.savefig(path, dpi=200, bbox_inches="tight")
@@ -893,7 +895,7 @@ def exxon_gantt(ctx, path):
               for _, r in foc.iterrows()]
     ax.set_yticks(range(len(foc)), labels, fontsize=8.5)
     ax.set_xticks(range(12), MONTHS)
-    ax.set_xlabel("Month, 2027")
+    ax.set_xlabel(f"Month, {FY}")
     ax.set_xlim(-0.4, 12)
     ax.set_ylim(-0.6, len(foc) - 0.4)
     ax.invert_yaxis()
@@ -953,7 +955,7 @@ def joliet_decode(ctx, path):
 PADD_COLOR = {"PADD 1": "#9DB0CE", "PADD 2": BLUE, "PADD 3": NAVY, "PADD 4": GREEN, "PADD 5": GOLD}
 
 
-def biggest_outages(ctx, path, year=2027, topn=12):
+def biggest_outages(ctx, path, year=FY, topn=12):
     """'What's driving the numbers': the single biggest focus-unit outages in
     `year`, one bar per physical unit (nameplate kbd), colored by PADD so you see
     WHERE the big tonnage sits. Units are never added together - each bar stands
@@ -997,13 +999,13 @@ def biggest_outages(ctx, path, year=2027, topn=12):
     ax.grid(axis="y", visible=False)
     ax.tick_params(length=0)
     if bool(ev["indic"].any()):
-        fig.text(0.5, 0.004, "* non-Exxon H2 2027, still being booked (indicative floor, not confirmed).",
+        fig.text(0.5, 0.004, f"* non-Exxon H2 {FY}, still being booked (indicative floor, not confirmed).",
                  ha="center", fontsize=7.5, color=RED, style="italic")
     return _save(fig, path)
 
 
 # bright, high-contrast year palette for the cross-year comparison bars
-YEAR_COLOR = {2025: "#5B9BD5", 2026: "#FFC000", 2027: "#ED7D31"}
+YEAR_COLOR = {FY - 2: "#5B9BD5", FY - 1: "#FFC000", FY: "#ED7D31"}
 
 
 def h1_monthly_by_unit(ctx, path):
@@ -1013,7 +1015,7 @@ def h1_monthly_by_unit(ctx, path):
     monthly shape is readable. Like-for-like (2027 confirmed through H1)."""
     fp = ctx["focus_planned"]
     H1 = MONTHS[:6]
-    years = [2025, 2026, 2027]
+    years = [FY - 2, FY - 1, FY]
     fig, axes = plt.subplots(2, 2, figsize=(11.4, 6.4))
     x = np.arange(6)
     w = 0.82 / len(years)
@@ -1035,7 +1037,7 @@ def h1_monthly_by_unit(ctx, path):
     handles = [plt.Rectangle((0, 0), 1, 1, color=YEAR_COLOR[y]) for y in years]
     fig.legend(handles, [f"H1 {y}" for y in years], loc="lower center", ncol=3,
                frameon=False, fontsize=10.5)
-    fig.suptitle("H1 Planned Offline by Unit & Month: 2025 / 2026 / 2027 (kbd, day-weighted)",
+    fig.suptitle(f"H1 Planned Offline by Unit & Month: {FY-2} / {FY-1} / {FY} (kbd, day-weighted)",
                  fontsize=13, fontweight="bold", color=NAVY)
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     fig.savefig(path, dpi=200, bbox_inches="tight")
@@ -1047,8 +1049,8 @@ def unplanned_context(ctx, path):
     """Recent actual unplanned offline by month (2024-2026), grouped bars - the
     seasonal magnitude to carry into the 2027 scenario (which has no actuals yet)."""
     mu = ctx["monthly_unplanned"]
-    years = [y for y in (2024, 2025, 2026) if y in mu.index]
-    cols = {2024: "#9DC3E6", 2025: "#2E75B6", 2026: "#ED7D31"}
+    years = [y for y in (FY - 3, FY - 2, FY - 1) if y in mu.index]
+    cols = {FY - 3: "#9DC3E6", FY - 2: "#2E75B6", FY - 1: "#ED7D31"}
     fig, ax = plt.subplots(figsize=(10.4, 4.9))
     x = np.arange(12)
     w = 0.82 / max(1, len(years))
@@ -1059,10 +1061,10 @@ def unplanned_context(ctx, path):
     ax.set_xlabel("Month")
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd offline")
-    ax.set_title("Unplanned Offline by Month, 2024-2026 (kbd) - context for 2027")
+    ax.set_title(f"Unplanned Offline by Month, {FY-3}-{FY-1} (kbd) - context for {FY}")
     ax.legend(frameon=False, ncol=3, loc="upper right")
     _clean(ax)
-    fig.text(0.5, 0.004, "Actuals. 2026 reported through June; H2 still filling in. "
+    fig.text(0.5, 0.004, f"Actuals. {FY-1} reported through June; H2 still filling in. "
              "Feb freeze and Sep-Oct turnaround windows are the recurring spikes.",
              ha="center", fontsize=7.5, color=GRAY)
     return _save(fig, path)
@@ -1088,7 +1090,7 @@ def naphtha_balance_chart(ctx, path):
     ax.axhline(0, color="#23272e", lw=1.4, zorder=4)
     ax.axvline(5.5, color=GRAY, ls=":", lw=1.3, zorder=2)
     ax.set_xticks(x, MONTHS)
-    ax.set_xlabel("Month, 2027")
+    ax.set_xlabel(f"Month, {FY}")
     ax.yaxis.set_major_formatter(_thousands)
     ax.set_ylabel("kbd of naphtha")
     top, bot = max(demand.max(), 10.0), min(net.min(), float((-supply).min()))
@@ -1099,7 +1101,7 @@ def naphtha_balance_chart(ctx, path):
             fontsize=8, color=RED, style="italic")
     ax.text(8.8, top * 1.5, "H1 | H2: non-Exxon H2 indicative", ha="center", va="top",
             fontsize=7.5, color=RED, style="italic")
-    ax.set_title("2027 Naphtha Balance from Outages: CDU Supply vs Reformer Demand (kbd)")
+    ax.set_title(f"{FY} Naphtha Balance from Outages: CDU Supply vs Reformer Demand (kbd)")
     ax.legend(frameon=False, ncol=1, fontsize=8.3, loc="upper left")
     _clean(ax, ygrid=True)
     return _save(fig, path)
@@ -1123,8 +1125,8 @@ def render_all(ctx, outdir):
         # 1c) H1 like-for-like: planned offline per unit & month, 2025 vs 2026 vs 2027
         "h1_month_by_unit": h1_monthly_by_unit(ctx, p("h1_month_by_unit.png")),
         # 2) outages by PADD by unit
-        "cdu_padd_27": focus_padd_bars(ctx, "CDU", 2027, p("cdu_padd_27.png")),
-        "fcc_padd_27": focus_padd_bars(ctx, "FCC", 2027, p("fcc_padd_27.png")),
+        "cdu_padd_27": focus_padd_bars(ctx, "CDU", FY, p("cdu_padd_27.png")),
+        "fcc_padd_27": focus_padd_bars(ctx, "FCC", FY, p("fcc_padd_27.png")),
         # 2b) naphtha balance: CDU (supply) vs reformer (demand) outages
         "naphtha_balance": naphtha_balance_chart(ctx, p("naphtha_balance.png")),
         # 3) ExxonMobil outages (per unit, verified)

@@ -24,7 +24,7 @@ import build_dashboard
 import build_workbook
 
 _ROOT = Path(__file__).resolve().parent.parent          # repo root (scripts/ -> ..)
-DEFAULT_INPUT = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
+DEFAULT_INPUT = str(_ROOT / "data" / "Golden_Record_Snowflake.xlsx")
 DEFAULT_OUTDIR = str(_ROOT / "output")
 
 

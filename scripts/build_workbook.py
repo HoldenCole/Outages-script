@@ -43,13 +43,20 @@ import engine
 import charts
 
 _ROOT = Path(__file__).resolve().parent.parent
-INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
+INPUT_PATH = str(_ROOT / "data" / "Golden_Record_Snowflake.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_model.xlsx")
 ASOF = "June 26th, 2026"
 
 MONTHS = engine.MONTHS
 FOCUS = engine.FOCUS_ORDER
 IMG = {"x_scale": 0.6, "y_scale": 0.6, "object_position": 1}
+
+# Rolling window: 2023 .. current year + 1 (FY = the forward outlook year). Every
+# sheet keys off these, so when the Snowflake (and the year) roll forward the model
+# extends itself instead of dropping a year.
+Y0 = engine.START_YEAR
+FY = engine.FOCUS_YEAR
+YEARS = list(range(Y0, FY + 1))
 
 # Data sheet column letters (keep in sync with _data_sheet header order)
 D = {"year": "A", "mnum": "B", "month": "C", "plant": "D", "operator": "E",
@@ -105,23 +112,25 @@ def _index(wb, fm):
     ws = wb.add_worksheet("Index")
     ws.set_column(0, 0, 7); ws.set_column(1, 1, 40); ws.set_column(2, 2, 14)
     ws.set_column(3, 3, 78)
-    _title(ws, fm, "Refinery Outages 2027 Model: Index",
-           "Every deck slide maps to a model sheet. Open the sheet to see the detail and the formula.")
+    _title(ws, fm, f"Refinery Outages Model {Y0}-{FY}: Index",
+           f"Live off the Snowflake golden record ({Y0}-{FY} = 2023 .. current year + 1). Every deck slide "
+           "maps to a model sheet; open the sheet to see the detail and the formula.")
     rows = [
         ("Slide", "Deck slide", "Model sheet", "What it shows and how it is calculated"),
-        ("2", "Total 2027 Outages by Unit", "Per-Unit",
+        ("2", f"Total {FY} Outages by Unit", "Per-Unit",
          "Day-weighted concurrent offline per unit by month (=SUMIFS over Data), split confirmed vs indicative."),
         ("3", "What's Driving the Numbers (biggest outages)", "Biggest",
-         "The biggest individual 2027 outages by nameplate kbd, with PADD; one row per physical unit."),
+         f"The biggest individual {FY} outages by nameplate kbd, with PADD; one row per physical unit."),
         ("4", "H1 Planned per Unit & Month", "H1 by Unit",
-         "H1 (Jan-Jun) planned offline per unit and month, 2025/26/27 (=SUMIFS, type=Planned); H1 avg =AVERAGE."),
+         f"H1 (Jan-Jun) planned offline per unit and month, {FY-2}/{str(FY-1)[2:]}/{str(FY)[2:]} "
+         "(=SUMIFS, type=Planned); H1 avg =AVERAGE."),
         ("5", "Outages by PADD by Unit", "PADD by Unit",
-         "2027 CDU and FCC offline by PADD and month (=SUMIFS over Data)."),
+         f"{FY} CDU and FCC offline by PADD and month (=SUMIFS over Data)."),
         ("6", "Naphtha Balance", "Naphtha",
          "net = reformer offline x intake  -  CDU offline x naphtha yield. Live: =SUMIFS x Assumptions cells."),
-        ("7", "ExxonMobil 2027 by Unit", "ExxonMobil",
-         "Per-unit ExxonMobil 2027 turnarounds, verified against the corporate plan."),
-        ("8", "2027 Unplanned Scenario", "Forecast",
+        ("7", f"ExxonMobil {FY} by Unit", "ExxonMobil",
+         f"Per-unit ExxonMobil {FY} turnarounds, verified against the corporate plan."),
+        ("8", f"{FY} Unplanned Scenario", "Forecast",
          "baseline x multiplier (live off Assumptions); implied total = scenario unplanned + booked planned."),
     ]
     r0 = 3
@@ -137,11 +146,11 @@ def _index(wb, fm):
     ar = r0 + len(rows) + 3
     ws.write(ar, 0, "Analysis tabs (beyond the deck)", fm["secn"])
     extra = [
-        ("Historicals", "Monthly 2023-2027: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
+        ("Historicals", f"Monthly {Y0}-{FY}: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
         ("Statistics", "Descriptive stats (mean/median/stdev/percentiles) and a correlation matrix."),
         ("Regression", "Least-squares best-fit (slope, R-squared, std err) + scatter trendlines."),
-        ("Sensitivity", "2027 implied total across multiplier x one-off shock (editable heatmap)."),
-        ("Stress Test", "Named shocks (hurricane, freeze, CDU trips) on the 2027 book, tunable."),
+        ("Sensitivity", f"{FY} implied total across multiplier x one-off shock (editable heatmap)."),
+        ("Stress Test", f"Named shocks (hurricane, freeze, CDU trips) on the {FY} book, tunable."),
     ]
     for i, (sh, what) in enumerate(extra):
         ws.write(ar + 1 + i, 2, sh, fm["rowh"])
@@ -186,7 +195,7 @@ def _assumptions(wb, fm, ctx):
         "Day-weighted concurrent offline: a unit offline part of a month counts only for its days down "
         "(nameplate x days-down / days-in-month), each unit once per month.",
         "CDU = atmospheric crude only (vacuum / VDU is not folded in).",
-        "2027 completeness: ExxonMobil gave a full-year plan (verified vs their schedule); every other "
+        f"{FY} completeness: ExxonMobil gave a full-year plan (verified vs their schedule); every other "
         "operator is H1-confirmed only, so non-Exxon H2 is indicative.",
         "Forecast baseline is completeness-aware: each calendar month is averaged over the years that "
         "actually reported it, so 2026 H1 sharpens H1 while H2 stays on 2023-2025.",
@@ -197,39 +206,54 @@ def _assumptions(wb, fm, ctx):
         ws.merge_range(19 + i, 0, 19 + i, 5, f"- {n}", fm["txtw"])
 
 
-def _data_sheet(wb, fm, base):
-    """One row per (year, month, plant, unit, type): the pullable source the
-    analysis sheets SUMIFS over. Day-weighted cap (kbd) and nameplate (raw)."""
-    g = base.copy()
-    g["month_name"] = g["month"].map(lambda m: MONTHS[m - 1])
-    g = g.sort_values(["year", "month", "cap_kbd"], ascending=[True, True, False]).reset_index(drop=True)
+DATA_BUFFER = 6000           # spare formula rows so pasted Snowflake refreshes self-classify
 
+
+def _data_sheet(wb, fm, base):
+    """The model source = the Snowflake golden record (2023 .. current year + 1).
+    Paste a refreshed Snowflake into the value columns; Focus and PADD are live
+    Excel formulas (col H/M -> focus/padd), so new rows classify themselves and the
+    analysis SUMIFS keep working as the file grows. cap_kbd = CAP_OFFLINE_ADJUSTED_KBD."""
+    g = base.sort_values(["year", "month", "cap_kbd"], ascending=[True, True, False])
+    recs = g.to_dict("records")
     ws = wb.add_worksheet("Data")
-    ws.set_column(0, 1, 6); ws.set_column(2, 2, 6); ws.set_column(3, 3, 28); ws.set_column(4, 4, 22)
-    ws.set_column(5, 5, 9); ws.set_column(6, 7, 14); ws.set_column(8, 8, 26); ws.set_column(9, 9, 10)
-    ws.set_column(10, 11, 9)
-    _title(ws, fm, "Data: deduped per year / month / plant / unit / type (the model source)",
-           "Concurrent offline, day-weighted kbd and nameplate. Every analysis sheet SUMIFS over this.")
+    ws.set_column(0, 1, 6); ws.set_column(2, 2, 6); ws.set_column(3, 3, 26); ws.set_column(4, 4, 24)
+    ws.set_column(5, 6, 12); ws.set_column(7, 7, 20); ws.set_column(8, 8, 24); ws.set_column(9, 9, 10)
+    ws.set_column(10, 12, 10)
+    _title(ws, fm, "Data: Snowflake golden record (paste refreshes here; Focus/PADD auto-derive)",
+           "Update = paste OUTAGE_YEAR/MONTH->A,B; PLANT/OPERATOR->D,E; UNIT_CATEGORY->H; UNIT_NAME->I; "
+           "OUTAGE_TYPE->J; CAP_OFFLINE_ADJUSTED_KBD->K; OFFLINE_CAPACITY->L; PAD_DIST->M. Rest auto-fills.")
     heads = ["year", "monthnum", "month", "plant", "operator", "padd", "focus", "unit_cat",
-             "unit_name", "type", "cap_kbd", "cap_raw"]
+             "unit_name", "type", "cap_kbd", "cap_raw", "pad_dist"]
     r0 = 3
     for j, h in enumerate(heads):
         ws.write(r0, j, h, fm["h"])
-    order = ["year", "month", "month_name", "plant", "operator", "padd", "focus", "unit_cat",
-             "unit_name", "type", "cap_kbd", "cap_raw"]
-    for i, (_, row) in enumerate(g.iterrows()):
-        rr = r0 + 1 + i
-        for j, col in enumerate(order):
-            v = row[col]
-            if col in ("cap_kbd", "cap_raw"):
-                ws.write_number(rr, j, float(v), fm["num"])
-            elif col in ("year", "month"):
-                ws.write_number(rr, j, int(v), fm["txt"])
-            else:
-                ws.write(rr, j, "" if (isinstance(v, float) and np.isnan(v)) else str(v), fm["txt"])
-    ws.freeze_panes(r0 + 1, 0)
-    ws.autofilter(r0, 0, r0 + len(g), len(heads) - 1)
-    return len(g)
+    first = r0 + 1                                       # 0-based first data row
+    for i in range(len(recs) + DATA_BUFFER):
+        rr = first + i
+        xl = rr + 1                                      # 1-based Excel row
+        live = i < len(recs)
+        r = recs[i] if live else None
+        # Focus (G) and PADD (F) are formulas on every row so pasted data self-classifies
+        ws.write_formula(rr, 5, _padd_formula(xl), fm["txt"], str(r["padd"]) if live else "")
+        ws.write_formula(rr, 6, _focus_formula(xl), fm["txt"], str(r["focus"]) if live else "")
+        if not live:
+            continue
+        m = int(r["month"])
+        ws.write_number(rr, 0, int(r["year"]), fm["txt"])
+        ws.write_number(rr, 1, m, fm["txt"])
+        ws.write(rr, 2, MONTHS[m - 1], fm["txt"])
+        ws.write(rr, 3, str(r["plant"]), fm["txt"])
+        ws.write(rr, 4, str(r["operator"]), fm["txt"])
+        ws.write(rr, 7, str(r["unit_cat"]), fm["txt"])
+        ws.write(rr, 8, str(r["unit_name"]), fm["txt"])
+        ws.write(rr, 9, str(r["type"]), fm["txt"])
+        ws.write_number(rr, 10, float(r["cap_kbd"]), fm["num"])
+        ws.write_number(rr, 11, float(r["cap_raw"]) if pd.notna(r["cap_raw"]) else 0.0, fm["num"])
+        ws.write(rr, 12, str(r["pad_dist"]), fm["txt"])
+    ws.freeze_panes(first, 0)
+    ws.autofilter(r0, 0, first + len(recs) - 1, len(heads) - 1)
+    return len(recs)
 
 
 def _matrix_formula(ws, fm, r0, c0, row_keys, col_keys, formula, cache, row_label):
@@ -250,7 +274,7 @@ def _per_unit(wb, fm, ctx, assets):
     _title(ws, fm, "Per-Unit Concurrent Capacity Offline (kbd, day-weighted) = SUMIFS over Data",
            "Each focus unit on its own, by month and year. Never summed across units.")
     mnum = {mo: i + 1 for i, mo in enumerate(MONTHS)}
-    years = [2023, 2024, 2025, 2026, 2027]
+    years = YEARS
     blocks = {}
     r = 3
     for f in FOCUS:
@@ -283,9 +307,9 @@ def _biggest(wb, fm, ctx, assets):
     ws.set_column(0, 0, 30); ws.set_column(1, 1, 26); ws.set_column(2, 2, 10)
     ws.set_column(3, 3, 9); ws.set_column(4, 4, 9); ws.set_column(5, 5, 9)
     ws.set_column(6, 6, 9); ws.set_column(7, 7, 13)
-    _title(ws, fm, "Biggest 2027 Outages by Unit (nameplate kbd, from Data)",
+    _title(ws, fm, f"Biggest {FY} Outages by Unit (nameplate kbd, from Data)",
            "Individual units, never added. PADD shows where the tonnage sits.")
-    ev = engine.unit_events(ctx["df"], year=2027)
+    ev = engine.unit_events(ctx["df"], year=FY)
     ev = ev[ev["focus"].isin(FOCUS)].copy()
     ev["is_exxon"] = ev["operator"].astype(str).str.upper().str.contains("EXXON", na=False)
     ev["status"] = [("confirmed" if (x or min(ms) <= 6) else "indicative (H2)")
@@ -312,7 +336,7 @@ def _h1(wb, fm, ctx, assets):
     ws = wb.add_worksheet("H1 by Unit")
     ws.set_column(0, 0, 10); ws.set_column(1, 7, 9)
     _title(ws, fm, "H1 (Jan-Jun) Planned Offline per Unit & Month = SUMIFS (type=Planned)",
-           "Like-for-like cross-year read; 2027 is confirmed through H1. H1 avg = AVERAGE of the row.")
+           f"Like-for-like cross-year read; {FY} is confirmed through H1. H1 avg = AVERAGE of the row.")
     mnum = {mo: i + 1 for i, mo in enumerate(MONTHS)}
     h1m = MONTHS[:6]
     fp = ctx["focus_planned"]
@@ -323,7 +347,7 @@ def _h1(wb, fm, ctx, assets):
         ws.write(r, 0, engine.FOCUS_LABEL[f], fm["secn"])
         top = r + 1
         r = _matrix_formula(
-            ws, fm, top, 0, [2025, 2026, 2027], h1m,
+            ws, fm, top, 0, [FY - 2, FY - 1, FY], h1m,
             lambda y, mo, _f=f: _si("K", ("A", y), ("B", mnum[mo]), ("G", _f), ("J", "PLANNED")),
             lambda y, mo, _m=m: (_m.loc[y, mo] if y in _m.index else 0.0), "Year") + 2
         blocks[f] = top                     # header row of this block; data rows top+1..top+3
@@ -332,11 +356,11 @@ def _h1(wb, fm, ctx, assets):
     ws.write(r, 0, "H1 average offline (=AVERAGE Jan:Jun)", fm["secn"])
     hdr = r + 1
     ws.write(hdr, 0, "Unit", fm["hl"])
-    for j, y in enumerate([2025, 2026, 2027]):
+    for j, y in enumerate([FY - 2, FY - 1, FY]):
         ws.write(hdr, 1 + j, y, fm["h"])
     for i, f in enumerate(FOCUS):
         ws.write(hdr + 1 + i, 0, engine.FOCUS_LABEL[f], fm["rowh"])
-        for j, y in enumerate([2025, 2026, 2027]):
+        for j, y in enumerate([FY - 2, FY - 1, FY]):
             drow = blocks[f] + 1 + j        # 0-based data row for (f, year)
             ws.write_formula(hdr + 1 + i, 1 + j, f"=AVERAGE(B{drow+1}:G{drow+1})", fm["num"],
                              float(h1.loc[f, y] if y in h1.columns else 0.0))
@@ -348,10 +372,10 @@ def _padd(wb, fm, ctx, base, assets):
     ws.set_column(0, 0, 7); ws.set_column(1, 1, 7); ws.set_column(2, 2, 6)
     ws.set_column(3, 3, 5); ws.set_column(4, 4, 9); ws.set_column(5, 7, 9)
     _title(ws, fm, "Outages by PADD by Unit: full history with MoM% and YoY% = SUMIFS over Data",
-           "CDU and FCC offline by PADD and month, 2023-2027: level, month-over-month % and year-over-year %.")
+           f"CDU and FCC offline by PADD and month, {Y0}-{FY}: level, month-over-month % and year-over-year %.")
     units = [("CDU", "Crude (CDU)"), ("FCC", "FCC (cat cracker)")]
     padds = [f"PADD {k}" for k in range(1, 6)]
-    years = [2023, 2024, 2025, 2026, 2027]
+    years = YEARS
     series = {(f, p): _ym(base, focus=f, padd=p) for f, _ in units for p in padds}
     # tidy monthly fact table: one row per unit/PADD/month, with MoM% and YoY%
     r0 = 3
@@ -423,10 +447,10 @@ def _naphtha(wb, fm, ctx, assets):
     for i, mo in enumerate(MONTHS):
         rr = r0 + 1 + i
         ws.write(rr, 0, mo, fm["rowh"])
-        ws.write_formula(rr, 1, _si("K", ("A", 2027), ("B", mnum[mo]), ("G", "CDU")),
+        ws.write_formula(rr, 1, _si("K", ("A", FY),("B", mnum[mo]), ("G", "CDU")),
                          fm["num"], float(nb["cdu_offline"][i]))
         ws.write_formula(rr, 2, f"=B{rr+1}*naph_yield", fm["num"], float(nb["supply_removed"][i]))
-        ws.write_formula(rr, 3, _si("K", ("A", 2027), ("B", mnum[mo]), ("G", "Reformer")),
+        ws.write_formula(rr, 3, _si("K", ("A", FY),("B", mnum[mo]), ("G", "Reformer")),
                          fm["num"], float(nb["ref_offline"][i]))
         ws.write_formula(rr, 4, f"=D{rr+1}*ref_intake", fm["num"], float(nb["demand_removed"][i]))
         ws.write_formula(rr, 5, f"=E{rr+1}-C{rr+1}", fm["num"], float(nb["net"][i]))
@@ -437,7 +461,7 @@ def _naphtha(wb, fm, ctx, assets):
     for j, col, cv in zip((1, 2, 3, 4, 5), "BCDEF", cached):
         ws.write_formula(tot, j, f"=SUM({col}{r0+2}:{col}{r0+13})", fm["num"], float(cv))
     ws.write(tot + 2, 0, "Net < 0 = deficit (naphtha short, bullish reformate); net > 0 = surplus.", fm["key"])
-    ws.write(tot + 3, 0, f"2027 annual net = {nb['annual_net']:,.0f} kbd "
+    ws.write(tot + 3, 0, f"{FY} annual net = {nb['annual_net']:,.0f} kbd "
                          f"({nb['n_deficit']} deficit months, {nb['n_surplus']} surplus).", fm["sub"])
     ws.insert_image(3, 7, assets["naphtha_balance"], IMG)
 
@@ -446,7 +470,7 @@ def _exxon(wb, fm, ctx, assets):
     ws = wb.add_worksheet("ExxonMobil")
     ws.set_column(0, 0, 24); ws.set_column(1, 1, 26); ws.set_column(2, 3, 11)
     ws.set_column(4, 4, 9); ws.set_column(5, 6, 11); ws.set_column(7, 7, 24)
-    _title(ws, fm, "ExxonMobil 2027 Focus-Unit Turnarounds, per Unit (kbd)",
+    _title(ws, fm, f"ExxonMobil {FY} Focus-Unit Turnarounds, per Unit (kbd)",
            "Cross-checked against ExxonMobil's corporate turnaround plan.")
     ev = ctx["exxon_verify"]["events"]
     ev = ev[ev["focus"].isin(FOCUS)].copy().sort_values("kbd", ascending=False)
@@ -470,7 +494,7 @@ def _exxon(wb, fm, ctx, assets):
 def _forecast(wb, fm, ctx, assets):
     ws = wb.add_worksheet("Forecast")
     ws.set_column(0, 0, 22); ws.set_column(1, 12, 9); ws.set_column(13, 13, 11)
-    _title(ws, fm, "2027 Unplanned Scenario (kbd) = baseline x multiplier (live)",
+    _title(ws, fm, f"{FY} Unplanned Scenario (kbd) = baseline x multiplier (live)",
            "Each path recomputes off the Assumptions multipliers. A risk range, not a forecast.")
     base = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"])
     r0 = 3
@@ -491,9 +515,9 @@ def _forecast(wb, fm, ctx, assets):
             col = chr(ord("B") + j)
             ws.write_formula(rr, 1 + j, f"={col}{r0+2}*{ref}", fm["num"], float(fan[nm].iloc[j]))
         ws.write_formula(rr, 13, f"=SUM(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].sum()))
-    pl = float(ctx["summary"].loc[2027, "Planned"]) if 2027 in ctx["summary"].index else 0.0
+    pl = float(ctx["summary"].loc[FY, "Planned"]) if FY in ctx["summary"].index else 0.0
     br = r0 + 6
-    ws.write(br, 0, "Booked planned 2027", fm["lbl"]); ws.write_number(br, 1, pl, fm["num"])
+    ws.write(br, 0, f"Booked planned {FY}", fm["lbl"]); ws.write_number(br, 1, pl, fm["num"])
     ws.write(br + 1, 0, "Implied total (planned + unplanned)", fm["secn"])
     ws.write(br + 2, 0, "Scenario", fm["hl"])
     ws.write(br + 2, 1, "Unplanned", fm["h"]); ws.write(br + 2, 2, "+ Planned", fm["h"])
@@ -513,17 +537,34 @@ def _forecast(wb, fm, ctx, assets):
 
 
 def _base(df):
-    """Deduped per (year, month, plant, unit, type) base used for the Data sheet
-    and every aggregate, so SUMIFS recomputes match the cached values exactly."""
+    """The Snowflake rows the Data sheet holds and every aggregate sums over.
+    No dedup: summing CAP_OFFLINE_ADJUSTED_KBD is exactly what the live SUMIFS do,
+    so the workbook keeps working (and agreeing with the deck) as the file grows."""
     d = df.copy()
-    d["focus"] = d["focus"].fillna(""); d["padd"] = d["padd"].fillna("")
-    g = (d.groupby(["year", "month", "plant", "unit_name", "type"], dropna=False)
-         .agg(cap_kbd=("cap_kbd", "max"), cap_raw=("cap_raw", "max"),
-              operator=("operator", "first"), padd=("padd", "first"),
-              focus=("focus", "first"), unit_cat=("unit_cat", "first")).reset_index())
-    g = g.dropna(subset=["year", "month"])
-    g["year"] = g["year"].astype(int); g["month"] = g["month"].astype(int)
-    return g
+    d["focus"] = d["focus"].fillna("")
+    d["padd"] = d["padd"].fillna("")
+    d["pad_dist"] = d["pad_dist"].astype(str).replace({"nan": "", "None": "", "NaN": ""})
+    d = d.dropna(subset=["year", "month"]).copy()
+    d["year"] = d["year"].astype(int); d["month"] = d["month"].astype(int)
+    return d
+
+
+def _focus_formula(r):
+    """Excel formula mapping UNIT_CATEGORY (col H) -> focus class, so pasted rows
+    classify themselves (keeps the model live). CDU excludes vacuum pipe stills the
+    golden record mislabels as ATMOS DISTILLATION: a unit whose name (col I) has
+    'VPS' or starts with 'VACUUM' is vacuum, not crude. Mirrors engine
+    _focus_from_unitcat so the live model and the deck agree."""
+    return (f'=IF(AND($H{r}="ATMOS DISTILLATION",ISNUMBER(SEARCH("VPS",$I{r}))=FALSE,'
+            f'LEFT($I{r},6)<>"VACUUM"),"CDU",IF($H{r}="FLUID CAT CRACKING","FCC",'
+            f'IF(OR($H{r}="HYDROCRACKING",$H{r}="RESID_HYDROCRACKING"),"Hydrocracker",'
+            f'IF($H{r}="REFORMING","Reformer",""))))')
+
+
+def _padd_formula(r):
+    """Excel formula mapping PAD_DIST (col M) Roman -> canonical 'PADD n'."""
+    return (f'=IF($M{r}="PADD I","PADD 1",IF($M{r}="PADD II","PADD 2",IF($M{r}="PADD III","PADD 3",'
+            f'IF($M{r}="PADD IV","PADD 4",IF($M{r}="PADD V","PADD 5","")))))')
 
 
 def _ym(base, **f):
@@ -541,7 +582,7 @@ def _g(s, y, m):
 def _historicals(wb, fm, base):
     ws = wb.add_worksheet("Historicals")
     ws.set_column(0, 1, 6); ws.set_column(2, 2, 9); ws.set_column(3, 16, 8)
-    _title(ws, fm, "Historicals: monthly offline 2023-2027 (kbd) = SUMIFS over Data",
+    _title(ws, fm, f"Historicals: monthly offline {Y0}-{FY} (kbd) = SUMIFS over Data",
            "Total / planned / unplanned, unplanned %, per focus unit and per PADD. The series the stats use.")
     tot, pl, un = _ym(base), _ym(base, type="PLANNED"), _ym(base, type="UNPLANNED")
     cdu, fcc = _ym(base, focus="CDU"), _ym(base, focus="FCC")
@@ -552,7 +593,7 @@ def _historicals(wb, fm, base):
     r0 = 3
     for j, h in enumerate(heads):
         ws.write(r0, j, h, fm["h"] if j >= 3 else fm["hl"])
-    years = [2023, 2024, 2025, 2026, 2027]
+    years = YEARS
     i = 0
     for y in years:
         for mi, mo in enumerate(MONTHS, 1):
@@ -733,13 +774,13 @@ def _regression(wb, fm, base):
 def _sensitivity(wb, fm, ctx):
     ws = wb.add_worksheet("Sensitivity")
     ws.set_column(0, 0, 22); ws.set_column(1, 7, 12)
-    _title(ws, fm, "Sensitivity: 2027 implied total offline (kbd)",
+    _title(ws, fm, f"Sensitivity: {FY} implied total offline (kbd)",
            "Rows = unplanned multiplier x baseline; columns = one-off shock added. Off the Forecast cells.")
     mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
     shocks = [0, 250, 500, 750, 1000]
     base_cell, plan_cell = "Forecast!$N$5", "Forecast!$B$10"   # baseline annual, booked planned
     baseline = float(engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).sum())
-    planned = float(ctx["summary"].loc[2027, "Planned"]) if 2027 in ctx["summary"].index else 0.0
+    planned = float(ctx["summary"].loc[FY, "Planned"]) if FY in ctx["summary"].index else 0.0
     r0 = 3                                   # header row (Excel r0+1); shock values are editable here
     hxl = r0 + 1
     ws.write(r0, 0, "mult v / shock >", fm["hl"])
@@ -762,7 +803,7 @@ def _sensitivity(wb, fm, ctx):
 def _stress(wb, fm, ctx):
     ws = wb.add_worksheet("Stress Test")
     ws.set_column(0, 0, 26); ws.set_column(1, 1, 46); ws.set_column(2, 5, 14)
-    _title(ws, fm, "Stress test: named shocks on the 2027 book",
+    _title(ws, fm, f"Stress test: named shocks on the {FY} book",
            "Edit the gold shock cells. Implied total and naphtha impact recompute live.")
     avg_implied = "Forecast!$D$14"     # Average implied total
     base_avg = float(ctx["scenario"]["implied_total"])

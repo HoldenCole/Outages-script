@@ -39,11 +39,14 @@ import engine
 import charts
 
 _ROOT = Path(__file__).resolve().parent.parent
-INPUT_PATH = str(_ROOT / "data" / "Refinery_Outages_Enhanced.xlsx")
+INPUT_PATH = str(_ROOT / "data" / "Golden_Record_Snowflake.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_deck.pptx")
 
 BRAND_TEXT = "Products Trading"
 BRAND_LOGO = None
+
+FY = engine.FOCUS_YEAR              # forward outlook year (current year + 1); rolls with the data
+Y0 = engine.START_YEAR             # 2023
 
 NAVY = RGBColor(0x1F, 0x38, 0x64)
 NAVY2 = RGBColor(0x2E, 0x54, 0x96)
@@ -228,11 +231,11 @@ class Deck:
                    [("Products Trading", 20, False, LT_BLUE)])
         self._text(s, Inches(0.68), Inches(3.4), Inches(8.0), Inches(1.7),
                    [("Refinery Outages", 38, True, WHITE),
-                    ("2027 Outlook by Unit", 38, True, WHITE)], sa=2)
+                    (f"{FY} Outlook by Unit", 38, True, WHITE)], sa=2)
         self._rect(s, Inches(0.72), Inches(5.35), Inches(2.8), Pt(2.5), GOLD)
         self._text(s, Inches(0.72), Inches(5.55), Inches(7.9), Inches(0.9),
                    [("Capacity offline by unit, region & operator, and what it tightens", 12.5, False, LT_BLUE),
-                    ("2027: ExxonMobil full-year (verified vs their plan); all other operators "
+                    (f"{FY}: ExxonMobil full-year (verified vs their plan); all other operators "
                      "H1-confirmed only", 11, False, RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
         self._text(s, Inches(11.3), Inches(7.0), Inches(1.85), Inches(0.3),
                    [("PROPRIETARY", 9, False, LT_BLUE)], align=PP_ALIGN.RIGHT)
@@ -241,7 +244,7 @@ class Deck:
         c2 = self.ctx["confirmed2027"]
         pk = lambda f: max(c2[f]["confirmed"])
         self.wide_chart_slide(
-            "Total 2027 Outages by Unit",
+            f"Total {FY} Outages by Unit",
             "Capacity offline by unit & month; solid = confirmed, hatched = non-Exxon H2 (not yet booked)",
             self.a["splits_2027"],
             notes=(
@@ -255,10 +258,10 @@ class Deck:
                 "Solid bars are confirmed (Exxon full-year plus everyone's H1); the hatched autumn bars "
                 "are non-Exxon H2, still being booked, so don't trade them as firm."),
             foot="Day-weighted offline (a unit down part of a month counts only its days down), each unit "
-                 "once per month. Non-Exxon H2 2027 is a floor that fills in.")
+                 f"once per month. Non-Exxon H2 {FY} is a floor that fills in.")
 
     def drivers_slide(self):
-        ev = engine.unit_events(self.ctx["df"], year=2027)
+        ev = engine.unit_events(self.ctx["df"], year=FY)
         ev = ev[ev["focus"].isin(engine.FOCUS_ORDER)].sort_values("kbd", ascending=False)
         top = ev.head(3)
         names = ", ".join(f"{r['plant'].replace(' Refinery', '')} ({kbd(r['kbd'])} kbd)"
@@ -268,7 +271,7 @@ class Deck:
         lead = p_tot.index[0] if len(p_tot) else "PADD 3"
         self.wide_chart_slide(
             "What's Driving the Numbers: the Biggest Outages",
-            "Each bar is one unit's nameplate offline (kbd) in 2027, colored by PADD (region)",
+            f"Each bar is one unit's nameplate offline (kbd) in {FY}, colored by PADD (region)",
             self.a["biggest_outages"],
             notes=(
                 f"The biggest single units offline in 2027, by refinery and region. The most capacity "
@@ -278,7 +281,7 @@ class Deck:
                 f"product. Read each bar on its own, never added: the biggest single outage is ~{kbd(mx)} "
                 "kbd, not a summed total. Hatched bars are non-Exxon H2, still being booked, an "
                 "indicative floor, not confirmed."),
-            foot="Per-unit nameplate offline, the 12 biggest focus-unit outages of 2027. Color = PADD "
+            foot=f"Per-unit nameplate offline, the 12 biggest focus-unit outages of {FY}. Color = PADD "
                  "region; hatched = non-Exxon H2 (indicative).")
 
     def h1_compare_slide(self):
@@ -286,18 +289,18 @@ class Deck:
 
         def v(f, y):
             return float(h1.loc[f, y]) if (f in h1.index and y in h1.columns) else 0.0
-        cdu27, cdu26, cdu25 = v("CDU", 2027), v("CDU", 2026), v("CDU", 2025)
+        cdu27, cdu26, cdu25 = v("CDU", FY), v("CDU", FY - 1), v("CDU", FY - 2)
         d = (cdu27 / cdu26 - 1) if cdu26 else 0.0
         cm = self.ctx["focus_planned"]["CDU"]
         h1m = engine.MONTHS[:6]
-        if 2027 in cm.index:
-            pmo = max(h1m, key=lambda mo: cm.loc[2027, mo])
-            pval = float(cm.loc[2027, pmo])
+        if FY in cm.index:
+            pmo = max(h1m, key=lambda mo: cm.loc[FY, mo])
+            pval = float(cm.loc[FY, pmo])
         else:
             pmo, pval = "Mar", 0.0
         self.wide_chart_slide(
-            "H1 Planned Outages per Unit & Month: 2025 / 2026 / 2027",
-            "Like-for-like Jan-Jun planned offline, by unit and month (2027 confirmed through H1)",
+            f"H1 Planned Outages per Unit & Month: {FY-2} / {FY-1} / {FY}",
+            f"Like-for-like Jan-Jun planned offline, by unit and month ({FY} confirmed through H1)",
             self.a["h1_month_by_unit"],
             notes=(
                 "H1 is the only honest cross-year read: 2027 is booked through June, H2 is still being "
@@ -310,12 +313,12 @@ class Deck:
                 "history and below the 2023-24 peaks, not elevated. A heavier H1 = tighter gasoline and "
                 "distillate supply into the spring."),
             foot="Day-weighted capacity offline by month, planned only, each unit once per month. "
-                 "Per-panel y-axis. 2025/26 actuals; 2027 the booked plan.")
+                 f"Per-panel y-axis. {FY-2}/{str(FY-1)[2:]} actuals; {FY} the booked plan.")
 
     def padd_by_unit_slide(self):
         self.charts_bullets_slide(
             "Outages by PADD by Unit",
-            "2027 crude (CDU, left) and cat-cracker (FCC, right) offline by region & month",
+            f"{FY} crude (CDU, left) and cat-cracker (FCC, right) offline by region & month",
             [self.a["cdu_padd_27"], self.a["fcc_padd_27"]],
             notes=(
                 "Where the work lands by region. PADD 3 (Gulf) is the swing region for crude and cat-"
@@ -337,7 +340,7 @@ class Deck:
         state = "deficit" if nb["annual_net"] < 0 else "surplus"
         self.wide_chart_slide(
             "Naphtha Balance: CDU Supply vs Reformer Demand",
-            "2027 outages read as naphtha length. CDU makes naphtha; reformers consume it",
+            f"{FY} outages read as naphtha length. CDU makes naphtha; reformers consume it",
             self.a["naphtha_balance"],
             notes=(
                 f"Crude makes naphtha (~{ny}% of the barrel); reformers run on it to make reformate, the "
@@ -353,8 +356,8 @@ class Deck:
 
     def unplanned_context_slide(self):
         self.wide_chart_slide(
-            "Unplanned Offline: 2024-2026 Context",
-            "What unplanned actually looked like in recent years, to ground the 2027 scenario",
+            f"Unplanned Offline: {FY-3}-{FY-1} Context",
+            f"What unplanned actually looked like in recent years, to ground the {FY} scenario",
             self.a["unplanned_context"],
             notes=(
                 "2027 has no unplanned actuals yet, so the scenario is anchored on what really happened. "
@@ -363,14 +366,14 @@ class Deck:
                 "carry into 2027 on top of the booked plan. Crude and the gasoline-making units (FCC, "
                 "reformer) drive the spikes; distillate units add to the winter and fall windows. 2026 is "
                 "reported through June, so its H2 is still filling in."),
-            foot="Actual unplanned capacity offline by month, day-weighted. 2026 reported through June.")
+            foot=f"Actual unplanned capacity offline by month, day-weighted. {FY-1} reported through June.")
 
     def scenario_slide(self):
         fan = self.ctx["scenario_fan"]
         pk_avg = float(max(fan["Average"]))
         self.wide_chart_slide(
-            "2027 Unplanned Scenario: the Risk on Top of Planned",
-            "Potential unplanned offline (kbd per month) modeled on the 2023-26 seasonal pattern",
+            f"{FY} Unplanned Scenario: the Risk on Top of Planned",
+            f"Potential unplanned offline (kbd per month) modeled on the {Y0}-{str(FY-1)[2:]} seasonal pattern",
             self.a["fan"],
             notes=(
                 "2027 has no actual unplanned yet, so this is the monthly risk range to carry on top of "
@@ -379,8 +382,8 @@ class Deck:
                 "(freeze) and Sep-Oct (turnaround overlap), with summer the trough. The Average path "
                 f"peaks near ~{kbd(pk_avg)} kbd of unplanned offline in the worst month. Trade the Active "
                 "path as the supply-tightness stress case and Conservative as the floor."),
-            foot="Scenario = mean 2023-26 monthly unplanned shape (completeness-aware) x {0.8 / 1.0 / 1.3}. "
-                 "Monthly concurrent offline, a risk range, not a forecast. Not an annual sum.")
+            foot=f"Scenario = mean {Y0}-{str(FY-1)[2:]} monthly unplanned shape (completeness-aware) x "
+                 "{0.8 / 1.0 / 1.3}. Monthly concurrent offline, a risk range, not a forecast. Not an annual sum.")
 
     def build(self):
         self.title_slide()
