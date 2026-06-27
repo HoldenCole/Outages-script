@@ -1107,12 +1107,27 @@ def _data_quality(wb, fm, ctx):
                    fm["txtw"])
 
 
-TAB = {"Index": "#1F3864", "Assumptions": "#BF9000", "Data": "#808080",
-       "Historicals": "#538DD5", "Per-Unit": "#2E5496", "Biggest": "#2E5496",
-       "H1 by Unit": "#2E5496", "PADD by Unit": "#2E5496", "Naphtha": "#548235",
-       "ExxonMobil": "#2E5496", "Forecast": "#C55A11", "Sensitivity": "#C55A11",
-       "Stress Test": "#C55A11", "Statistics": "#7030A0", "Regression": "#7030A0",
-       "PADD Connectivity": "#C55A11", "Data Quality": "#A6A6A6", "What's Changed": "#C00000"}
+# Tab colors by section, matching the front->back ordering in build_workbook():
+#   deep blue = glance/overview, gold = inputs, teal = per-unit analysis,
+#   purple = chem feed, red = forecasting/sensitivity, slate = stats, green = data.
+TAB = {
+    # glance / overview (front)
+    "Index": "#1F3864", "What's Changed": "#1F3864",
+    # inputs
+    "Assumptions": "#BF9000",
+    # per-unit analysis
+    "Per-Unit": "#2E8B8B", "Biggest": "#2E8B8B", "H1 by Unit": "#2E8B8B",
+    "PADD by Unit": "#2E8B8B", "ExxonMobil": "#2E8B8B",
+    # chem feed
+    "Naphtha": "#7030A0",
+    # forecasting / sensitivity
+    "Forecast": "#C00000", "Sensitivity": "#C00000", "Stress Test": "#C00000",
+    "PADD Connectivity": "#C00000",
+    # stats
+    "Statistics": "#595959", "Regression": "#595959",
+    # data / source (back)
+    "Historicals": "#548235", "Data Quality": "#548235", "Data": "#548235",
+}
 
 
 def build_workbook(ctx, assets, path):
@@ -1120,24 +1135,25 @@ def build_workbook(ctx, assets, path):
     wb = xlsxwriter.Workbook(path, {"nan_inf_to_errors": True})
     fm = _formats(wb)
     base = _base(ctx["df"])
-    _index(wb, fm)
-    _assumptions(wb, fm, ctx)
-    _data_sheet(wb, fm, base)
+    # Tab order: glance/overview at the front -> working analysis -> source data at the back.
+    _index(wb, fm)                       # overview / glance (deep blue)
     _whats_changed(wb, fm, ctx)
-    _historicals(wb, fm, base)
-    _per_unit(wb, fm, ctx, assets)
+    _assumptions(wb, fm, ctx)            # inputs (gold)
+    _per_unit(wb, fm, ctx, assets)       # per-unit analysis (teal)
     _biggest(wb, fm, ctx, assets)
     _h1(wb, fm, ctx, assets)
     _padd(wb, fm, ctx, base, assets)
-    _naphtha(wb, fm, ctx, assets)
     _exxon(wb, fm, ctx, assets)
-    _forecast(wb, fm, ctx, assets)
+    _naphtha(wb, fm, ctx, assets)        # chem feed (purple)
+    _forecast(wb, fm, ctx, assets)       # forecasting (red)
     _sensitivity(wb, fm, ctx)
     _stress(wb, fm, ctx)
-    _statistics(wb, fm, base)
-    _regression(wb, fm, base)
     _padd_connectivity(wb, fm, ctx)
+    _statistics(wb, fm, base)            # stats (slate)
+    _regression(wb, fm, base)
+    _historicals(wb, fm, base)           # source / reference data at the back (green)
     _data_quality(wb, fm, ctx)
+    _data_sheet(wb, fm, base)
     # professional polish: colored tabs, hidden gridlines (except the data table)
     for ws in wb.worksheets():
         ws.set_tab_color(TAB.get(ws.name, "#808080"))
