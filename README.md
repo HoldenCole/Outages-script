@@ -130,7 +130,7 @@ sheet, and the Naphtha and Forecast sheets recompute live off them.
 
 ## Excel model sheets
 
-`outage_model.xlsx`, seventeen sheets. The analysis computes off a single `Data`
+`outage_model.xlsx`, eighteen sheets. The analysis computes off a single `Data`
 source with **visible Excel formulas** (SUMIFS / AVERAGE / CORREL / SLOPE /
 RSQ ...), so any number on a slide can be traced to a cell and you can see how it
 is calculated. The shaded gold cells are editable inputs that the dependent
@@ -142,6 +142,7 @@ add **native, live Excel charts**.
 | **Index** | Maps each deck slide to its model sheet and how it is calculated. |
 | **Assumptions** | As-of date, yields (incl. naphtha), reformer intake, scenario multipliers, baseline window, methodology. Drives the live sheets. |
 | **Data** | The source = the Snowflake golden record (one row per year/month/plant/unit/type, day-weighted kbd + nameplate). `Focus` and `PADD` are Excel formulas; spare formula rows sit below the data. Paste a refresh here and everything recomputes. |
+| **What's Changed** | Rolling change tracker: month-over-month balance (live, the month is editable), trailing 6 months, this month's new / back-online movers, and a week-over-week pull log (one row per build in `data/whatschanged_log.csv`) so re-running weekly shows what the source added or pulled. Source is monthly, so true WoW = pull-over-pull. |
 | **Historicals** | Monthly 2023-2027: total / planned / unplanned, unplanned %, per focus unit, per PADD, annual + YoY%, with a live line chart. |
 | **Per-Unit** | CDU / FCC / hydrocracker / reformer concurrent offline by month and year, plus busiest-month peaks (=MAX). |
 | **Biggest** | The biggest individual 2027 outages: refinery, unit, class, PADD, kbd, window, confirmed vs indicative. |

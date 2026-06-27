@@ -1270,6 +1270,36 @@ def period_change(df):
     }
 
 
+SNAPSHOT_LOG = Path(__file__).resolve().parent.parent / "data" / "whatschanged_log.csv"
+
+
+def update_snapshot_log(df, path=None, asof=None, n_fwd=6):
+    """The 'What's Changed' week-over-week engine. The source is monthly (and its
+    start/end dates are unreliable wide envelopes), so true week-over-week is done
+    by comparing weekly PULLS, not intra-data weeks: each build appends a dated row
+    of the total day-weighted offline for the current month and the next n_fwd
+    calendar months. Re-running the same day overwrites that day's row; running
+    weekly accumulates the rolling history. Returns the log (oldest->newest)."""
+    path = Path(SNAPSHOT_LOG if path is None else path)
+    asof = date.today() if asof is None else asof
+    y, m = asof.year, asof.month
+    row = {"as_of": asof.isoformat()}
+    for k in range(n_fwd):
+        yy, mm = y, m + k
+        while mm > 12:
+            mm -= 12; yy += 1
+        row[f"{yy}-{mm:02d}"] = round(float(df[(df["year"] == yy) & (df["month"] == mm)]["cap_kbd"].sum()), 1)
+    if path.exists():
+        log = pd.read_csv(path)
+        log = log[log["as_of"] != row["as_of"]]
+    else:
+        log = pd.DataFrame()
+    log = pd.concat([log, pd.DataFrame([row])], ignore_index=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log.to_csv(path, index=False)
+    return log.sort_values("as_of").reset_index(drop=True)
+
+
 # ----------------------------------------------------------------------------- per-unit capacity offline
 def unit_offline_monthly(df, focus=None, type_filter=None, padd=None,
                          y0=START_YEAR, y1=END_YEAR, value="cap_kbd"):

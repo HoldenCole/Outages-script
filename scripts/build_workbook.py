@@ -147,6 +147,7 @@ def _index(wb, fm):
     ar = r0 + len(rows) + 3
     ws.write(ar, 0, "Analysis tabs (beyond the deck)", fm["secn"])
     extra = [
+        ("What's Changed", "Rolling MoM (live) + week-over-week pull log + this month's new / back-online movers."),
         ("Historicals", f"Monthly {Y0}-{FY}: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
         ("Statistics", "Descriptive stats (mean/median/stdev/percentiles) and a correlation matrix."),
         ("Regression", "Least-squares best-fit (slope, R-squared, std err) + scatter trendlines."),
@@ -881,6 +882,125 @@ def _stress(wb, fm, ctx):
 
 
 # Colored tabs grouped by purpose: navigation, source, per-unit analysis, balance, forecast, stats
+def _whats_changed(wb, fm, ctx):
+    """Rolling change tracker. Month-over-month is live off Data (the balance that
+    prices contracts); the rolling pull-log compares weekly pulls (the source is
+    monthly, so true week-over-week = pull-over-pull, accumulated each build)."""
+    import datetime as _dt
+    ws = wb.add_worksheet("What's Changed")
+    ws.set_column(0, 0, 26); ws.set_column(1, 6, 12)
+    asof = _dt.date.today()
+    cy, cm = asof.year, asof.month
+    py, pm = (cy, cm - 1) if cm > 1 else (cy - 1, 12)
+    df = ctx["df"]
+    _title(ws, fm, f"What's Changed: rolling MoM & WoW (as of {asof:%b %d, %Y})",
+           "Month-over-month is live off Data -- the balance that prices. Week-over-week compares your "
+           "weekly pulls (source is monthly, so the rolling log grows one row per build).")
+
+    COL_XL = {"type": "J", "focus": "G", "padd": "F"}    # pandas col -> Data-sheet letter
+
+    def msum(y, m, *crit):                               # crit = (pandas_col, value)
+        d = df[(df["year"] == y) & (df["month"] == m)]
+        for col, val in crit:
+            d = d[d[col] == val]
+        return float(d["cap_kbd"].sum())
+
+    def si_cell(ycell, mcell, *crit):                    # crit = (pandas_col, value) -> SUMIFS
+        parts = ["Data!$K:$K", f"Data!$A:$A,{ycell}", f"Data!$B:$B,{mcell}"]
+        for col, val in crit:
+            parts.append(f'Data!${COL_XL[col]}:${COL_XL[col]},"{val}"')
+        return "=SUMIFS(" + ",".join(parts) + ")"
+
+    # ---- 1) Month-over-month (live) ----
+    ws.write(3, 0, "Month-over-month (live off Data -- this is the balance that prices)", fm["secn"])
+    ws.write(4, 0, "As-of month (edit year / month)", fm["lbl"])
+    ws.write_number(4, 1, cy, fm["inp"]); ws.write_number(4, 2, cm, fm["inp"])
+    ws.write(5, 0, "Prior month", fm["lbl"])
+    ws.write_formula(5, 1, "=IF(C5=1,B5-1,B5)", fm["txt"], py)
+    ws.write_formula(5, 2, "=IF(C5=1,12,C5-1)", fm["txt"], pm)
+    hdr = 7
+    for j, h in enumerate(["Metric", "This month", "Prior month", "Δ", "Δ%"]):
+        ws.write(hdr, j, h, fm["hl"] if j == 0 else fm["h"])
+    metrics = [("Total offline", ()), ("Planned", (("type", "PLANNED"),)), ("Unplanned", (("type", "UNPLANNED"),)),
+               ("CDU", (("focus", "CDU"),)), ("FCC", (("focus", "FCC"),)),
+               ("Hydrocracker", (("focus", "Hydrocracker"),)), ("Reformer", (("focus", "Reformer"),))]
+    for i, (label, crit) in enumerate(metrics):
+        rr = hdr + 1 + i; xl = rr + 1
+        ws.write(rr, 0, label, fm["rowh"])
+        ws.write_formula(rr, 1, si_cell("$B$5", "$C$5", *crit), fm["num"], msum(cy, cm, *crit))
+        ws.write_formula(rr, 2, si_cell("$B$6", "$C$6", *crit), fm["num"], msum(py, pm, *crit))
+        ws.write_formula(rr, 3, f"=B{xl}-C{xl}", fm["num"], msum(cy, cm, *crit) - msum(py, pm, *crit))
+        ws.write_formula(rr, 4, f'=IFERROR(D{xl}/C{xl},"")', fm["pct"],
+                         (msum(cy, cm, *crit) / msum(py, pm, *crit) - 1) if msum(py, pm, *crit) else "")
+
+    # ---- 2) Rolling trailing 6 months (live; window rolls each build) ----
+    seq = []
+    yy, mm = cy, cm
+    for _ in range(6):
+        seq.append((yy, mm)); mm, yy = (mm - 1, yy) if mm > 1 else (12, yy - 1)
+    seq = list(reversed(seq))
+    r2 = hdr + len(metrics) + 2
+    ws.write(r2, 0, "Rolling: trailing 6 months (live)", fm["secn"])
+    for j, h in enumerate(["Month", "Total", "Planned", "Unplanned"]):
+        ws.write(r2 + 1, j, h, fm["hl"] if j == 0 else fm["h"])
+    for i, (yy, mm) in enumerate(seq):
+        rr = r2 + 2 + i
+        ws.write(rr, 0, f"{MONTHS[mm-1]} {yy}", fm["rowh"])
+        ws.write_formula(rr, 1, _si("K", ("A", yy), ("B", mm)), fm["num"], msum(yy, mm))
+        ws.write_formula(rr, 2, _si("K", ("A", yy), ("B", mm), ("J", "PLANNED")), fm["num"], msum(yy, mm, ("type", "PLANNED")))
+        ws.write_formula(rr, 3, _si("K", ("A", yy), ("B", mm), ("J", "UNPLANNED")), fm["num"], msum(yy, mm, ("type", "UNPLANNED")))
+
+    # ---- 3) Week-over-week: pull log (accumulates one row per build) ----
+    log = engine.update_snapshot_log(ctx["df"])
+    curkey = f"{cy}-{cm:02d}"; nxtkey = f"{cy if cm < 12 else cy+1}-{(cm % 12)+1:02d}"
+    r3 = r2 + 9
+    ws.write(r3, 0, "Week-over-week: your weekly pulls (rolling; one row per build)", fm["secn"])
+    for j, h in enumerate(["Pull date", f"{MONTHS[cm-1]} {cy}", "Δ vs prior pull", f"{nxtkey} next mo"]):
+        ws.write(r3 + 1, j, h, fm["hl"] if j == 0 else fm["h"])
+    tail = log.tail(6).reset_index(drop=True)
+    prev = None
+    for i, row in tail.iterrows():
+        rr = r3 + 2 + i
+        cur_val = float(row[curkey]) if curkey in tail.columns and pd.notna(row.get(curkey)) else 0.0
+        nxt_val = float(row[nxtkey]) if nxtkey in tail.columns and pd.notna(row.get(nxtkey)) else 0.0
+        ws.write(rr, 0, str(row["as_of"]), fm["txt"])
+        ws.write_number(rr, 1, round(cur_val, 1), fm["num"])
+        ws.write(rr, 2, "" if prev is None else round(cur_val - prev, 1), fm["num"] if prev is not None else fm["txt"])
+        ws.write_number(rr, 3, round(nxt_val, 1), fm["num"])
+        prev = cur_val
+    note_r = r3 + 2 + len(tail)
+    ws.merge_range(note_r, 0, note_r, 4, "Each build appends today's snapshot (current + next 6 months' offline) to "
+                   "data/whatschanged_log.csv. Run it weekly after refreshing the Snowflake and the Δ shows what the "
+                   "vendor added/pulled since last week. Δ on the current month is the contract-relevant move.", fm["txtw"])
+
+    # ---- 4) This month's movers ----
+    def ids(y, m):
+        d = df[(df["year"] == y) & (df["month"] == m)].dropna(subset=["outage_id"])
+        if d.empty:
+            return pd.DataFrame(columns=["kbd", "plant", "unit", "padd"])
+        return d.groupby("outage_id").agg(kbd=("cap_kbd", "sum"), plant=("plant", "first"),
+                                          unit=("unit_cat", "first"), padd=("padd", "first"))
+    ci, pi = ids(cy, cm), ids(py, pm)
+    new = ci.loc[ci.index.difference(pi.index)].sort_values("kbd", ascending=False).head(6)
+    gone = pi.loc[pi.index.difference(ci.index)].sort_values("kbd", ascending=False).head(6)
+    r4 = note_r + 2
+    ws.write(r4, 0, f"New this month ({MONTHS[cm-1]} {cy}) -- not down the prior month", fm["secn"])
+    for j, h in enumerate(["Plant", "Unit", "PADD", "kbd"]):
+        ws.write(r4 + 1, j, h, fm["hl"] if j < 2 else fm["h"])
+    for i, (_, r) in enumerate(new.iterrows()):
+        rr = r4 + 2 + i
+        ws.write(rr, 0, str(r["plant"])[:24], fm["txt"]); ws.write(rr, 1, str(r["unit"])[:18], fm["txt"])
+        ws.write(rr, 2, str(r["padd"]), fm["txt"]); ws.write_number(rr, 3, round(r["kbd"], 1), fm["num"])
+    r5 = r4 + 3 + len(new)
+    ws.write(r5, 0, f"Back online this month -- down the prior month, not now", fm["secn"])
+    for j, h in enumerate(["Plant", "Unit", "PADD", "kbd"]):
+        ws.write(r5 + 1, j, h, fm["hl"] if j < 2 else fm["h"])
+    for i, (_, r) in enumerate(gone.iterrows()):
+        rr = r5 + 2 + i
+        ws.write(rr, 0, str(r["plant"])[:24], fm["txt"]); ws.write(rr, 1, str(r["unit"])[:18], fm["txt"])
+        ws.write(rr, 2, str(r["padd"]), fm["txt"]); ws.write_number(rr, 3, round(r["kbd"], 1), fm["num"])
+
+
 def _padd_connectivity(wb, fm, ctx):
     """Sensitize the crude-outage read to regional pipeline connectivity. A CDU
     outage in a well-connected PADD (P3 Gulf) lets the downstream units keep running
@@ -992,7 +1112,7 @@ TAB = {"Index": "#1F3864", "Assumptions": "#BF9000", "Data": "#808080",
        "H1 by Unit": "#2E5496", "PADD by Unit": "#2E5496", "Naphtha": "#548235",
        "ExxonMobil": "#2E5496", "Forecast": "#C55A11", "Sensitivity": "#C55A11",
        "Stress Test": "#C55A11", "Statistics": "#7030A0", "Regression": "#7030A0",
-       "PADD Connectivity": "#C55A11", "Data Quality": "#A6A6A6"}
+       "PADD Connectivity": "#C55A11", "Data Quality": "#A6A6A6", "What's Changed": "#C00000"}
 
 
 def build_workbook(ctx, assets, path):
@@ -1003,6 +1123,7 @@ def build_workbook(ctx, assets, path):
     _index(wb, fm)
     _assumptions(wb, fm, ctx)
     _data_sheet(wb, fm, base)
+    _whats_changed(wb, fm, ctx)
     _historicals(wb, fm, base)
     _per_unit(wb, fm, ctx, assets)
     _biggest(wb, fm, ctx, assets)
