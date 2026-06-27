@@ -677,12 +677,18 @@ def mom_movers_chart(ctx, path):
              color=_dcolors(pad.values), zorder=3)
     axp.axvline(0, color=NAVY, lw=1)
     axp.set_title("By PADD (kbd)", fontsize=10)
-    un = pc["by_unit"]
+    un = pc.get("by_focus")
+    if un is not None and len(un):
+        un = un[un.index.isin(engine.FOCUS_ORDER)]
+    if un is None or not len(un):
+        un = pc["by_unit"]; utitle = "By unit - biggest movers (kbd)"
+    else:
+        utitle = "By focus unit (kbd)"
     top = un.reindex(un.abs().sort_values(ascending=False).index).head(8).iloc[::-1]
-    axu.barh([str(i).title()[:16] for i in top.index], top.values,
+    axu.barh([str(i)[:16] for i in top.index], top.values,
              color=_dcolors(top.values), zorder=3)
     axu.axvline(0, color=NAVY, lw=1)
-    axu.set_title("By unit - biggest movers (kbd)", fontsize=10)
+    axu.set_title(utitle, fontsize=10)
     for ax in (axp, axu):
         ax.xaxis.set_major_formatter(_thousands)
         ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
@@ -1446,10 +1452,13 @@ def render_all(ctx, outdir):
         "biggest_outages": biggest_outages(ctx, p("biggest_outages.png")),
         # 1c) H1 like-for-like: planned offline per unit & month, 2025 vs 2026 vs 2027
         "h1_month_by_unit": h1_monthly_by_unit(ctx, p("h1_month_by_unit.png")),
-        # 2) outages by PADD by unit
+        # 1d) month-over-month: what changed and what focus unit is driving it
+        "mom_movers": mom_movers_chart(ctx, p("mom_movers.png")),
+        # 2) outages by PADD by unit -- gasoline (CDU+FCC) and distillate (CDU+hydrocracker)
         "cdu_padd_27": focus_padd_bars(ctx, "CDU", FY, p("cdu_padd_27.png")),
         "fcc_padd_27": focus_padd_bars(ctx, "FCC", FY, p("fcc_padd_27.png")),
-        # 2b) naphtha balance: CDU (supply) vs reformer (demand) outages
+        "hcu_padd_27": focus_padd_bars(ctx, "Hydrocracker", FY, p("hcu_padd_27.png")),
+        # 2b) naphtha balance (kept for reference; the chem-feed deck headlines it)
         "naphtha_balance": naphtha_balance_chart(ctx, p("naphtha_balance.png")),
         # 3) ExxonMobil outages (per unit, verified)
         "exxon_gantt": exxon_gantt(ctx, p("exxon_gantt.png")),

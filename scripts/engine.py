@@ -1266,6 +1266,7 @@ def period_change(df):
         "planned": (tot(cur_df, "PLANNED"), tot(prv_df, "PLANNED")),
         "events": (int(cur_df["outage_id"].nunique()), int(prv_df["outage_id"].nunique())),
         "by_padd": movers("padd"), "by_unit": movers("unit_cat"), "by_operator": movers("operator"),
+        "by_focus": movers("focus"),
         "new": new, "gone": gone,
     }
 
