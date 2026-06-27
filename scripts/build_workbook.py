@@ -109,55 +109,6 @@ def _title(ws, fm, title, sub):
 
 
 # --------------------------------------------------------------------------- sheets
-def _index(wb, fm):
-    ws = wb.add_worksheet("Index")
-    ws.set_column(0, 0, 7); ws.set_column(1, 1, 40); ws.set_column(2, 2, 14)
-    ws.set_column(3, 3, 78)
-    _title(ws, fm, f"Refinery Outages Model {Y0}-{FY}: Index",
-           f"Live off the Snowflake golden record ({Y0}-{FY} = 2023 .. current year + 1). Every deck slide "
-           "maps to a model sheet; open the sheet to see the detail and the formula.")
-    rows = [
-        ("Slide", "Deck slide", "Model sheet", "What it shows and how it is calculated"),
-        ("2", f"Total {FY} Outages by Unit", "Per-Unit",
-         "Day-weighted concurrent offline per unit by month (=SUMIFS over Data), split confirmed vs indicative."),
-        ("3", "What's Driving the Numbers (biggest outages)", "Biggest",
-         f"The biggest individual {FY} outages by nameplate kbd, with PADD; one row per physical unit."),
-        ("4", "H1 Planned per Unit & Month", "H1 by Unit",
-         f"H1 (Jan-Jun) planned offline per unit and month, {FY-2}/{str(FY-1)[2:]}/{str(FY)[2:]} "
-         "(=SUMIFS, type=Planned); H1 avg =AVERAGE."),
-        ("5", "Outages by PADD by Unit", "PADD by Unit",
-         f"{FY} CDU and FCC offline by PADD and month (=SUMIFS over Data)."),
-        ("6", "Naphtha Balance", "Naphtha",
-         "net = reformer offline x intake  -  CDU offline x naphtha yield. Live: =SUMIFS x Assumptions cells."),
-        ("7", f"ExxonMobil {FY} by Unit", "ExxonMobil",
-         f"Per-unit ExxonMobil {FY} turnarounds, verified against the corporate plan."),
-        ("8", f"{FY} Unplanned Scenario", "Forecast",
-         "baseline x multiplier (live off Assumptions); implied offline read by month - peak & average month (annual Σ kept as reference)."),
-    ]
-    r0 = 3
-    for j, h in enumerate(rows[0]):
-        ws.write(r0, j, h, fm["hl"] if j != 0 else fm["h"])
-    for i, row in enumerate(rows[1:], 1):
-        for j, v in enumerate(row):
-            ws.write(r0 + i, j, v, fm["txt"] if j != 2 else fm["rowh"])
-    ws.write(r0 + len(rows) + 1, 0,
-             "Source of truth: the Data sheet (one row per year/month/plant/unit/type). The analysis "
-             "sheets compute off it so the calculations are visible.", fm["key"])
-    # analysis tabs beyond the deck
-    ar = r0 + len(rows) + 3
-    ws.write(ar, 0, "Analysis tabs (beyond the deck)", fm["secn"])
-    extra = [
-        ("What's Changed", "Rolling MoM (live) + week-over-week pull log + this month's new / back-online movers."),
-        ("Historicals", f"Monthly {Y0}-{FY}: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
-        ("Scenarios", f"All the forward what-ifs in one place: {FY} peak-month sensitivity grid (multiplier x "
-         "one-off shock), named stress shocks, and the PADD connectivity pass-through. Tunable."),
-        ("Data Quality", "Auto-flags: planned turnarounds recurring <5yr apart, and unit-months summing >100% of nameplate."),
-    ]
-    for i, (sh, what) in enumerate(extra):
-        ws.write(ar + 1 + i, 2, sh, fm["rowh"])
-        ws.write(ar + 1 + i, 3, what, fm["txt"])
-
-
 def _assumptions(wb, fm, ctx):
     ws = wb.add_worksheet("Assumptions")
     ws.set_column(0, 0, 32); ws.set_column(1, 1, 14); ws.set_column(2, 4, 13); ws.set_column(5, 5, 58)
@@ -982,7 +933,7 @@ def _data_quality(wb, fm, ctx):
 #   purple = chem feed, red = forecasting/sensitivity, slate = stats, green = data.
 TAB = {
     # glance / overview (front)
-    "Index": "#1F3864", "What's Changed": "#1F3864",
+    "What's Changed": "#1F3864",
     # inputs
     "Assumptions": "#BF9000",
     # per-unit analysis
@@ -1003,8 +954,7 @@ def build_workbook(ctx, assets, path):
     fm = _formats(wb)
     base = _base(ctx["df"])
     # Tab order: glance/overview at the front -> working analysis -> source data at the back.
-    _index(wb, fm)                       # overview / glance (deep blue)
-    _whats_changed(wb, fm, ctx)
+    _whats_changed(wb, fm, ctx)          # landing / glance (deep blue)
     _assumptions(wb, fm, ctx)            # inputs (gold)
     _per_unit(wb, fm, ctx, assets)       # per-unit analysis (teal)
     _biggest(wb, fm, ctx, assets)
