@@ -130,6 +130,56 @@ MARKET_CONTEXT = {
     "source": "https://www.eia.gov/petroleum/supply/weekly/",
 }
 
+# PADD connectivity -- the share of a CDU (crude) outage that CASCADES into lost
+# downstream product. Where a refinery is well pipeline-connected (PADD 3 / Gulf),
+# the units that run off the crude unit can keep going on piped-in intermediates,
+# so a crude outage buffers (low pass-through). Islanded regions (PADD 2 / 4 / 5
+# and parts of PADD 1) must cut the downstream units too (high pass-through).
+# Tunable on the Assumptions sheet; these are the defaults (edit for your view).
+PADD_CONNECTIVITY = {
+    "PADD 1": 0.85, "PADD 2": 0.90, "PADD 3": 0.40, "PADD 4": 0.90, "PADD 5": 0.95,
+}
+
+
+# ----------------------------------------------------------------------------- data-quality audit
+TURNAROUND_CYCLE_YEARS = 5             # focus-unit turnarounds run on ~a 5-year cycle
+
+
+def cadence_flags(df_full, classes=("CDU", "FCC"), max_gap=4, reach_from=None):
+    """Flag physical units that take a PLANNED outage again within < TURNAROUND_CYCLE
+    years -- i.e. planned work in years <= max_gap apart, which is short vs the
+    ~5-year turnaround cycle. UNPLANNED -> PLANNED is legitimate and never flagged
+    (we only look at planned-to-planned). Uses the FULL history so prior turnarounds
+    are visible. Returns a DataFrame sorted by the later year, biggest first.
+    Reformers/hydrocrackers cycle faster, so the default classes are CDU + FCC."""
+    reach_from = (FOCUS_YEAR - 1) if reach_from is None else reach_from
+    pl = df_full[(df_full["type"] == "PLANNED") & (df_full["focus"].isin(classes))]
+    rows = []
+    for (plant, unit, focus), s in pl.groupby(["plant", "unit_name", "focus"]):
+        by_year = s.groupby("year")["cap_kbd"].sum()
+        yrs = sorted(int(y) for y in by_year.index)
+        for a, b in zip(yrs, yrs[1:]):
+            if b - a <= max_gap and b >= reach_from:
+                rows.append({"plant": str(plant), "unit": str(unit), "focus": focus,
+                             "prev_TA": a, "next_TA": b, "gap_yrs": b - a,
+                             "kbd_prev": float(by_year.loc[a]), "kbd_next": float(by_year.loc[b])})
+    cols = ["plant", "unit", "focus", "prev_TA", "next_TA", "gap_yrs", "kbd_prev", "kbd_next"]
+    out = pd.DataFrame(rows, columns=cols)
+    return out.sort_values(["next_TA", "kbd_next"], ascending=[False, False]).reset_index(drop=True)
+
+
+def double_count_flags(df, tol=1.02):
+    """Flag unit-months whose summed day-weighted offline exceeds the unit nameplate
+    (> 100% offline is physically impossible -> overlapping/duplicate records). One
+    row per (year, month, plant, unit), with the summed kbd, nameplate and ratio."""
+    g = (df.groupby(["year", "month", "plant", "unit_name", "focus"])
+         .agg(sum_kbd=("cap_kbd", "sum"), nameplate=("cap_raw", "max"), n_rows=("cap_kbd", "size"),
+              types=("type", lambda s: "+".join(sorted(set(s))))).reset_index())
+    g = g[(g["nameplate"] > 0) & (g["sum_kbd"] > g["nameplate"] * tol)].copy()
+    g["ratio"] = g["sum_kbd"] / g["nameplate"]
+    g["excess_kbd"] = g["sum_kbd"] - g["nameplate"]
+    return g.sort_values(["year", "excess_kbd"], ascending=[False, False]).reset_index(drop=True)
+
 # Years that are partial / special-cased (rendered grey-italic, footnoted).
 PARTIAL_YEARS = [FOCUS_YEAR - 1, FOCUS_YEAR]   # current (partial actuals) + outlook (planned only)
 PLANNED_ONLY_YEARS = [FOCUS_YEAR]      # no actual unplanned data exists for the outlook year
@@ -1510,10 +1560,11 @@ def build_context(path):
     raw data; the Excel workbook also uses it for its data blocks (its
     interactive scenario/sensitivity cells are live formulas, not these values).
     """
-    df = load(path)
+    df_full = load(path)
     # the model + slides only ever concern 2023 .. current year + 1 (END_YEAR).
     # The golden-record Snowflake spans 2010-2038, so clip it to the window here.
-    df = df[df["year"].between(START_YEAR, END_YEAR)].copy()
+    # Keep the full history for the Data-Quality tab (turnaround-cadence needs it).
+    df = df_full[df_full["year"].between(START_YEAR, END_YEAR)].copy()
     _enhanced = ("schema" in df.columns and len(df) and df["schema"].iloc[0] == "enhanced")
     if _enhanced:
         # The Enhanced file is the user's already-reconciled book -> trust it as-is
@@ -1544,6 +1595,7 @@ def build_context(path):
 
     ctx = {
         "df": df,
+        "df_full": df_full,                 # unclipped history, for the Data-Quality cadence audit
         "diag": diag,
         "summary": summary,                         # annual w/ YoY + Unpl%
         "padd_total": padd_year_matrix(df),

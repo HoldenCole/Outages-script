@@ -130,7 +130,7 @@ sheet, and the Naphtha and Forecast sheets recompute live off them.
 
 ## Excel model sheets
 
-`outage_model.xlsx`, fifteen sheets. The analysis computes off a single `Data`
+`outage_model.xlsx`, seventeen sheets. The analysis computes off a single `Data`
 source with **visible Excel formulas** (SUMIFS / AVERAGE / CORREL / SLOPE /
 RSQ ...), so any number on a slide can be traced to a cell and you can see how it
 is calculated. The shaded gold cells are editable inputs that the dependent
@@ -154,6 +154,8 @@ add **native, live Excel charts**.
 | **Stress Test** | Named shocks (USGC hurricane, winter freeze, CDU trips, fall overlap) on the 2027 book (peak-month basis), with tunable shock cells. |
 | **Statistics** | Descriptive stats (mean / median / stdev / percentiles) and a Pearson correlation matrix over the historical series. |
 | **Regression** | Least-squares best-fit (slope, intercept, R-squared, std err) on key relationships, each with a scatter + trendline chart. |
+| **PADD Connectivity** | Effective crude-outage impact = nominal CDU offline x a per-PADD pass-through (P3 Gulf is well-connected so a crude outage buffers; islanded PADDs cascade). Tunable on Assumptions, live. |
+| **Data Quality** | Auto-flags (review only, nothing dropped): focus units taking a planned turnaround again inside the ~5-year cycle (planned->planned only), and unit-months summing to >100% of nameplate (overlap / double-count). |
 
 ---
 

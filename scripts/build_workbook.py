@@ -56,6 +56,7 @@ IMG = {"x_scale": 0.6, "y_scale": 0.6, "object_position": 1}
 # extends itself instead of dropping a year.
 Y0 = engine.START_YEAR
 FY = engine.FOCUS_YEAR
+CY = engine.CURRENT_YEAR
 YEARS = list(range(Y0, FY + 1))
 
 # Data sheet column letters (keep in sync with _data_sheet header order)
@@ -151,6 +152,8 @@ def _index(wb, fm):
         ("Regression", "Least-squares best-fit (slope, R-squared, std err) + scatter trendlines."),
         ("Sensitivity", f"{FY} peak-month implied offline across multiplier x one-off shock (editable heatmap)."),
         ("Stress Test", f"Named shocks (hurricane, freeze, CDU trips) on the {FY} book, tunable."),
+        ("PADD Connectivity", "Effective crude-outage impact = nominal x per-PADD pass-through (P3 Gulf buffered); tunable."),
+        ("Data Quality", "Auto-flags: planned turnarounds recurring <5yr apart, and unit-months summing >100% of nameplate."),
     ]
     for i, (sh, what) in enumerate(extra):
         ws.write(ar + 1 + i, 2, sh, fm["rowh"])
@@ -201,9 +204,19 @@ def _assumptions(wb, fm, ctx):
         "actually reported it, so 2026 H1 sharpens H1 while H2 stays on 2023-2025.",
         "Naphtha balance: net = reformer demand removed minus CDU supply removed (+ surplus / - deficit).",
     ]
-    ws.write(18, 0, "Methodology", fm["secn"])
+    # PADD connectivity: crude-outage pass-through (tunable; PADD Connectivity sheet is live off these)
+    ws.write(17, 0, "PADD connectivity: crude-outage pass-through", fm["secn"])
+    ws.write(18, 0, "Share of a CDU outage that cascades downstream", fm["hl"])
+    ws.write(18, 1, "pass-thru", fm["h"])
+    for i, p in enumerate(["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]):
+        ws.write(19 + i, 0, p, fm["lbl"]); ws.write_number(19 + i, 1, engine.PADD_CONNECTIVITY[p], fm["inp"])
+        wb.define_name(f"conn_p{i+1}", f"=Assumptions!$B${20+i}")
+    ws.merge_range(24, 0, 24, 5, "Low = well-connected (P3 Gulf): the units downstream of the crude unit keep "
+                   "running on piped-in intermediates. High (P2 / P4 / P5, parts of P1): islanded, so a crude "
+                   "outage cascades and the downstream units are cut too.", fm["txtw"])
+    ws.write(26, 0, "Methodology", fm["secn"])
     for i, n in enumerate(notes):
-        ws.merge_range(19 + i, 0, 19 + i, 5, f"- {n}", fm["txtw"])
+        ws.merge_range(27 + i, 0, 27 + i, 5, f"- {n}", fm["txtw"])
 
 
 DATA_BUFFER = 6000           # spare formula rows so pasted Snowflake refreshes self-classify
@@ -868,11 +881,118 @@ def _stress(wb, fm, ctx):
 
 
 # Colored tabs grouped by purpose: navigation, source, per-unit analysis, balance, forecast, stats
+def _padd_connectivity(wb, fm, ctx):
+    """Sensitize the crude-outage read to regional pipeline connectivity. A CDU
+    outage in a well-connected PADD (P3 Gulf) lets the downstream units keep running
+    on piped-in intermediates (low pass-through); an islanded PADD has to cut them
+    too (high pass-through). Effective = nominal x pass-through, live off Assumptions."""
+    ws = wb.add_worksheet("PADD Connectivity")
+    ws.set_column(0, 0, 12); ws.set_column(1, 5, 15)
+    _title(ws, fm, "PADD Connectivity: effective crude-outage impact (live)",
+           "Effective = nominal CDU offline x pass-through (Assumptions). Low pass-through (P3 Gulf) = "
+           "well-connected, downstream keeps running; high = islanded, the outage cascades.")
+    fp = ctx["focus_padd"]
+    PADDS = ["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]
+
+    def nom(year, padd):
+        g = fp.get(year, {}).get("CDU")
+        return float(g.loc[padd].sum()) if (g is not None and padd in g.index) else 0.0
+    r0 = 3
+    heads = ["PADD", "Pass-thru", f"{CY} CDU (Σ kbd)", f"{CY} effective", f"{FY} CDU (Σ kbd)", f"{FY} effective"]
+    for j, h in enumerate(heads):
+        ws.write(r0, j, h, fm["hl"] if j == 0 else fm["h"])
+    first = r0 + 1
+    for i, p in enumerate(PADDS):
+        rr = first + i; xl = rr + 1; n = i + 1
+        f = engine.PADD_CONNECTIVITY[p]
+        ws.write(rr, 0, p, fm["rowh"])
+        ws.write_formula(rr, 1, f"=conn_p{n}", fm["f2"], f)
+        ws.write_formula(rr, 2, _si("K", ("A", CY), ("G", "CDU"), ("F", p)), fm["num"], nom(CY, p))
+        ws.write_formula(rr, 3, f"=C{xl}*conn_p{n}", fm["num"], nom(CY, p) * f)
+        ws.write_formula(rr, 4, _si("K", ("A", FY), ("G", "CDU"), ("F", p)), fm["num"], nom(FY, p))
+        ws.write_formula(rr, 5, f"=E{xl}*conn_p{n}", fm["num"], nom(FY, p) * f)
+    tot = first + 5; txl = tot + 1
+    ws.write(tot, 0, "Total", fm["rowh"]); ws.write(tot, 1, "", fm["txt"])
+    cyn = sum(nom(CY, p) for p in PADDS); cye = sum(nom(CY, p) * engine.PADD_CONNECTIVITY[p] for p in PADDS)
+    fyn = sum(nom(FY, p) for p in PADDS); fye = sum(nom(FY, p) * engine.PADD_CONNECTIVITY[p] for p in PADDS)
+    for col, cached in [(2, cyn), (3, cye), (4, fyn), (5, fye)]:
+        c = chr(ord("A") + col)
+        ws.write_formula(tot, col, f"=SUM({c}{first+1}:{c}{first+5})", fm["num"], cached)
+    br = tot + 2
+    ws.write(br, 0, "Buffered by connectivity (nominal - effective):", fm["lbl"])
+    ws.write_formula(br, 3, f"=C{txl}-D{txl}", fm["num"], cyn - cye)
+    ws.write_formula(br, 5, f"=E{txl}-F{txl}", fm["num"], fyn - fye)
+    ws.write_formula(br + 1, 0, f'="Effective crude tightness is "&TEXT(1-F{txl}/E{txl},"0%")&" below nominal '
+                     f'in {FY} -- the P3 connectivity buffer."', fm["key"],
+                     f"Effective crude tightness is {1-fye/fyn:.0%} below nominal in {FY} -- the P3 connectivity buffer."
+                     if fyn else "")
+    ws.write(br + 3, 0, "Tune the pass-through on the Assumptions sheet (gold cells). Applied to CDU only: "
+             "crude is the unit whose outage can or cannot be routed around.", fm["key"])
+
+
+def _data_quality(wb, fm, ctx):
+    """Re-runnable data-quality flags: planned turnarounds recurring inside the
+    ~5-year cycle (planned->planned only), and unit-months that sum to >100% of
+    nameplate (overlap / double-count). Review only -- nothing is dropped."""
+    ws = wb.add_worksheet("Data Quality")
+    ws.set_column(0, 0, 28); ws.set_column(1, 1, 26); ws.set_column(2, 8, 10)
+    _title(ws, fm, "Data Quality: turnaround-cadence & double-count flags (review only)",
+           "Auto-flagged from the source each build; nothing is dropped. Verify against the source. "
+           f"Turnarounds run on ~a {engine.TURNAROUND_CYCLE_YEARS}-year cycle.")
+    # --- 1) turnaround cadence ---
+    r0 = 3
+    ws.write(r0, 0, f"Planned turnaround again within <{engine.TURNAROUND_CYCLE_YEARS}yr "
+             "(CDU & FCC; planned->planned only -- unplanned never resets the cycle)", fm["secn"])
+    cf_all = engine.cadence_flags(ctx["df_full"], reach_from=CY)
+    cf = cf_all[(cf_all["next_TA"] >= CY) & (cf_all["next_TA"] <= FY)].sort_values(
+        "kbd_next", ascending=False).head(16)
+    heads = ["Plant", "Unit", "Class", "Prev TA", "Next TA", "Gap yr", "kbd prev", "kbd next"]
+    hr = r0 + 1
+    for j, h in enumerate(heads):
+        ws.write(hr, j, h, fm["hl"] if j < 2 else fm["h"])
+    for i, (_, r) in enumerate(cf.iterrows()):
+        rr = hr + 1 + i
+        ws.write(rr, 0, str(r["plant"])[:28], fm["txt"]); ws.write(rr, 1, str(r["unit"])[:26], fm["txt"])
+        ws.write(rr, 2, r["focus"], fm["txt"])
+        ws.write_number(rr, 3, int(r["prev_TA"]), fm["txt"]); ws.write_number(rr, 4, int(r["next_TA"]), fm["txt"])
+        ws.write_number(rr, 5, int(r["gap_yrs"]), fm["txt"])
+        ws.write_number(rr, 6, round(r["kbd_prev"]), fm["num"]); ws.write_number(rr, 7, round(r["kbd_next"]), fm["num"])
+    nrow = hr + 1 + len(cf)
+    ws.merge_range(nrow, 0, nrow, 8, f"{len(cf_all)} CDU/FCC planned-pairs are <={engine.TURNAROUND_CYCLE_YEARS-1}yr "
+                   f"apart and reach {CY}+ (top 16 by size shown). 'kbd' = day-weighted kbd-months that year. "
+                   "A short gap can be real minor maintenance, not a full turnaround -- check magnitude.", fm["txtw"])
+    # --- 2) double count ---
+    dr = nrow + 2
+    ws.write(dr, 0, "Unit-months summing to >100% of nameplate (overlap / double-count)", fm["secn"])
+    dc = engine.double_count_flags(ctx["df"])
+    dcw = dc[dc["year"].between(CY, FY)] if len(dc) else dc
+    dcw = dcw.sort_values("excess_kbd", ascending=False).head(12) if len(dcw) else dcw
+    heads2 = ["Year", "Mon", "Plant", "Unit", "Class", "Σ kbd", "Nameplate", "Ratio", "Type"]
+    hr2 = dr + 1
+    order = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    for j, h in enumerate(heads2):
+        ws.write(hr2, j, h, fm["hl"] if j in (2, 3) else fm["h"])
+    for i, (_, r) in enumerate(dcw.iterrows()):
+        rr = hr2 + 1 + i
+        ws.write_number(rr, 0, int(r["year"]), fm["txt"]); ws.write_number(rr, 1, int(r["month"]), fm["txt"])
+        ws.write(rr, 2, str(r["plant"])[:22], fm["txt"]); ws.write(rr, 3, str(r["unit_name"])[:22], fm["txt"])
+        ws.write(rr, 4, str(r["focus"]), fm["txt"])
+        ws.write_number(rr, 5, round(r["sum_kbd"], 1), fm["num"]); ws.write_number(rr, 6, round(r["nameplate"], 1), fm["num"])
+        ws.write_number(rr, 7, round(r["ratio"], 2), fm["f2"]); ws.write(rr, 8, str(r["types"]), fm["txt"])
+    drow = hr2 + 1 + len(dcw)
+    total_excess = float(dc[dc["year"].between(CY, FY)]["excess_kbd"].sum()) if len(dc) else 0.0
+    ws.merge_range(drow, 0, drow, 8, f"{len(dc[dc['year'].between(CY, FY)]) if len(dc) else 0} focus unit-months "
+                   f"in {CY}-{FY} exceed nameplate (~{total_excess:,.0f} excess kbd-months) -- small vs the totals, "
+                   "but each is an overlap or a duplicate record (or one event logged as both planned and unplanned).",
+                   fm["txtw"])
+
+
 TAB = {"Index": "#1F3864", "Assumptions": "#BF9000", "Data": "#808080",
        "Historicals": "#538DD5", "Per-Unit": "#2E5496", "Biggest": "#2E5496",
        "H1 by Unit": "#2E5496", "PADD by Unit": "#2E5496", "Naphtha": "#548235",
        "ExxonMobil": "#2E5496", "Forecast": "#C55A11", "Sensitivity": "#C55A11",
-       "Stress Test": "#C55A11", "Statistics": "#7030A0", "Regression": "#7030A0"}
+       "Stress Test": "#C55A11", "Statistics": "#7030A0", "Regression": "#7030A0",
+       "PADD Connectivity": "#C55A11", "Data Quality": "#A6A6A6"}
 
 
 def build_workbook(ctx, assets, path):
@@ -895,6 +1015,8 @@ def build_workbook(ctx, assets, path):
     _stress(wb, fm, ctx)
     _statistics(wb, fm, base)
     _regression(wb, fm, base)
+    _padd_connectivity(wb, fm, ctx)
+    _data_quality(wb, fm, ctx)
     # professional polish: colored tabs, hidden gridlines (except the data table)
     for ws in wb.worksheets():
         ws.set_tab_color(TAB.get(ws.name, "#808080"))
