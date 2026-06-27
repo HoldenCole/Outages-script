@@ -43,7 +43,8 @@ _ROOT = Path(__file__).resolve().parent.parent
 INPUT_PATH = str(_ROOT / "data" / "Golden_Record_Snowflake.xlsx")
 OUT_PATH = str(_ROOT / "output" / "outage_deck_naphtha.pptx")
 
-CY = engine.CURRENT_YEAR            # the in-progress year this deck headlines (rest of <yy>)
+CY = engine.CURRENT_YEAR            # the in-progress year (rest of it) this deck headlines
+FY = engine.FOCUS_YEAR             # plus the outlook year -- the forward window is CY + FY
 
 
 class NaphthaDeck(Deck):
@@ -65,106 +66,93 @@ class NaphthaDeck(Deck):
                    [("Products Trading", 20, False, LT_BLUE)])
         self._text(s, Inches(0.68), Inches(3.4), Inches(8.0), Inches(1.7),
                    [("Refinery Outages", 38, True, WHITE),
-                    (f"Rest of {str(CY)[2:]}: Naphtha, Reformers & Chem Feed", 30, True, WHITE)], sa=2)
+                    (f"Rest of {str(CY)[2:]} + {str(FY)[2:]}: Naphtha, Reformers & Chem Feed", 27, True, WHITE)], sa=2)
         self._rect(s, Inches(0.72), Inches(5.35), Inches(2.8), Pt(2.5), GOLD)
         self._text(s, Inches(0.72), Inches(5.55), Inches(7.9), Inches(0.95),
                    [("The octane and petrochemical-feedstock read: reformers and the naphtha complex, "
                      "not just crude", 12.5, False, LT_BLUE),
-                    (f"{CY} H1 is actual; H2 is the booked plan still to come", 11, False,
-                     RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
+                    (f"The forward window: {CY} H1 is actual; the rest of {CY} and all of {FY} are the outlook", 11,
+                     False, RGBColor(0x9D, 0xB6, 0xDB))], sa=4)
         self._text(s, Inches(11.3), Inches(7.0), Inches(1.85), Inches(0.3),
                    [("PROPRIETARY", 9, False, LT_BLUE)], align=PP_ALIGN.RIGHT)
 
-    def rest_of_year_slide(self):
-        fm = self.ctx["focus_monthly"]
-        h2 = {f: sum(float(self.ctx["focus_planned"][f].loc[CY, m])
-                     for m in engine.MONTHS[6:]) if CY in self.ctx["focus_planned"][f].index else 0.0
-              for f in engine.FOCUS_ORDER}
-        ref_h2 = kbd(h2.get("Reformer", 0.0))
+    def forward_unit_slide(self):
         self.wide_chart_slide(
-            f"Rest of {CY} Outages by Unit",
-            "Capacity offline by unit & month; solid = H1 actual, hatched = H2 booked plan (still to come)",
-            self.a["cy_splits"],
-            foot="Day-weighted offline (a unit down part of a month counts only its days down), each unit "
-                 f"once per month. H1 reported; H2 is the booked plan. Reformer H2 booked ~{ref_h2} kbd.")
-
-    def drivers_slide(self):
-        ev = engine.unit_events(self.ctx["df"], year=CY)
-        ev = ev[ev["focus"].isin(engine.FOCUS_ORDER)].sort_values("kbd", ascending=False)
-        refs = ev[ev["focus"].eq("Reformer")].head(3)
-        rnames = ", ".join(f"{r['plant'].replace(' Refinery', '')} ({kbd(r['kbd'])})" for _, r in refs.iterrows()) \
-            if len(refs) else "n/a"
-        self.wide_chart_slide(
-            f"What's Driving It: the Biggest {CY} Outages",
-            f"Each bar is one unit's nameplate offline (kbd) in {CY}, colored by PADD (region)",
-            self.a["biggest_cy"],
-            foot=f"Per-unit nameplate offline, the 12 biggest focus-unit outages of {CY}. Color = PADD "
-                 f"region. Biggest reformers: {rnames} kbd.")
+            f"The Forward Book by Unit: Rest of {CY} + {FY}",
+            f"Capacity offline by unit & month across the forward window ({CY} H1 shaded = actual)",
+            self.a["focus_forward"],
+            foot="Day-weighted offline, each unit once per month. Shaded = the current year's H1 (actual, behind "
+                 "us); everything to the right is the forward book (rest of this year + next).")
 
     def reformer_slide(self):
-        nb = self.ctx["naphtha_balance_cy"]
-        ref_off = sum(nb["ref_offline"])
-        reformate = sum(nb["reformate_lost"])
-        self.charts_bullets_slide(
+        nbcy, nbfy = self.ctx["naphtha_balance_cy"], self.ctx["naphtha_balance"]
+        fwd_ref = sum(nbcy["ref_offline"][6:]) + sum(nbfy["ref_offline"])
+        fwd_reformate = sum(nbcy["reformate_lost"][6:]) + sum(nbfy["reformate_lost"])
+        self.wide_chart_slide(
             "Reformers: the Octane Read",
-            f"{CY} catalytic-reformer capacity offline by month & PADD, with reformate (octane) lost",
-            [self.a["reformer_focus"]],
-            foot=f"Reformers run naphtha -> reformate (the octane in gasoline). ~{kbd(ref_off)} kbd of "
-                 f"reformer offline over {CY} = ~{kbd(reformate)} kbd of reformate (octane) not made. "
-                 f"Dashed line is {CY-1} for context; past the dotted line is H2 (booked).")
+            f"Catalytic-reformer offline by month & PADD across {CY}-{FY}, with reformate (octane) lost",
+            self.a["reformer_forward"],
+            foot=f"Reformers run naphtha -> reformate (the octane in gasoline). Over the forward window "
+                 f"(rest of {CY} + {FY}), ~{kbd(fwd_ref)} kbd of reformer offline = ~{kbd(fwd_reformate)} kbd of "
+                 "reformate (octane) not made. P3 (Gulf) carries the most.")
 
     def naphtha_balance_slide(self):
-        nb = self.ctx["naphtha_balance_cy"]
-        net = nb["net"]
-        order = sorted(range(12), key=lambda i: net[i])
-        m1, m2 = engine.MONTHS[order[0]], engine.MONTHS[order[1]]
-        ny = int(round(nb["naphtha_yield"] * 100))
-        state = "deficit (short)" if nb["annual_net"] < 0 else "surplus (long)"
+        nbcy, nbfy = self.ctx["naphtha_balance_cy"], self.ctx["naphtha_balance"]
+        fwd_net = list(nbcy["net"][6:]) + list(nbfy["net"])
+        n_def = sum(1 for v in fwd_net if v < -1e-6)
+        ny = int(round(nbcy["naphtha_yield"] * 100))
         self.wide_chart_slide(
             "Naphtha Balance: CDU Supply vs Reformer Demand",
-            f"{CY} outages read as naphtha length. CDU makes naphtha; reformers consume it",
-            self.a["naphtha_balance_cy"],
-            foot=f"Net = reformer offline x {nb['reformer_intake']:.0f} (demand) minus CDU offline x "
-                 f"{nb['naphtha_yield']:.2f} (supply, ~{ny}% of crude), day-weighted. {CY} runs a {state} "
-                 f"(net {kbd(nb['annual_net'])} kbd), tightest {m1}/{m2}; + surplus / - deficit.")
+            f"{CY}-{FY} outages read as naphtha length. CDU makes naphtha; reformers consume it",
+            self.a["naphtha_forward"],
+            foot=f"Net = reformer offline (demand, x1.0) minus CDU offline x {nbcy['naphtha_yield']:.2f} "
+                 f"(supply, ~{ny}% of crude), day-weighted. The forward window runs short ({n_def} of "
+                 f"{len(fwd_net)} months in deficit): crude turnarounds pull more naphtha off than reformers free.")
 
     def chemfeed_slide(self):
         na = self.ctx["naphtha"]["annual"]
         cy_tot = float(na.loc[CY, "Total"]) if CY in na.index else 0.0
-        py = CY - 1
-        chg = (cy_tot / float(na.loc[py, "Total"]) - 1.0) if (py in na.index and na.loc[py, "Total"]) else 0.0
+        fy_tot = float(na.loc[FY, "Total"]) if FY in na.index else 0.0
         self.wide_chart_slide(
             "Naphtha / Octane / Chem-Feed Complex",
             "Reforming, isomerization and aromatics/BTX offline by year - the octane & petrochem-feed read",
             self.a["naphtha_complex"],
-            foot=f"The naphtha/octane complex (reformer charge + steam-cracker / petrochem feed). {CY} "
-                 f"offline ~{kbd(cy_tot)} kbd ({chg:+.0%} vs {py}). Reforming dominates the complex; this "
+            foot=f"The naphtha/octane complex (reformer charge + steam-cracker / petrochem feed). Offline "
+                 f"~{kbd(cy_tot)} kbd in {CY} and ~{kbd(fy_tot)} kbd booked in {FY}. Reforming dominates; this "
                  "is the octane/chem-feed availability a CDU-only tracker misses.")
+
+    def drivers_slide(self):
+        self.charts_bullets_slide(
+            f"What's Driving It: Biggest {CY} & {FY} Outages",
+            f"Biggest individual focus-unit outages, {CY} (left) and {FY} (right), by PADD",
+            [self.a["biggest_cy"], self.a["biggest_fy"]],
+            foot="Per-unit nameplate offline (never summed), the biggest outages each year. Color = PADD region. "
+                 f"{FY} non-Exxon H2 is still being booked (an indicative floor).")
 
     def padd_slide(self):
         self.charts_bullets_slide(
-            "Reformer & Crude Outages by PADD",
-            f"{CY} reformer (octane, left) and crude (CDU, right) offline by region & month",
-            [self.a["ref_padd_cy"], self.a["cdu_padd_cy"]],
-            foot="Day-weighted concurrent capacity offline by month, stacked by PADD. P1 NE, P2 Midwest, "
-                 "P3 Gulf, P4 Rockies, P5 West. Reformer octane and crude naphtha go down together in P3 (Gulf).")
+            "Reformer Outages by PADD",
+            f"Reformer (octane) offline by region & month: {CY} (left) vs {FY} (right)",
+            [self.a["ref_padd_cy"], self.a["ref_padd_fy"]],
+            foot="Day-weighted concurrent reformer offline by month, stacked by PADD. P1 NE, P2 Midwest, "
+                 "P3 Gulf, P4 Rockies, P5 West. P3 (Gulf) carries the bulk of the octane loss.")
 
     def unplanned_context_slide(self):
         self.wide_chart_slide(
             f"Unplanned Offline: {CY-2}-{CY} Context",
-            f"What unplanned actually looked like recently, to ground the rest of {CY}",
+            f"What unplanned actually looked like recently, to ground the forward window",
             self.a["unplanned_context"],
             foot=f"Actual unplanned capacity offline by month, day-weighted. {CY} reported through June; "
-                 "the Feb-freeze and autumn-turnaround windows are the recurring risk to carry into H2.")
+                 "the Feb-freeze and autumn-turnaround windows are the recurring risk to carry forward.")
 
     def build(self):
         self.title_slide()
-        self.rest_of_year_slide()         # all four units, H1 actual vs H2 booked
-        self.drivers_slide()              # biggest individual outages of the year
-        self.reformer_slide()             # reformers: the octane read   (focus)
-        self.naphtha_balance_slide()      # CDU supply vs reformer demand
-        self.chemfeed_slide()             # naphtha/octane/chem-feed complex
-        self.padd_slide()                 # reformer & crude by PADD
+        self.forward_unit_slide()         # all four units across the forward window
+        self.reformer_slide()             # reformers: the octane read  (forward, focus)
+        self.naphtha_balance_slide()      # CDU supply vs reformer demand (forward)
+        self.chemfeed_slide()             # naphtha/octane/chem-feed complex (annual)
+        self.drivers_slide()              # biggest CY & FY outages
+        self.padd_slide()                 # reformer by PADD, CY vs FY
         self.unplanned_context_slide()    # recent unplanned context
 
 

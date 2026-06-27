@@ -18,11 +18,14 @@ that always agree:
    means for the market (the gasoline-complex turnaround stack vs the summer-grade
    switchover, on a low-inventory backdrop). The
    **naphtha / chem-feed deck** is the parallel octane & petrochemical-feedstock
-   read, headlining the in-progress year ("rest of <yy>", H1 actual vs H2 booked)
-   and tilted to **reformers**: rest-of-year outages by unit, the biggest outages,
-   reformers (the octane read), the naphtha balance, the naphtha/octane/chem-feed
-   complex (reforming + isomerization + aromatics/BTX), reformer & crude by PADD,
-   and unplanned context. Both read the same engine context, so they agree.
+   read across the **forward window** — the rest of the current year **plus** the
+   outlook year (24-month timelines, with the current year's H1 shaded as actual)
+   — tilted to **reformers**: the forward book by unit, reformers (the octane read),
+   the naphtha balance, the naphtha/octane/chem-feed complex (reforming +
+   isomerization + aromatics/BTX), the biggest outages of both years, reformer by
+   PADD, and unplanned context. Both read the same engine context, so they agree.
+   (The main deck is for the gasoline and diesel reads; the chem-feed deck is the
+   reformers/naphtha read.)
 2. **Excel model** (`output/outage_model.xlsx`): every number the deck looks at,
    calculates or forecasts, in detail, with the exact deck charts embedded on
    each sheet (just copy and paste). It is **live off the Snowflake**: the `Data`

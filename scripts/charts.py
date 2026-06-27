@@ -1290,22 +1290,141 @@ def market_setup(ctx, path, year=None):
     return _save(fig, path)
 
 
+# --------------------------------------------------------------------------- #
+#  Forward 2-year (rest-of-current-year + outlook) timelines for the chem-feed  #
+#  deck. 24 months: H1 of the current year is shaded as actual/behind us, so    #
+#  the forward window (rest of CY + FY) stands out. Year boundary marked.        #
+# --------------------------------------------------------------------------- #
+FWD_YEARS = (CY, FY)
+
+
+def _fwd_frame(ax, top, years=FWD_YEARS, hi_lab="reformate"):
+    ax.axvspan(-0.5, 5.5, color="#F2F2F2", zorder=0)              # H1 of current year = actual
+    ax.axvline(11.5, color="#23272e", ls="-", lw=1.4, zorder=5)  # year boundary
+    ax.axvline(5.5, color=GRAY, ls=":", lw=1.1, zorder=4)        # actual | forward within current year
+    ax.set_xticks(np.arange(24), [m[0] for m in MONTHS] * 2, fontsize=7)
+    ax.text(2.5, top * 1.05, f"{years[0]} H1 actual", ha="center", fontsize=8, color=GRAY, style="italic")
+    ax.text(8.5, top * 1.05, f"rest of {years[0]}", ha="center", fontsize=8.5, color="#23272e")
+    ax.text(17.5, top * 1.05, f"{years[1]} (outlook)", ha="center", fontsize=9.5, fontweight="bold", color=NAVY)
+    ax.set_xlim(-0.7, 23.7)
+
+
+def reformer_forward(ctx, path, years=FWD_YEARS):
+    """Reformer (octane) capacity offline by month across the forward window
+    (rest of CY + FY), stacked by PADD, with the reformate (octane) lost called
+    out. The chem-feed / octane read for the next ~18 months. H1 of the current
+    year is shaded (actual); the forward window is the point."""
+    g = ctx["focus_padd"]
+    refrate = float(engine.YIELD_FACTOR["Ref"])
+    x = np.arange(24)
+    fig, ax = plt.subplots(figsize=(12.0, 5.3))
+    bottom = np.zeros(24); tot = np.zeros(24)
+    for pd_ in PADDS:
+        vals = []
+        for y in years:
+            gg = g[y]["Reformer"] if y in g else None
+            vals += list(gg.loc[pd_].values if (gg is not None and pd_ in gg.index) else np.zeros(12))
+        vals = np.array(vals)
+        ax.bar(x, vals, bottom=bottom, color=PADD_COLOR[pd_], zorder=3, label=pd_.replace("PADD ", "P"))
+        bottom += vals; tot += vals
+    top = float(tot.max())
+    ax.set_ylim(0, top * 1.22 + 15)
+    _fwd_frame(ax, top, years)
+    fwd = tot.copy(); fwd[:6] = 0.0                              # rest of CY + FY
+    ax.text(0.015, 0.96, f"~{fwd.sum() * refrate:,.0f} kbd of reformate (octane) offline over the forward window",
+            transform=ax.transAxes, ha="left", va="top", fontsize=8.6, color=GOLD, style="italic")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("reformer capacity offline (kbd)")
+    ax.set_title(f"Reformer Outages by Month & PADD, {years[0]}-{years[1]} - the Octane Read (kbd)", fontsize=12)
+    ax.legend(frameon=False, ncol=5, fontsize=8, loc="upper right")
+    _clean(ax)
+    return _save(fig, path)
+
+
+def naphtha_forward(ctx, path, years=FWD_YEARS):
+    """Net naphtha balance by month across the forward window (rest of CY + FY):
+    reformer outages remove demand (up), CDU outages remove supply (down), the net
+    line is the balance. Below zero = naphtha short. H1 of the current year shaded."""
+    keys = {years[0]: "naphtha_balance_cy", years[1]: "naphtha_balance"}
+    demand = []; supply = []; net = []
+    for y in years:
+        nb = ctx[keys[y]]
+        demand += list(nb["demand_removed"]); supply += list(nb["supply_removed"]); net += list(nb["net"])
+    demand = np.array(demand); supply = np.array(supply); net = np.array(net)
+    x = np.arange(24)
+    fig, ax = plt.subplots(figsize=(12.0, 5.3))
+    ax.bar(x, demand, width=0.7, color="#70AD47", zorder=3, label="Reformer down: naphtha demand removed")
+    ax.bar(x, -supply, width=0.7, color="#2E5496", zorder=3, label="CDU down: naphtha supply removed")
+    ax.fill_between(x, 0, net, where=(net <= 0), interpolate=True, color=RED, alpha=0.12, zorder=2)
+    ax.fill_between(x, 0, net, where=(net >= 0), interpolate=True, color=GREEN, alpha=0.12, zorder=2)
+    ax.plot(x, net, color="#23272e", lw=2.6, marker="o", ms=4, zorder=6, label="Net naphtha balance")
+    ax.axhline(0, color="#23272e", lw=1.3, zorder=4)
+    top = float(max(demand.max(), 10.0)); bot = float(min(net.min(), (-supply).min()))
+    ax.set_ylim(bot * 1.18, top * 1.30 + 20)
+    _fwd_frame(ax, top, years)
+    ax.text(23.4, top * 0.55, "surplus\n(naphtha long)", ha="right", va="center", fontsize=7.5, color=GREEN, style="italic")
+    ax.text(23.4, bot * 0.55, "deficit\n(naphtha short)", ha="right", va="center", fontsize=7.5, color=RED, style="italic")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("kbd of naphtha")
+    ax.set_title(f"Naphtha Balance by Month, {years[0]}-{years[1]}: CDU Supply vs Reformer Demand (kbd)", fontsize=12)
+    ax.legend(frameon=False, ncol=2, fontsize=8, loc="lower left")
+    _clean(ax, ygrid=True)
+    return _save(fig, path)
+
+
+def focus_forward_splits(ctx, path, years=FWD_YEARS):
+    """All four focus units, capacity offline by month across the forward window
+    (rest of CY + FY) - 2x2 small multiples. H1 of the current year shaded as
+    actual; the rest is the forward slate. The 'what's the whole book look like'
+    overview for the chem-feed deck."""
+    fm = ctx["focus_monthly"]
+    fig, axes = plt.subplots(2, 2, figsize=(11.8, 6.6))
+    x = np.arange(24)
+    for idx, (ax, f) in enumerate(zip(axes.reshape(-1), engine.FOCUS_ORDER)):
+        vals = []
+        for y in years:
+            mm = fm[f]
+            vals += [float(mm.loc[y, mo]) if y in mm.index else 0.0 for mo in MONTHS]
+        vals = np.array(vals)
+        ax.axvspan(-0.5, 5.5, color="#F2F2F2", zorder=0)
+        ax.bar(x, vals, color=FOCUS_COLOR.get(f, NAVY), zorder=3)
+        ax.axvline(11.5, color="#23272e", ls="-", lw=1.1, zorder=4)
+        ax.set_xticks(x, [m[0] for m in MONTHS] * 2, fontsize=6)
+        ax.yaxis.set_major_formatter(_thousands)
+        ax.set_ylim(0, float(vals.max()) * 1.16 + 5)
+        ytop = ax.get_ylim()[1]
+        ax.text(5.5, ytop * 0.97, str(years[0]), ha="center", va="top", fontsize=7.5, color=GRAY)
+        ax.text(17.5, ytop * 0.97, str(years[1]), ha="center", va="top", fontsize=8, fontweight="bold", color=NAVY)
+        if idx % 2 == 0:
+            ax.set_ylabel("kbd offline", fontsize=9)
+        ax.set_title(engine.FOCUS_LABEL[f], fontsize=10.5)
+        _clean(ax)
+    fig.legend([plt.Rectangle((0, 0), 1, 1, color="#F2F2F2")], [f"shaded = {years[0]} H1 (actual); rest = forward window"],
+               loc="lower center", frameon=False, fontsize=9)
+    fig.suptitle(f"Capacity Offline by Unit, {years[0]}-{years[1]} (kbd/month, forward window)",
+                 fontsize=13, fontweight="bold", color=NAVY)
+    fig.tight_layout(rect=[0, 0.04, 1, 0.96])
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def render_naphtha_assets(ctx, outdir):
-    """Charts for the parallel rest-of-current-year naphtha / chem-feed deck.
-    Reuses biggest_outages / focus_padd_bars / unplanned_context for the current
-    year (CY) and adds the reformer- and naphtha-complex-specific renders."""
+    """Charts for the parallel chem-feed / naphtha deck, spanning the forward window
+    (rest of CY + FY). Forward 24-month timelines for the reformer/octane and naphtha
+    reads, the cross-year chem-feed complex, plus the FY drivers and PADD detail."""
     import os
     os.makedirs(outdir, exist_ok=True)
     p = lambda n: os.path.join(outdir, n)
     return {
-        "cy_splits": cy_unit_splits(ctx, p("cy_splits.png")),
-        "biggest_cy": biggest_outages(ctx, p("biggest_cy.png"), year=CY),
-        "reformer_focus": reformer_focus(ctx, p("reformer_focus.png")),
-        "naphtha_balance_cy": naphtha_balance_chart(ctx, p("naphtha_balance_cy.png"),
-                                                    key="naphtha_balance_cy", h2_note="H2 booked, still filling in"),
+        "focus_forward": focus_forward_splits(ctx, p("focus_forward.png")),
+        "reformer_forward": reformer_forward(ctx, p("reformer_forward.png")),
+        "naphtha_forward": naphtha_forward(ctx, p("naphtha_forward.png")),
         "naphtha_complex": naphtha_complex_chart(ctx, p("naphtha_complex.png")),
+        "biggest_cy": biggest_outages(ctx, p("biggest_cy.png"), year=CY),
+        "biggest_fy": biggest_outages(ctx, p("biggest_fy.png"), year=FY),
         "ref_padd_cy": focus_padd_bars(ctx, "Reformer", CY, p("ref_padd_cy.png")),
-        "cdu_padd_cy": focus_padd_bars(ctx, "CDU", CY, p("cdu_padd_cy.png")),
+        "ref_padd_fy": focus_padd_bars(ctx, "Reformer", FY, p("ref_padd_fy.png")),
         "unplanned_context": unplanned_context(ctx, p("unplanned_context.png")),
     }
 
