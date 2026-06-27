@@ -149,11 +149,8 @@ def _index(wb, fm):
     extra = [
         ("What's Changed", "Rolling MoM (live) + week-over-week pull log + this month's new / back-online movers."),
         ("Historicals", f"Monthly {Y0}-{FY}: total/planned/unplanned, unplanned %, per unit, per PADD, YoY, chart."),
-        ("Statistics", "Descriptive stats (mean/median/stdev/percentiles) and a correlation matrix."),
-        ("Regression", "Least-squares best-fit (slope, R-squared, std err) + scatter trendlines."),
-        ("Sensitivity", f"{FY} peak-month implied offline across multiplier x one-off shock (editable heatmap)."),
-        ("Stress Test", f"Named shocks (hurricane, freeze, CDU trips) on the {FY} book, tunable."),
-        ("PADD Connectivity", "Effective crude-outage impact = nominal x per-PADD pass-through (P3 Gulf buffered); tunable."),
+        ("Scenarios", f"All the forward what-ifs in one place: {FY} peak-month sensitivity grid (multiplier x "
+         "one-off shock), named stress shocks, and the PADD connectivity pass-through. Tunable."),
         ("Data Quality", "Auto-flags: planned turnarounds recurring <5yr apart, and unit-months summing >100% of nameplate."),
     ]
     for i, (sh, what) in enumerate(extra):
@@ -205,7 +202,7 @@ def _assumptions(wb, fm, ctx):
         "actually reported it, so 2026 H1 sharpens H1 while H2 stays on 2023-2025.",
         "Naphtha balance: net = reformer demand removed minus CDU supply removed (+ surplus / - deficit).",
     ]
-    # PADD connectivity: crude-outage pass-through (tunable; PADD Connectivity sheet is live off these)
+    # PADD connectivity: crude-outage pass-through (tunable; the Scenarios sheet is live off these)
     ws.write(17, 0, "PADD connectivity: crude-outage pass-through", fm["secn"])
     ws.write(18, 0, "Share of a CDU outage that cascades downstream", fm["hl"])
     ws.write(18, 1, "pass-thru", fm["h"])
@@ -692,141 +689,27 @@ def _historicals(wb, fm, base):
     return r0  # header row (data rows r0+1 .. r0+60)
 
 
-# stats window: 2023-2025 = 36 fully-reported months (rows 5..40 in Historicals, 1-based)
-STAT_HEADS = [("Total", "D"), ("Planned", "E"), ("Unplanned", "F"), ("CDU", "H"),
-              ("FCC", "I"), ("HydroCk", "J"), ("Reformer", "K"), ("Naph net", "Q")]
-STAT_R1, STAT_R2 = 5, 40       # Historicals 1-based data rows for 2023-2025
-
-
-def _stat_series(base):
-    keys = [(y, m) for y in (2023, 2024, 2025) for m in range(1, 13)]
-    s = {"Total": _ym(base), "Planned": _ym(base, type="PLANNED"), "Unplanned": _ym(base, type="UNPLANNED"),
-         "CDU": _ym(base, focus="CDU"), "FCC": _ym(base, focus="FCC"),
-         "HydroCk": _ym(base, focus="Hydrocracker"), "Reformer": _ym(base, focus="Reformer")}
-    out = {nm: np.array([_g(s[nm], y, m) for (y, m) in keys]) for nm in s}
-    out["Naph net"] = engine.REFORMER_NAPHTHA_INTAKE * out["Reformer"] - engine.NAPHTHA_YIELD * out["CDU"]
-    return out
-
-
-def _statistics(wb, fm, base):
-    ws = wb.add_worksheet("Statistics")
-    ws.set_column(0, 0, 16); ws.set_column(1, 9, 11)
-    _title(ws, fm, "Statistics (2023-2025 monthly, n=36)",
-           "Descriptive stats and a correlation matrix over the Historicals series. Live =formulas.")
-    arr = _stat_series(base)
-    names = [n for n, _ in STAT_HEADS]
-    # descriptive
-    ws.write(3, 0, "Descriptive (kbd)", fm["secn"])
-    rows = [("Mean", "AVERAGE", lambda a: np.mean(a)),
-            ("Median", "MEDIAN", lambda a: np.median(a)),
-            ("Std dev", "STDEV", lambda a: np.std(a, ddof=1)),
-            ("Min", "MIN", lambda a: np.min(a)),
-            ("P25", None, lambda a: np.percentile(a, 25)),
-            ("P75", None, lambda a: np.percentile(a, 75)),
-            ("Max", "MAX", lambda a: np.max(a))]
-    ws.write(4, 0, "Statistic", fm["hl"])
-    for j, (nm, col) in enumerate(STAT_HEADS):
-        ws.write(4, 1 + j, nm, fm["h"])
-    for i, (lab, fn, pyf) in enumerate(rows):
-        ws.write(5 + i, 0, lab, fm["rowh"])
-        for j, (nm, col) in enumerate(STAT_HEADS):
-            rng = f"Historicals!${col}${STAT_R1}:${col}${STAT_R2}"
-            if fn:
-                form = f"={fn}({rng})"
-            else:
-                pct = 0.25 if lab == "P25" else 0.75
-                form = f"=PERCENTILE({rng},{pct})"
-            ws.write_formula(5 + i, 1 + j, form, fm["num"], float(pyf(arr[nm])))
-    # correlation matrix
-    cr = 5 + len(rows) + 2
-    ws.write(cr, 0, "Correlation matrix (Pearson)", fm["secn"])
-    ws.write(cr + 1, 0, "", fm["hl"])
-    for j, nm in enumerate(names):
-        ws.write(cr + 1, 1 + j, nm, fm["h"])
-    M = np.corrcoef([arr[n] for n in names])
-    for i, ni in enumerate(names):
-        ws.write(cr + 2 + i, 0, ni, fm["rowh"])
-        for j, nj in enumerate(names):
-            ci, cj = STAT_HEADS[i][1], STAT_HEADS[j][1]
-            form = (f"=CORREL(Historicals!${ci}${STAT_R1}:${ci}${STAT_R2},"
-                    f"Historicals!${cj}${STAT_R1}:${cj}${STAT_R2})")
-            ws.write_formula(cr + 2 + i, 1 + j, form, fm["f2"], float(M[i, j]))
-    ws.conditional_format(cr + 2, 1, cr + 1 + len(names), len(names),
-                          {"type": "3_color_scale", "min_color": "#C00000",
-                           "mid_color": "#FFFFFF", "max_color": "#2E5496",
-                           "min_value": -1, "mid_value": 0, "max_value": 1,
-                           "min_type": "num", "mid_type": "num", "max_type": "num"})
-    ws.write(cr + 3 + len(names), 0,
-             "+1 move together, -1 move opposite. Crude vs reformer turnaround clustering, "
-             "planned vs unplanned substitution, etc.", fm["key"])
-
-
-def _reg_block(wb, ws, fm, r, title, xlab, ylab, xname, yname, x, y):
-    """Write one regression block (slope/intercept/R2/SE/corr/n) + a scatter+trendline."""
-    xc, yc = STAT_HEADS_MAP[xname], STAT_HEADS_MAP[yname]
-    rng = lambda c: f"Historicals!${c}${STAT_R1}:${c}${STAT_R2}"
-    slope, intercept = np.polyfit(x, y, 1)
-    r2 = float(np.corrcoef(x, y)[0, 1] ** 2)
-    resid = y - (slope * x + intercept)
-    steyx = float(np.sqrt(np.sum(resid ** 2) / (len(x) - 2)))
-    ws.write(r, 0, title, fm["secn"])
-    items = [("Slope", f"=SLOPE({rng(yc)},{rng(xc)})", slope),
-             ("Intercept", f"=INTERCEPT({rng(yc)},{rng(xc)})", intercept),
-             ("R-squared", f"=RSQ({rng(yc)},{rng(xc)})", r2),
-             ("Correlation", f"=CORREL({rng(yc)},{rng(xc)})", float(np.corrcoef(x, y)[0, 1])),
-             ("Std err (STEYX)", f"=STEYX({rng(yc)},{rng(xc)})", steyx),
-             ("n", f"=COUNT({rng(xc)})", float(len(x)))]
-    for i, (lab, form, val) in enumerate(items):
-        ws.write(r + 1 + i, 0, lab, fm["rowh"])
-        ws.write_formula(r + 1 + i, 1, form, fm["f2"], val)
-    ch = wb.add_chart({"type": "scatter"})
-    ch.add_series({"name": f"{yname} vs {xname}",
-                   "categories": rng(xc), "values": rng(yc),
-                   "marker": {"type": "circle", "size": 5, "fill": {"color": "#2E5496"}},
-                   "trendline": {"type": "linear", "display_equation": True,
-                                 "display_r_squared": True, "line": {"color": "#C00000", "width": 1.5}}})
-    ch.set_title({"name": f"{ylab} vs {xlab}"})
-    ch.set_x_axis({"name": xlab}); ch.set_y_axis({"name": ylab})
-    ch.set_legend({"none": True}); ch.set_size({"width": 430, "height": 300})
-    ws.insert_chart(r, 3, ch)
-    return r + 9
-
-
-STAT_HEADS_MAP = {n: c for n, c in STAT_HEADS}
-
-
-def _regression(wb, fm, base):
-    ws = wb.add_worksheet("Regression")
-    ws.set_column(0, 0, 18); ws.set_column(1, 1, 12)
-    _title(ws, fm, "Regression / best-fit (2023-2025 monthly, n=36)",
-           "Least-squares fits with R-squared; the chart trendline is the best-fit line.")
-    arr = _stat_series(base)
-    r = 3
-    r = _reg_block(wb, ws, fm, r, "1) Reformer offline vs CDU offline (turnaround clustering)",
-                   "CDU offline (kbd)", "Reformer offline (kbd)", "CDU", "Reformer",
-                   arr["CDU"], arr["Reformer"]) + 2
-    r = _reg_block(wb, ws, fm, r, "2) Unplanned vs Planned offline (substitution?)",
-                   "Planned offline (kbd)", "Unplanned offline (kbd)", "Planned", "Unplanned",
-                   arr["Planned"], arr["Unplanned"]) + 2
-    _reg_block(wb, ws, fm, r, "3) Naphtha net vs CDU offline (supply mechanic)",
-               "CDU offline (kbd)", "Naphtha net (kbd)", "CDU", "Naph net",
-               arr["CDU"], arr["Naph net"])
-
-
-def _sensitivity(wb, fm, ctx):
-    ws = wb.add_worksheet("Sensitivity")
-    ws.set_column(0, 0, 22); ws.set_column(1, 7, 12)
-    _title(ws, fm, f"Sensitivity: {FY} peak-month implied offline (kbd)",
-           "Worst single month of total capacity offline. Rows = unplanned multiplier x baseline; "
-           "columns = one-off shock added to that month. Live off the Forecast monthly cells.")
-    mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
-    shocks = [0, 250, 500, 750, 1000]
-    base_rng, plan_rng = "Forecast!$B$5:$M$5", "Forecast!$B$9:$M$9"   # monthly baseline & planned
-    base_m = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).values
+def _scenarios(wb, fm, ctx):
+    """All the forward what-ifs on the FY book in one sheet: the peak-month
+    sensitivity grid (unplanned multiplier x one-off shock), named stress shocks,
+    and the PADD connectivity pass-through. All live -- the grid and stress read the
+    Forecast monthly cells; connectivity reads the Assumptions pass-throughs."""
+    ws = wb.add_worksheet("Scenarios")
+    ws.set_column(0, 0, 27); ws.set_column(1, 1, 22); ws.set_column(2, 6, 15)
+    _title(ws, fm, f"Scenarios & Sensitivities: stressing the {FY} book (peak-month kbd)",
+           "Three forward what-ifs in one place. Peak-month = the worst single month of total capacity "
+           "offline. Edit the gold cells; everything recomputes live.")
     dff = ctx["df"]
+    base_m = engine.baseline_profile(dff, ctx["scenario"]["window"]).values
     plan_m = [float(dff[(dff["year"] == FY) & (dff["type"] == "PLANNED") & (dff["month"] == m)]["cap_kbd"].sum())
               for m in range(1, 13)]
-    r0 = 3                                   # header row (Excel r0+1); shock values are editable here
+
+    # --- 1) peak-month sensitivity grid: unplanned multiplier x one-off shock ---
+    ws.write(3, 0, "1) Peak-month sensitivity grid (unplanned multiplier x one-off shock)", fm["secn"])
+    mults = [0.7, 0.85, 1.0, 1.15, 1.3, 1.5]
+    shocks = [0, 250, 500, 750, 1000]
+    base_rng, plan_rng = "Forecast!$B$5:$M$5", "Forecast!$B$9:$M$9"
+    r0 = 4                                   # grid header row (Excel r0+1); shock values editable here
     hxl = r0 + 1
     ws.write(r0, 0, "mult v / shock >", fm["hl"])
     for j, sh in enumerate(shocks):
@@ -842,46 +725,82 @@ def _sensitivity(wb, fm, ctx):
     ws.conditional_format(r0 + 1, 1, r0 + len(mults), len(shocks),
                           {"type": "3_color_scale", "min_color": "#63BE7B",
                            "mid_color": "#FFEB84", "max_color": "#F8696B"})
-    ws.write(r0 + len(mults) + 2, 0, "Editable: shock row and multiplier column are gold. Peak-month implied = "
-             "worst month of (baseline x multiplier + booked planned) + one-off shock. Base = mult 1.0, shock 0.",
+    note1 = r0 + len(mults) + 2
+    ws.write(note1, 0, "Rows = unplanned multiplier x baseline; columns = one-off shock added to that month. "
+             "Peak-month implied = worst month of (baseline x multiplier + booked planned) + shock. Base = 1.0 / 0.",
              fm["sub"])
 
-
-def _stress(wb, fm, ctx):
-    ws = wb.add_worksheet("Stress Test")
-    ws.set_column(0, 0, 26); ws.set_column(1, 1, 46); ws.set_column(2, 5, 14)
-    _title(ws, fm, f"Stress test: named shocks on the {FY} book (peak-month kbd)",
-           "Edit the gold shock cells. Peak-month implied offline and naphtha impact recompute live.")
+    # --- 2) named stress shocks on the book ---
+    sr = note1 + 3
+    ws.write(sr, 0, "2) Named stress shocks on the book", fm["secn"])
     avg_peak = "Forecast!$N$14"        # Average scenario implied, peak month (a level)
-    dff = ctx["df"]
-    base_m = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"]).values
-    plan_m = [float(dff[(dff["year"] == FY) & (dff["type"] == "PLANNED") & (dff["month"] == m)]["cap_kbd"].sum())
-              for m in range(1, 13)]
-    base_peak = max(base_m[m] + plan_m[m] for m in range(12))   # Average implied peak month
+    base_peak = max(base_m[m] + plan_m[m] for m in range(12))
     ny = engine.NAPHTHA_YIELD
-    rows = [
+    srows = [
         ("USGC hurricane", "PADD 3 unplanned spike, ~1-2 months", 800, 0),
         ("Winter freeze (Uri-like)", "National unplanned spike in Feb", 0, 2000),
         ("Two large CDUs trip", "~500 kbd crude unplanned, 1 month", 500, 0),
         ("Heavy fall TA overlap", "Sep-Oct planned overlap adds load", 0, 600),
         ("Quiet year", "Light unplanned, fewer surprises", 0, -1500),
     ]
-    r0 = 3
+    sh0 = sr + 1                              # stress-table header row
     for j, h in enumerate(["Scenario", "Description", "Crude shock (kbd)", "Other shock (kbd)",
                            "Peak-month implied", "Naphtha net impact"]):
-        ws.write(r0, j, h, fm["h"] if j >= 2 else fm["hl"])
-    for i, (nm, desc, crude, other) in enumerate(rows):
-        rr = r0 + 1 + i; xl = rr + 1
-        ws.write(rr, 0, nm, fm["rowh"]); ws.write(rr, 1, desc, fm["txt"])
+        ws.write(sh0, j, h, fm["h"] if j >= 2 else fm["hl"])
+    for i, (nm, desc, crude, other) in enumerate(srows):
+        rr = sh0 + 1 + i; xl = rr + 1
+        ws.write(rr, 0, nm, fm["rowh"]); ws.write(rr, 1, desc, fm["txtw"])
         ws.write_number(rr, 2, crude, fm["inph"]); ws.write_number(rr, 3, other, fm["inph"])
         ws.write_formula(rr, 4, f"={avg_peak}+C{xl}+D{xl}", fm["num"], base_peak + crude + other)
         ws.write_formula(rr, 5, f"=-naph_yield*C{xl}", fm["num"], -ny * crude)
-    ws.write(r0 + len(rows) + 2, 0, "Peak-month implied = Average scenario's worst-month offline + crude shock "
-             "+ other shock. Naphtha impact = -naphtha_yield x crude shock (more crude down = shorter naphtha).",
-             fm["sub"])
+    note2 = sh0 + len(srows) + 2
+    ws.write(note2, 0, "Peak-month implied = Average scenario's worst-month offline + crude + other shock. "
+             "Naphtha impact = -naphtha_yield x crude shock (more crude down = shorter naphtha).", fm["sub"])
+
+    # --- 3) PADD connectivity: effective crude-outage impact (live off Assumptions) ---
+    pr = note2 + 3
+    ws.write(pr, 0, "3) PADD connectivity: effective crude-outage impact (live off Assumptions)", fm["secn"])
+    fp = ctx["focus_padd"]
+    PADDS = ["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]
+
+    def nom(year, padd):
+        g = fp.get(year, {}).get("CDU")
+        return float(g.loc[padd].sum()) if (g is not None and padd in g.index) else 0.0
+    ph0 = pr + 1                              # connectivity-table header row
+    heads = ["PADD", "Pass-thru", f"{CY} CDU (Σ kbd)", f"{CY} effective",
+             f"{FY} CDU (Σ kbd)", f"{FY} effective"]
+    for j, h in enumerate(heads):
+        ws.write(ph0, j, h, fm["hl"] if j == 0 else fm["h"])
+    first = ph0 + 1
+    for i, p in enumerate(PADDS):
+        rr = first + i; xl = rr + 1; n = i + 1
+        f = engine.PADD_CONNECTIVITY[p]
+        ws.write(rr, 0, p, fm["rowh"])
+        ws.write_formula(rr, 1, f"=conn_p{n}", fm["f2"], f)
+        ws.write_formula(rr, 2, _si("K", ("A", CY), ("G", "CDU"), ("F", p)), fm["num"], nom(CY, p))
+        ws.write_formula(rr, 3, f"=C{xl}*conn_p{n}", fm["num"], nom(CY, p) * f)
+        ws.write_formula(rr, 4, _si("K", ("A", FY), ("G", "CDU"), ("F", p)), fm["num"], nom(FY, p))
+        ws.write_formula(rr, 5, f"=E{xl}*conn_p{n}", fm["num"], nom(FY, p) * f)
+    tot = first + 5; txl = tot + 1
+    ws.write(tot, 0, "Total", fm["rowh"])
+    cyn = sum(nom(CY, p) for p in PADDS); cye = sum(nom(CY, p) * engine.PADD_CONNECTIVITY[p] for p in PADDS)
+    fyn = sum(nom(FY, p) for p in PADDS); fye = sum(nom(FY, p) * engine.PADD_CONNECTIVITY[p] for p in PADDS)
+    for col, cached in [(2, cyn), (3, cye), (4, fyn), (5, fye)]:
+        c = chr(ord("A") + col)
+        ws.write_formula(tot, col, f"=SUM({c}{first+1}:{c}{first+5})", fm["num"], cached)
+    br = tot + 2
+    ws.write(br, 0, "Buffered by connectivity (nominal - effective):", fm["lbl"])
+    ws.write_formula(br, 3, f"=C{txl}-D{txl}", fm["num"], cyn - cye)
+    ws.write_formula(br, 5, f"=E{txl}-F{txl}", fm["num"], fyn - fye)
+    ws.write_formula(br + 1, 0, f'="Effective crude tightness is "&TEXT(1-F{txl}/E{txl},"0%")&" below nominal '
+                     f'in {FY} -- the P3 connectivity buffer."', fm["key"],
+                     f"Effective crude tightness is {1-fye/fyn:.0%} below nominal in {FY} -- the P3 connectivity buffer."
+                     if fyn else "")
+    ws.write(br + 3, 0, "Low pass-through = well-connected (P3 Gulf): downstream keeps running on piped-in "
+             "intermediates. High (P2 / P4 / P5, parts of P1): islanded, the outage cascades. Tune on Assumptions.",
+             fm["key"])
 
 
-# Colored tabs grouped by purpose: navigation, source, per-unit analysis, balance, forecast, stats
 def _whats_changed(wb, fm, ctx):
     """Rolling change tracker. Month-over-month is live off Data (the balance that
     prices contracts); the rolling pull-log compares weekly pulls (the source is
@@ -1001,55 +920,6 @@ def _whats_changed(wb, fm, ctx):
         ws.write(rr, 2, str(r["padd"]), fm["txt"]); ws.write_number(rr, 3, round(r["kbd"], 1), fm["num"])
 
 
-def _padd_connectivity(wb, fm, ctx):
-    """Sensitize the crude-outage read to regional pipeline connectivity. A CDU
-    outage in a well-connected PADD (P3 Gulf) lets the downstream units keep running
-    on piped-in intermediates (low pass-through); an islanded PADD has to cut them
-    too (high pass-through). Effective = nominal x pass-through, live off Assumptions."""
-    ws = wb.add_worksheet("PADD Connectivity")
-    ws.set_column(0, 0, 12); ws.set_column(1, 5, 15)
-    _title(ws, fm, "PADD Connectivity: effective crude-outage impact (live)",
-           "Effective = nominal CDU offline x pass-through (Assumptions). Low pass-through (P3 Gulf) = "
-           "well-connected, downstream keeps running; high = islanded, the outage cascades.")
-    fp = ctx["focus_padd"]
-    PADDS = ["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]
-
-    def nom(year, padd):
-        g = fp.get(year, {}).get("CDU")
-        return float(g.loc[padd].sum()) if (g is not None and padd in g.index) else 0.0
-    r0 = 3
-    heads = ["PADD", "Pass-thru", f"{CY} CDU (Σ kbd)", f"{CY} effective", f"{FY} CDU (Σ kbd)", f"{FY} effective"]
-    for j, h in enumerate(heads):
-        ws.write(r0, j, h, fm["hl"] if j == 0 else fm["h"])
-    first = r0 + 1
-    for i, p in enumerate(PADDS):
-        rr = first + i; xl = rr + 1; n = i + 1
-        f = engine.PADD_CONNECTIVITY[p]
-        ws.write(rr, 0, p, fm["rowh"])
-        ws.write_formula(rr, 1, f"=conn_p{n}", fm["f2"], f)
-        ws.write_formula(rr, 2, _si("K", ("A", CY), ("G", "CDU"), ("F", p)), fm["num"], nom(CY, p))
-        ws.write_formula(rr, 3, f"=C{xl}*conn_p{n}", fm["num"], nom(CY, p) * f)
-        ws.write_formula(rr, 4, _si("K", ("A", FY), ("G", "CDU"), ("F", p)), fm["num"], nom(FY, p))
-        ws.write_formula(rr, 5, f"=E{xl}*conn_p{n}", fm["num"], nom(FY, p) * f)
-    tot = first + 5; txl = tot + 1
-    ws.write(tot, 0, "Total", fm["rowh"]); ws.write(tot, 1, "", fm["txt"])
-    cyn = sum(nom(CY, p) for p in PADDS); cye = sum(nom(CY, p) * engine.PADD_CONNECTIVITY[p] for p in PADDS)
-    fyn = sum(nom(FY, p) for p in PADDS); fye = sum(nom(FY, p) * engine.PADD_CONNECTIVITY[p] for p in PADDS)
-    for col, cached in [(2, cyn), (3, cye), (4, fyn), (5, fye)]:
-        c = chr(ord("A") + col)
-        ws.write_formula(tot, col, f"=SUM({c}{first+1}:{c}{first+5})", fm["num"], cached)
-    br = tot + 2
-    ws.write(br, 0, "Buffered by connectivity (nominal - effective):", fm["lbl"])
-    ws.write_formula(br, 3, f"=C{txl}-D{txl}", fm["num"], cyn - cye)
-    ws.write_formula(br, 5, f"=E{txl}-F{txl}", fm["num"], fyn - fye)
-    ws.write_formula(br + 1, 0, f'="Effective crude tightness is "&TEXT(1-F{txl}/E{txl},"0%")&" below nominal '
-                     f'in {FY} -- the P3 connectivity buffer."', fm["key"],
-                     f"Effective crude tightness is {1-fye/fyn:.0%} below nominal in {FY} -- the P3 connectivity buffer."
-                     if fyn else "")
-    ws.write(br + 3, 0, "Tune the pass-through on the Assumptions sheet (gold cells). Applied to CDU only: "
-             "crude is the unit whose outage can or cannot be routed around.", fm["key"])
-
-
 def _data_quality(wb, fm, ctx):
     """Re-runnable data-quality flags: planned turnarounds recurring inside the
     ~5-year cycle (planned->planned only), and unit-months that sum to >100% of
@@ -1120,11 +990,8 @@ TAB = {
     "PADD by Unit": "#2E8B8B", "ExxonMobil": "#2E8B8B",
     # chem feed
     "Naphtha": "#7030A0",
-    # forecasting / sensitivity
-    "Forecast": "#C00000", "Sensitivity": "#C00000", "Stress Test": "#C00000",
-    "PADD Connectivity": "#C00000",
-    # stats
-    "Statistics": "#595959", "Regression": "#595959",
+    # forecasting / sensitivity / what-ifs
+    "Forecast": "#C00000", "Scenarios": "#C00000",
     # data / source (back)
     "Historicals": "#548235", "Data Quality": "#548235", "Data": "#548235",
 }
@@ -1146,11 +1013,7 @@ def build_workbook(ctx, assets, path):
     _exxon(wb, fm, ctx, assets)
     _naphtha(wb, fm, ctx, assets)        # chem feed (purple)
     _forecast(wb, fm, ctx, assets)       # forecasting (red)
-    _sensitivity(wb, fm, ctx)
-    _stress(wb, fm, ctx)
-    _padd_connectivity(wb, fm, ctx)
-    _statistics(wb, fm, base)            # stats (slate)
-    _regression(wb, fm, base)
+    _scenarios(wb, fm, ctx)              # all forward what-ifs in one sheet (sensitivity + stress + PADD conn)
     _historicals(wb, fm, base)           # source / reference data at the back (green)
     _data_quality(wb, fm, ctx)
     _data_sheet(wb, fm, base)
