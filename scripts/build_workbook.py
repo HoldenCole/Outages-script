@@ -9,22 +9,24 @@ dashboard, so the three always agree.
 Design intent (this is the starting point of a model that will eventually live
 fully in Excel): a single `Data` sheet holds the pullable source records, and the
 analysis sheets compute off it with visible formulas (SUMIFS / AVERAGE), so any
-number on a slide can be pointed to here and you can see how it is calculated. The
-`Index` sheet maps each deck slide to its model sheet. The Naphtha and Forecast
-sheets are live: change the shaded input cells on Assumptions and they recompute.
+number on a slide can be pointed to here and you can see how it is calculated.
+The live sheets carry their own tunable input cells (gold), so there is no separate
+settings sheet: the Naphtha yields, the Forecast scenario multipliers and the
+Scenarios PADD pass-throughs each recompute their sheet in place.
 
 Sheets:
-    Index         deck slide -> model sheet -> how it is calculated
-    Assumptions   yields (incl. naphtha), reformer intake, scenario multipliers,
-                  baseline window, as-of date, methodology   (tunable input cells)
-    Data          one row per (year, month, plant, unit, type): the pullable source
+    What's Changed rolling month-over-month (live) + week-over-week pull log
     Per-Unit      CDU/FCC/HDC/Reformer concurrent offline by month & year (=SUMIFS)
     Biggest       the biggest individual 2027 outages, by PADD   (from Data)
     H1 by Unit    H1 (Jan-Jun) planned per unit & month, 2025/26/27 (=SUMIFS / AVG)
     PADD by Unit  CDU & FCC offline by PADD & month, 2027        (=SUMIFS)
-    Naphtha       CDU supply vs reformer demand balance (=SUMIFS x Assumptions)
     ExxonMobil    per-unit 2027 turnarounds, verified            (from Data)
-    Forecast      baseline + Conservative/Average/Active scenario (live formulas)
+    Naphtha       CDU supply vs reformer demand balance  (gold yield cells live here)
+    Forecast      baseline + Conservative/Average/Active  (gold multipliers live here)
+    Scenarios     sensitivity grid + stress shocks + PADD connectivity (gold here)
+    Historicals   monthly 2023-2027 totals / per unit / per PADD + live chart
+    Data Quality  cadence + double-count auto-flags (review only)
+    Data          one row per (year, month, plant, unit, type): the pullable source
 
 Usage:
     python build_workbook.py                       # uses the default input
@@ -109,65 +111,6 @@ def _title(ws, fm, title, sub):
 
 
 # --------------------------------------------------------------------------- sheets
-def _assumptions(wb, fm, ctx):
-    ws = wb.add_worksheet("Assumptions")
-    ws.set_column(0, 0, 32); ws.set_column(1, 1, 14); ws.set_column(2, 4, 13); ws.set_column(5, 5, 58)
-    _title(ws, fm, "Assumptions & Methodology",
-           "Tunable cells are shaded gold. The Naphtha and Forecast sheets recompute live off them.")
-    through = engine.latest_actual_month(ctx["df"])
-    ws.write(3, 0, "As of", fm["lbl"]); ws.write(3, 1, ASOF, fm["txt"])
-    ws.write(4, 0, "Actuals reported through", fm["lbl"])
-    ws.write(4, 1, f"{MONTHS[through[1]-1]} {through[0]}" if through else "n/a", fm["txt"])
-    ws.write(5, 0, "Data scope", fm["lbl"])
-    ws.write(5, 1, f"{ctx['diag']['years'][0]}-{ctx['diag']['years'][1]} (2023+ verified)", fm["txt"])
-
-    ws.write(7, 0, "Naphtha balance inputs", fm["secn"])
-    ws.write(8, 0, "Naphtha yield (per bbl crude)", fm["lbl"])
-    ws.write_number(8, 1, engine.NAPHTHA_YIELD, fm["inp"])
-    ws.write(9, 0, "Reformer naphtha intake (per bbl capacity)", fm["lbl"])
-    ws.write_number(9, 1, engine.REFORMER_NAPHTHA_INTAKE, fm["inp"])
-    wb.define_name("naph_yield", "=Assumptions!$B$9")
-    wb.define_name("ref_intake", "=Assumptions!$B$10")
-
-    ws.write(11, 0, "Scenario multipliers (x baseline)", fm["secn"])
-    for i, (nm, val) in enumerate([("Conservative", 0.8), ("Average", 1.0), ("Active", 1.3)]):
-        ws.write(12 + i, 0, nm, fm["lbl"]); ws.write_number(12 + i, 1, val, fm["inp"])
-    wb.define_name("mult_cons", "=Assumptions!$B$13")
-    wb.define_name("mult_avg", "=Assumptions!$B$14")
-    wb.define_name("mult_act", "=Assumptions!$B$15")
-    ws.write(16, 0, "Baseline window", fm["lbl"]); ws.write(16, 1, ctx["scenario"]["window"], fm["txt"])
-
-    ws.write(7, 3, "Gasoline (mogas) yields", fm["secn"])
-    ws.write(8, 3, "Unit bucket", fm["hl"]); ws.write(8, 4, "yield", fm["h"])
-    for i, (b, fac) in enumerate(engine.YIELD_FACTOR.items()):
-        ws.write(9 + i, 3, b, fm["rowh"]); ws.write_number(9 + i, 4, fac, fm["f2"])
-
-    notes = [
-        "Per-unit, never summed: CDU, FCC, hydrocracker and reformer are read on their own.",
-        "Day-weighted concurrent offline: a unit offline part of a month counts only for its days down "
-        "(nameplate x days-down / days-in-month), each unit once per month.",
-        "CDU = atmospheric crude only (vacuum / VDU is not folded in).",
-        f"{FY} completeness: ExxonMobil gave a full-year plan (verified vs their schedule); every other "
-        "operator is H1-confirmed only, so non-Exxon H2 is indicative.",
-        "Forecast baseline is completeness-aware: each calendar month is averaged over the years that "
-        "actually reported it, so 2026 H1 sharpens H1 while H2 stays on 2023-2025.",
-        "Naphtha balance: net = reformer demand removed minus CDU supply removed (+ surplus / - deficit).",
-    ]
-    # PADD connectivity: crude-outage pass-through (tunable; the Scenarios sheet is live off these)
-    ws.write(17, 0, "PADD connectivity: crude-outage pass-through", fm["secn"])
-    ws.write(18, 0, "Share of a CDU outage that cascades downstream", fm["hl"])
-    ws.write(18, 1, "pass-thru", fm["h"])
-    for i, p in enumerate(["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]):
-        ws.write(19 + i, 0, p, fm["lbl"]); ws.write_number(19 + i, 1, engine.PADD_CONNECTIVITY[p], fm["inp"])
-        wb.define_name(f"conn_p{i+1}", f"=Assumptions!$B${20+i}")
-    ws.merge_range(24, 0, 24, 5, "Low = well-connected (P3 Gulf): the units downstream of the crude unit keep "
-                   "running on piped-in intermediates. High (P2 / P4 / P5, parts of P1): islanded, so a crude "
-                   "outage cascades and the downstream units are cut too.", fm["txtw"])
-    ws.write(26, 0, "Methodology", fm["secn"])
-    for i, n in enumerate(notes):
-        ws.merge_range(27 + i, 0, 27 + i, 5, f"- {n}", fm["txtw"])
-
-
 DATA_BUFFER = 6000           # spare formula rows so pasted Snowflake refreshes self-classify
 
 
@@ -397,7 +340,7 @@ def _naphtha(wb, fm, ctx, assets):
     ws = wb.add_worksheet("Naphtha")
     ws.set_column(0, 0, 8); ws.set_column(1, 6, 15)
     _title(ws, fm, "Naphtha Balance: CDU Supply vs Reformer Demand (kbd) = live model",
-           "CDU/reformer offline pulled from Data; supply, demand and net recompute off the Assumptions yields.")
+           "CDU/reformer offline pulled from Data; supply, demand and net recompute off the gold yield cells below.")
     nb = ctx["naphtha_balance"]
     mnum = {mo: i + 1 for i, mo in enumerate(MONTHS)}
     heads = ["Month", "CDU offline", "Naphtha supply removed", "Reformer offline",
@@ -425,6 +368,15 @@ def _naphtha(wb, fm, ctx, assets):
     ws.write(tot + 2, 0, "Net < 0 = deficit (naphtha short, bullish reformate); net > 0 = surplus.", fm["key"])
     ws.write(tot + 3, 0, f"{FY} annual net = {nb['annual_net']:,.0f} kbd "
                          f"({nb['n_deficit']} deficit months, {nb['n_surplus']} surplus).", fm["sub"])
+    # the tunable yield inputs live here now (the supply/demand columns recompute off them)
+    ib = tot + 5
+    ws.write(ib, 0, "Live inputs (edit -- supply & demand above recompute)", fm["secn"])
+    ws.merge_range(ib + 1, 0, ib + 1, 2, "Naphtha yield (per bbl crude)", fm["lbl"])
+    ws.write_number(ib + 1, 3, engine.NAPHTHA_YIELD, fm["inp"])
+    ws.merge_range(ib + 2, 0, ib + 2, 2, "Reformer naphtha intake (per bbl capacity)", fm["lbl"])
+    ws.write_number(ib + 2, 3, engine.REFORMER_NAPHTHA_INTAKE, fm["inp"])
+    wb.define_name("naph_yield", f"=Naphtha!$D${ib + 2}")
+    wb.define_name("ref_intake", f"=Naphtha!$D${ib + 3}")
     ws.insert_image(3, 7, assets["naphtha_balance"], IMG)
 
 
@@ -523,6 +475,19 @@ def _forecast(wb, fm, ctx, assets):
     ws.write(hb, 0, "History (complete years, annual Σ unplanned)", fm["secn"])
     for k, (lab, key) in enumerate([("P25", "p25"), ("Median", "p50"), ("P90", "p90"), ("Mean", "mean")]):
         ws.write(hb + 1 + k, 0, lab, fm["lbl"]); ws.write_number(hb + 1 + k, 1, float(sb[key]), fm["num"])
+    # the scenario multipliers live here now (the scenario paths above recompute off them)
+    mb = hb + 6
+    ws.write(mb, 0, "Scenario multipliers (x baseline -- the paths above recompute live)", fm["secn"])
+    for k, (nm, val) in enumerate([("Conservative", 0.8), ("Average", 1.0), ("Active", 1.3)]):
+        ws.write(mb + 1 + k, 0, nm, fm["lbl"]); ws.write_number(mb + 1 + k, 1, val, fm["inp"])
+    wb.define_name("mult_cons", f"=Forecast!$B${mb + 2}")
+    wb.define_name("mult_avg", f"=Forecast!$B${mb + 3}")
+    wb.define_name("mult_act", f"=Forecast!$B${mb + 4}")
+    through = engine.latest_actual_month(ctx["df"])
+    _bw = ctx["scenario"]["window"]
+    ws.write(mb + 5, 0, (f"Baseline window {_bw}  |  actuals reported through "
+                         f"{MONTHS[through[1]-1]} {through[0]}") if through else f"Baseline window {_bw}",
+             fm["sub"])
     ws.insert_image(3, 17, assets["fan"], IMG)
 
 
@@ -644,7 +609,7 @@ def _scenarios(wb, fm, ctx):
     """All the forward what-ifs on the FY book in one sheet: the peak-month
     sensitivity grid (unplanned multiplier x one-off shock), named stress shocks,
     and the PADD connectivity pass-through. All live -- the grid and stress read the
-    Forecast monthly cells; connectivity reads the Assumptions pass-throughs."""
+    Forecast monthly cells; connectivity reads the gold pass-through cells in section 3."""
     ws = wb.add_worksheet("Scenarios")
     ws.set_column(0, 0, 27); ws.set_column(1, 1, 22); ws.set_column(2, 6, 15)
     _title(ws, fm, f"Scenarios & Sensitivities: stressing the {FY} book (peak-month kbd)",
@@ -708,9 +673,9 @@ def _scenarios(wb, fm, ctx):
     ws.write(note2, 0, "Peak-month implied = Average scenario's worst-month offline + crude + other shock. "
              "Naphtha impact = -naphtha_yield x crude shock (more crude down = shorter naphtha).", fm["sub"])
 
-    # --- 3) PADD connectivity: effective crude-outage impact (live off Assumptions) ---
+    # --- 3) PADD connectivity: effective crude-outage impact (edit the pass-through cells) ---
     pr = note2 + 3
-    ws.write(pr, 0, "3) PADD connectivity: effective crude-outage impact (live off Assumptions)", fm["secn"])
+    ws.write(pr, 0, "3) PADD connectivity: effective crude-outage impact (edit the pass-through cells)", fm["secn"])
     fp = ctx["focus_padd"]
     PADDS = ["PADD 1", "PADD 2", "PADD 3", "PADD 4", "PADD 5"]
 
@@ -727,7 +692,8 @@ def _scenarios(wb, fm, ctx):
         rr = first + i; xl = rr + 1; n = i + 1
         f = engine.PADD_CONNECTIVITY[p]
         ws.write(rr, 0, p, fm["rowh"])
-        ws.write_formula(rr, 1, f"=conn_p{n}", fm["f2"], f)
+        ws.write_number(rr, 1, f, fm["inp"])               # editable pass-through (gold)
+        wb.define_name(f"conn_p{n}", f"=Scenarios!$B${xl}")
         ws.write_formula(rr, 2, _si("K", ("A", CY), ("G", "CDU"), ("F", p)), fm["num"], nom(CY, p))
         ws.write_formula(rr, 3, f"=C{xl}*conn_p{n}", fm["num"], nom(CY, p) * f)
         ws.write_formula(rr, 4, _si("K", ("A", FY), ("G", "CDU"), ("F", p)), fm["num"], nom(FY, p))
@@ -748,7 +714,7 @@ def _scenarios(wb, fm, ctx):
                      f"Effective crude tightness is {1-fye/fyn:.0%} below nominal in {FY} -- the P3 connectivity buffer."
                      if fyn else "")
     ws.write(br + 3, 0, "Low pass-through = well-connected (P3 Gulf): downstream keeps running on piped-in "
-             "intermediates. High (P2 / P4 / P5, parts of P1): islanded, the outage cascades. Tune on Assumptions.",
+             "intermediates. High (P2 / P4 / P5, parts of P1): islanded, the outage cascades. Edit the pass-through cells (column B).",
              fm["key"])
 
 
@@ -934,8 +900,6 @@ def _data_quality(wb, fm, ctx):
 TAB = {
     # glance / overview (front)
     "What's Changed": "#1F3864",
-    # inputs
-    "Assumptions": "#BF9000",
     # per-unit analysis
     "Per-Unit": "#2E8B8B", "Biggest": "#2E8B8B", "H1 by Unit": "#2E8B8B",
     "PADD by Unit": "#2E8B8B", "ExxonMobil": "#2E8B8B",
@@ -955,7 +919,6 @@ def build_workbook(ctx, assets, path):
     base = _base(ctx["df"])
     # Tab order: glance/overview at the front -> working analysis -> source data at the back.
     _whats_changed(wb, fm, ctx)          # landing / glance (deep blue)
-    _assumptions(wb, fm, ctx)            # inputs (gold)
     _per_unit(wb, fm, ctx, assets)       # per-unit analysis (teal)
     _biggest(wb, fm, ctx, assets)
     _h1(wb, fm, ctx, assets)
