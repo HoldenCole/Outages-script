@@ -131,7 +131,7 @@ def _index(wb, fm):
         ("7", f"ExxonMobil {FY} by Unit", "ExxonMobil",
          f"Per-unit ExxonMobil {FY} turnarounds, verified against the corporate plan."),
         ("8", f"{FY} Unplanned Scenario", "Forecast",
-         "baseline x multiplier (live off Assumptions); implied offline read by month - peak & average month, not an annual sum."),
+         "baseline x multiplier (live off Assumptions); implied offline read by month - peak & average month (annual Σ kept as reference)."),
     ]
     r0 = 3
     for j, h in enumerate(rows[0]):
@@ -493,10 +493,10 @@ def _exxon(wb, fm, ctx, assets):
 
 def _forecast(wb, fm, ctx, assets):
     ws = wb.add_worksheet("Forecast")
-    ws.set_column(0, 0, 26); ws.set_column(1, 12, 8); ws.set_column(13, 14, 11)
+    ws.set_column(0, 0, 26); ws.set_column(1, 12, 8); ws.set_column(13, 15, 11)
     _title(ws, fm, f"{FY} Unplanned Scenario (kbd/month) = baseline x multiplier (live)",
-           "Read by month, never summed across the year. Peak month = the worst single month "
-           "offline (the tradeable level). Each path recomputes off the Assumptions multipliers.")
+           "Headline by month (peak/avg = real levels). Annual Sigma (sum of the 12 monthly "
+           "concurrent figures) is kept for reference -- a magnitude, not a level; not for slides.")
     dff = ctx["df"]
     base = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"])
     fan = ctx["scenario_fan"]
@@ -508,11 +508,13 @@ def _forecast(wb, fm, ctx, assets):
     for j, mo in enumerate(MONTHS):
         ws.write(r0, 1 + j, mo, fm["h"])
     ws.write(r0, 13, "Peak/mo", fm["h"]); ws.write(r0, 14, "Avg/mo", fm["h"])
+    ws.write(r0, 15, "Annual Σ", fm["h"])
     ws.write(r0 + 1, 0, f"Baseline ({ctx['scenario']['window']}, completeness-aware)", fm["rowh"])
     for j, mo in enumerate(MONTHS):
         ws.write_number(r0 + 1, 1 + j, float(base[mo]), fm["num"])
     ws.write_formula(r0 + 1, 13, f"=MAX(B{r0+2}:M{r0+2})", fm["num"], float(base.max()))
     ws.write_formula(r0 + 1, 14, f"=AVERAGE(B{r0+2}:M{r0+2})", fm["num"], float(base.mean()))
+    ws.write_formula(r0 + 1, 15, f"=SUM(B{r0+2}:M{r0+2})", fm["num"], float(base.sum()))
     for k, ref in enumerate(["mult_cons", "mult_avg", "mult_act"]):
         nm = ["Conservative", "Average", "Active"][k]
         rr = r0 + 2 + k
@@ -522,6 +524,7 @@ def _forecast(wb, fm, ctx, assets):
             ws.write_formula(rr, 1 + j, f"={col}{r0+2}*{ref}", fm["num"], float(fan[nm].iloc[j]))
         ws.write_formula(rr, 13, f"=MAX(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].max()))
         ws.write_formula(rr, 14, f"=AVERAGE(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].mean()))
+        ws.write_formula(rr, 15, f"=SUM(B{rr+1}:M{rr+1})", fm["num"], float(fan[nm].sum()))
     # --- booked planned by month (so implied is a real monthly level) ---
     pr = r0 + 5                                            # planned row (Excel row pr+1)
     ws.write(pr, 0, f"Booked planned {FY} (by month)", fm["rowh"])
@@ -530,6 +533,7 @@ def _forecast(wb, fm, ctx, assets):
                          fm["num"], planned_m[j])
     ws.write_formula(pr, 13, f"=MAX(B{pr+1}:M{pr+1})", fm["num"], max(planned_m))
     ws.write_formula(pr, 14, f"=AVERAGE(B{pr+1}:M{pr+1})", fm["num"], sum(planned_m) / 12)
+    ws.write_formula(pr, 15, f"=SUM(B{pr+1}:M{pr+1})", fm["num"], sum(planned_m))
     # --- implied total offline BY MONTH = scenario unplanned + booked planned ---
     ir = r0 + 7
     ws.write(ir, 0, "Implied total offline by month = scenario unplanned + booked planned", fm["secn"])
@@ -537,6 +541,7 @@ def _forecast(wb, fm, ctx, assets):
     for j, mo in enumerate(MONTHS):
         ws.write(ir + 1, 1 + j, mo, fm["h"])
     ws.write(ir + 1, 13, "Peak month", fm["h"]); ws.write(ir + 1, 14, "Avg month", fm["h"])
+    ws.write(ir + 1, 15, "Annual Σ", fm["h"])
     for k, nm in enumerate(["Conservative", "Average", "Active"]):
         rr = ir + 2 + k
         srow = r0 + 3 + k                                  # this scenario's path row (Excel)
@@ -547,9 +552,16 @@ def _forecast(wb, fm, ctx, assets):
             ws.write_formula(rr, 1 + j, f"={col}{srow}+{col}{pr+1}", fm["num"], impl[j])
         ws.write_formula(rr, 13, f"=MAX(B{rr+1}:M{rr+1})", fm["num"], max(impl))
         ws.write_formula(rr, 14, f"=AVERAGE(B{rr+1}:M{rr+1})", fm["num"], sum(impl) / 12)
-    ws.write(ir + 5, 0, "Peak month = the worst single month's total capacity offline -- the level to trade. "
-             "Never add the twelve months into a year.", fm["sub"])
-    ws.insert_image(3, 16, assets["fan"], IMG)
+        ws.write_formula(rr, 15, f"=SUM(B{rr+1}:M{rr+1})", fm["num"], sum(impl))
+    ws.write(ir + 5, 0, "Peak month = worst single month offline (trade this). Avg month = average. "
+             "Annual Σ = sum of the 12 monthly figures: a reference magnitude, not a level -- keep it off slides.",
+             fm["sub"])
+    sb = ctx["scenario_bands"]
+    hb = ir + 7
+    ws.write(hb, 0, "History (complete years, annual Σ unplanned)", fm["secn"])
+    for k, (lab, key) in enumerate([("P25", "p25"), ("Median", "p50"), ("P90", "p90"), ("Mean", "mean")]):
+        ws.write(hb + 1 + k, 0, lab, fm["lbl"]); ws.write_number(hb + 1 + k, 1, float(sb[key]), fm["num"])
+    ws.insert_image(3, 17, assets["fan"], IMG)
 
 
 def _base(df):

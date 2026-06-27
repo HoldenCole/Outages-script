@@ -113,6 +113,23 @@ FOCUS_YEAR = END_YEAR                  # the forward outlook year the deck + mod
 CURRENT_YEAR = FOCUS_YEAR - 1          # the in-progress year (H1 actual, H2 still coming) -- the
                                        # "rest of <yy>" naphtha/chem-feed deck headlines this one
 
+# Vendored external market context for the "what it means for the market" read.
+# Hand-updated from the EIA Weekly Petroleum Status Report; edit these when a fresh
+# WPSR lands (keep AS_OF and the source in sync). Inventory figures are the % vs the
+# five-year average for the report week. The summer-grade transition dates are the
+# EPA RVP timeline (refiners switch to summer blend in Mar-Apr; retail June 1).
+MARKET_CONTEXT = {
+    "as_of": "week ending Jun 19, 2026 (EIA WPSR, released Jun 24, 2026)",
+    "gasoline_vs_5yr_pct": -5,         # US motor gasoline stocks vs 5-yr avg
+    "distillate_vs_5yr_pct": -10,      # distillate stocks vs 5-yr avg
+    "crude_vs_5yr_pct": -7,            # commercial crude stocks vs 5-yr avg
+    "crude_stocks_mmbbl": 412.1,
+    "gasoline_demand_mbpd": 8.8,       # 4-wk avg product supplied
+    "gasoline_demand_yoy_pct": -3.0,
+    "summer_grade_window": (3, 6),     # refiners switch to summer blend Mar; retail deadline Jun 1
+    "source": "https://www.eia.gov/petroleum/supply/weekly/",
+}
+
 # Years that are partial / special-cased (rendered grey-italic, footnoted).
 PARTIAL_YEARS = [FOCUS_YEAR - 1, FOCUS_YEAR]   # current (partial actuals) + outlook (planned only)
 PLANNED_ONLY_YEARS = [FOCUS_YEAR]      # no actual unplanned data exists for the outlook year

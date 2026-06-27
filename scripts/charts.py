@@ -1242,6 +1242,54 @@ def naphtha_complex_chart(ctx, path):
     return _save(fig, path)
 
 
+def market_setup(ctx, path, year=None):
+    """What it means for the market: the gasoline-complex turnaround stack (CDU +
+    FCC + reformer offline by month) for the outlook year, with the spring
+    summer-grade switchover window shaded. Heavy spring crude/cat turnarounds land
+    while refiners are flipping to summer-grade and building summer inventory -- so
+    they cut into summer gasoline supply right when the cushion is already thin.
+    The inventory backdrop (vs the 5-yr average) is drawn from engine.MARKET_CONTEXT."""
+    year = (FY if year is None else year)
+    mc = engine.MARKET_CONTEXT
+    units = [("CDU", "crude"), ("FCC", "cat gasoline"), ("Reformer", "octane")]
+    series = {}
+    for f, _ in units:
+        m = engine.unit_offline_monthly(ctx["df"], focus=f)
+        series[f] = np.array([float(m.loc[year, mo]) if year in m.index else 0.0 for mo in MONTHS])
+    x = np.arange(12)
+    fig, ax = plt.subplots(figsize=(10.8, 5.3))
+    m0, m1 = mc["summer_grade_window"]
+    ax.axvspan(m0 - 1.5, m1 - 0.5, color="#FFF2CC", zorder=0)        # summer-grade build window
+    bottom = np.zeros(12)
+    for f, lab in units:
+        ax.bar(x, series[f], bottom=bottom, color=FOCUS_COLOR[f], zorder=3,
+               label=f"{f} ({lab})")
+        bottom += series[f]
+    peak_i = int(bottom.argmax())
+    ax.set_xticks(x, MONTHS)
+    ax.set_xlabel(f"Month, {year}")
+    ax.yaxis.set_major_formatter(_thousands)
+    ax.set_ylabel("gasoline-complex capacity offline (kbd)")
+    top = float(bottom.max())
+    ax.set_ylim(0, top * 1.30 + 20)
+    # window label sits in the open space inside the band (above the short May/Jun bars)
+    ax.text(4.5, top * 0.58, "summer-grade\nswitchover\n(refiners flip Mar-Apr;\nretail Jun 1)",
+            ha="center", va="center", fontsize=8.3, color="#7F6000", style="italic")
+    # peak callout from the upper-left, clear of the band label
+    ax.annotate(f"spring crude/cat turnarounds\npeak {MONTHS[peak_i]} ~{top:,.0f} kbd",
+                xy=(peak_i, top), xytext=(peak_i - 1.9, top * 1.15), ha="left",
+                fontsize=8.2, color="#23272e",
+                arrowprops=dict(arrowstyle="->", color="#7F7F7F", lw=1))
+    ax.set_title(f"{year} Gasoline-Complex Turnarounds vs the Summer-Grade Switchover (kbd)", fontsize=12)
+    ax.legend(frameon=False, ncol=3, fontsize=9, loc="upper right")
+    _clean(ax)
+    inv = (f"Going in thin: U.S. gasoline stocks {mc['gasoline_vs_5yr_pct']:+d}% vs the 5-yr avg, "
+           f"distillate {mc['distillate_vs_5yr_pct']:+d}%, crude {mc['crude_vs_5yr_pct']:+d}%.  "
+           f"Source: EIA WPSR, {mc['as_of'].split('(')[0].strip()}.")
+    fig.text(0.5, 0.005, inv, ha="center", fontsize=8, color=RED, style="italic")
+    return _save(fig, path)
+
+
 def render_naphtha_assets(ctx, outdir):
     """Charts for the parallel rest-of-current-year naphtha / chem-feed deck.
     Reuses biggest_outages / focus_padd_bars / unplanned_context for the current
@@ -1290,6 +1338,8 @@ def render_all(ctx, outdir):
         "unplanned_context": unplanned_context(ctx, p("unplanned_context.png")),
         # 4) 2027 unplanned scenario analysis (monthly paths; no annual-sum bars)
         "fan": scenario_fan_chart(ctx, p("fan.png")),
+        # 5) what it means for the market: gasoline-complex TAs vs the summer-grade flip
+        "market_setup": market_setup(ctx, p("market_setup.png")),
     }
     return out
 

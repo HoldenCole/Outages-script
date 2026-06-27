@@ -385,6 +385,18 @@ class Deck:
             foot=f"Scenario = mean {Y0}-{str(FY-1)[2:]} monthly unplanned shape (completeness-aware) x "
                  "{0.8 / 1.0 / 1.3}. Monthly concurrent offline, a risk range, not a forecast. Not an annual sum.")
 
+    def market_slide(self):
+        mc = engine.MARKET_CONTEXT
+        src = mc["as_of"].split("(")[0].strip()
+        self.wide_chart_slide(
+            "What It Means for the Market: Summer Gasoline",
+            "Spring crude & cat turnarounds land into the summer-grade switchover, on a thin inventory cushion",
+            self.a["market_setup"],
+            foot=(f"Gasoline-complex (CDU + FCC + reformer) offline by month. U.S. stocks below the 5-yr "
+                  f"average: gasoline {mc['gasoline_vs_5yr_pct']:+d}%, distillate {mc['distillate_vs_5yr_pct']:+d}%, "
+                  f"crude {mc['crude_vs_5yr_pct']:+d}% (EIA WPSR, {src}). Heavy Mar-May crude turnarounds cut "
+                  "summer-grade make right as the switchover starts."))
+
     def build(self):
         self.title_slide()
         self.total_by_unit_slide()        # total outages by unit
@@ -394,6 +406,7 @@ class Deck:
         self.naphtha_slide()              # naphtha balance
         self.unplanned_context_slide()    # 2024-2026 unplanned context
         self.scenario_slide()             # 2027 unplanned scenario (monthly)
+        self.market_slide()               # what it means for the market (summer gasoline)
 
     def save(self, path):
         self.prs.save(path)

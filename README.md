@@ -14,7 +14,9 @@ that always agree:
    the charts). The **main deck** is gasoline/distillate-focused on the forward
    outlook year: total outages by unit, the biggest individual outages by PADD,
    the like-for-like H1 read per unit and month, outages by PADD by unit, the
-   naphtha balance, recent unplanned context, and the unplanned scenario. The
+   naphtha balance, recent unplanned context, the unplanned scenario, and what it
+   means for the market (the gasoline-complex turnaround stack vs the summer-grade
+   switchover, on a low-inventory backdrop). The
    **naphtha / chem-feed deck** is the parallel octane & petrochemical-feedstock
    read, headlining the in-progress year ("rest of <yy>", H1 actual vs H2 booked)
    and tilted to **reformers**: rest-of-year outages by unit, the biggest outages,
