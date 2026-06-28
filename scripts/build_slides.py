@@ -149,13 +149,13 @@ class Deck:
         if sub:
             self._text(s, Inches(0.5), Inches(0.92), Inches(12.3), Inches(0.3),
                        [(sub, 12, False, GRAY)])
-        self._brand(s, Inches(0.45), Inches(6.98))
-        self._text(s, Inches(12.5), Inches(7.0), Inches(0.7), Inches(0.3),
+        self._brand(s, Inches(0.45), Inches(7.15))
+        self._text(s, Inches(12.5), Inches(7.16), Inches(0.7), Inches(0.3),
                    [(str(self.page), 9, False, GRAY)], align=PP_ALIGN.RIGHT)
         return s
 
     def _footnote(self, s, text):
-        self._text(s, Inches(0.5), Inches(6.74), Inches(11.5), Inches(0.24),
+        self._text(s, Inches(0.5), Inches(6.44), Inches(12.3), Inches(0.62),
                    [(text, 8, False, GRAY, True)])
 
     def _bullets(self, s, x, y, w, bullets, size=12, spacing=0.52, head="Key takeaways"):
@@ -195,12 +195,12 @@ class Deck:
         """1-2 charts, no on-slide bullets; the talk-track lives in speaker notes."""
         s = self._section(title, sub)
         if len(imgs) == 1:
-            self._pic_fit(s, imgs[0], Inches(0.5), Inches(1.35), Inches(12.3), Inches(5.2),
+            self._pic_fit(s, imgs[0], Inches(0.5), Inches(1.3), Inches(12.3), Inches(5.0),
                           center="both")
         else:
-            self._pic_fit(s, imgs[0], Inches(0.35), Inches(1.5), Inches(6.45), Inches(4.9),
+            self._pic_fit(s, imgs[0], Inches(0.4), Inches(1.5), Inches(6.16), Inches(4.7),
                           center="both")
-            self._pic_fit(s, imgs[1], Inches(6.75), Inches(1.5), Inches(6.45), Inches(4.9),
+            self._pic_fit(s, imgs[1], Inches(6.77), Inches(1.5), Inches(6.16), Inches(4.7),
                           center="both")
         self._notes(s, notes)
         if foot:
@@ -210,7 +210,7 @@ class Deck:
     def wide_chart_slide(self, title, sub, img, notes=None, foot=None):
         """One large centered chart; the talk-track lives in speaker notes."""
         s = self._section(title, sub)
-        self._pic_fit(s, img, Inches(0.5), Inches(1.35), Inches(12.3), Inches(5.2), center="both")
+        self._pic_fit(s, img, Inches(0.5), Inches(1.3), Inches(12.3), Inches(5.0), center="both")
         self._notes(s, notes)
         if foot:
             self._footnote(s, foot)
@@ -221,7 +221,6 @@ class Deck:
         s = self._slide()
         self._rect(s, 0, 0, SW, SH, NAVY)
         self._rect(s, Inches(8.3), 0, SW - Inches(8.3), SH, RGBColor(0x24, 0x40, 0x70))
-        self._dotgrid(s, Inches(8.65), Inches(0.5), 10, 14, Inches(0.45), RGBColor(0x3C, 0x5A, 0x90))
         self._text(s, Inches(0.7), Inches(0.5), Inches(6), Inches(0.4), [(self.asof, 14, False, LT_BLUE)])
         self._rect(s, Inches(0.72), Inches(1.04), Inches(6.6), Pt(1.2), RGBColor(0x4A, 0x66, 0x99))
         if BRAND_LOGO and os.path.exists(BRAND_LOGO):
