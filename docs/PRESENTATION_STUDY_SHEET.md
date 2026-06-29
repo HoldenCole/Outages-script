@@ -57,9 +57,15 @@ Total offline fell ~275 kbd from June to July 2026 (1,350 → 1,075) as turnarou
 PADD 3 (Gulf) drove the drop; the cat cracker and crude led by unit. 5 outages newly appeared, 48 came back online.
 ("July" is the latest month in the pull, not a forecast.)
 
-## Garyville — operator color
+## Operator color
 
-Garyville (Marathon, Gulf) runs multiple crude trains. Marathon perennially books one down but **always leaves one
-running** — and has repeatedly delayed on strong margins, so there's a real chance it **slips to 2028** (out of the
+**Garyville (Marathon, Gulf / PADD 3).** Multiple crude trains; Marathon perennially books one down but **always
+leaves one running**, and has repeatedly delayed on strong margins — real chance it **slips to 2028** (out of the
 2027 book). The two ~145-kbd Sep–Nov entries are indicative H2, not confirmed — plan for at most one train, possibly
 none in 2027.
+
+**Robinson (Marathon, Midwest / PADD 2) — confirmed out.** 2027 is a **small, reformer-led turnaround — the
+Ultraformer (reformer) and the diesel hydrotreater, not the crude unit**, which stays up. But Robinson is in
+**PADD 2, which is poorly connected** (few pipeline options to move intermediates around), so with the reformer
+down they **may have to cut crude runs anyway** — so treat it as a possible **soft crude reduction in the Midwest
+even though the crude unit isn't formally in turnaround**. (The big Robinson crude turnaround was 2026, not 2027.)
