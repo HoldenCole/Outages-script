@@ -145,6 +145,12 @@ not hydrocracker turnarounds alone.
   plan. Same source behind the deck, the Excel model and the dashboard.
 - **"Can you back any number out?"** — Yes; every figure is a visible `=SUMIFS` in the Excel model (12 tabs),
   traceable to the source `Data` sheet.
+- **"What about Garyville / Marathon's Gulf trains?"** — Garyville (Marathon, PADD 3) runs **multiple crude
+  trains**. Marathon perennially books one down but **always leaves one running** (we don't know which), and
+  they've **repeatedly delayed** it because **crack margins are strong** — so there's a **real chance it slips
+  to 2028**, which would drop it out of the 2027 book entirely. The two ~145-kbd **Sep–Nov 2027** entries are
+  **indicative H2, not confirmed** (Marathon is non-Exxon — already past the dotted line on the deck). Plan for
+  **at most one train (~145 kbd), possibly none in 2027.** This is a known soft spot in the fall Gulf crude stack.
 
 ---
 
@@ -155,9 +161,10 @@ not hydrocracker turnarounds alone.
 - **Don't present non-Exxon H2 as confirmed** — the autumn bars past the dotted line are indicative.
 - **October ≠ confirmed peak.** The modeled CDU peak is October, but it leans on unbooked H2; the confirmed peak
   is **March**.
-- **If a refinery appears twice** (e.g., Garyville): it may be **two separate crude trains** *or* an overlap —
-  check the model's **Data Quality** tab, which flags the handful of double-counts (~180 kbd across 2026–27,
-  minor vs the totals). Don't assert one big number without checking.
+- **Garyville is a soft 2027 booking** (see Q&A): two *real* Marathon crude trains, but they **always leave one
+  running** and keep **delaying on strong margins** — don't lean on the full ~290 kbd Sep–Nov Gulf crude stack;
+  plan for ≤1 train (~145 kbd) and flag the **2028-slip risk**. (Separately, the Data Quality tab flags a small
+  amount of genuine double-counting, ~180 kbd across 2026–27, minor vs the totals.)
 - **"Heavier H1" is unit-specific:** FCC & hydrocracker are above both 2025 and 2026; **CDU and reformer are
   above 2026 but below 2025**. Be precise if pressed.
 - **MoM anchors on the latest reported month (Jul 2026)** — not a forecast; it's the newest month in the pull.
