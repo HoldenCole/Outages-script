@@ -160,14 +160,12 @@ class NaphthaDeck(Deck):
 
     def build(self):
         self.title_slide()
-        self.forward_unit_slide()         # all four units across the forward window
-        self.reformer_slide()             # reformers: the octane read  (forward, focus)
-        self.naphtha_balance_slide()      # HVN balance, all PADDs (forward)
-        self.hvn_padd3_slide()            # HVN balance, PADD 3 (Gulf) only -- one extra slide
-        self.chemfeed_slide()             # naphtha/octane/chem-feed complex (annual)
-        self.drivers_slide()              # biggest CY & FY outages
-        self.padd_slide()                 # reformer by PADD, CY vs FY
-        self.unplanned_context_slide()    # recent unplanned context
+        self.forward_unit_slide()         # outages by unit, 2026 vs 2027
+        self.naphtha_balance_slide()      # HVN balance, all US
+        self.hvn_padd3_slide()            # HVN balance, PADD 3 (Gulf) only
+        self.reformer_slide()             # reformers: the octane read
+        self.chemfeed_slide()             # naphtha / octane / chem-feed complex
+        self.drivers_slide()              # what's driving it: biggest outages
 
 
 def main():
