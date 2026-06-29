@@ -99,17 +99,28 @@ class NaphthaDeck(Deck):
         nbcy, nbfy = self.ctx["naphtha_balance_cy"], self.ctx["naphtha_balance"]
         fwd_net = list(nbcy["net"][6:]) + list(nbfy["net"])
         n_def = sum(1 for v in fwd_net if v < -1e-6)
+        ny = int(round(nbcy["naphtha_yield"] * 100))
+        self.wide_chart_slide(
+            "HVN Balance: CDU Supply vs Reformer Demand",
+            f"Heavy virgin naphtha (the reformer feed) across {CY}-{FY}. CDU makes it; reformers consume it",
+            self.a["naphtha_forward"],
+            foot=f"Net = reformer offline (HVN demand) minus CDU offline x {nbcy['naphtha_yield']:.2f} (HVN supply, "
+                 f"~{ny}% of crude), day-weighted. The forward window runs short ({n_def} of {len(fwd_net)} months "
+                 f"in deficit): crude turnarounds pull more HVN off than reformers free.")
+
+    def hvn_padd3_slide(self):
         p3cy, p3fy = self.ctx["naphtha_balance_cy_p3"], self.ctx["naphtha_balance_p3"]
         p3_net = list(p3cy["net"][6:]) + list(p3fy["net"])
         p3_def = sum(1 for v in p3_net if v < -1e-6)
-        ny = int(round(nbcy["naphtha_yield"] * 100))
-        self.charts_bullets_slide(
-            "HVN Balance: CDU Supply vs Reformer Demand",
-            f"Heavy virgin naphtha (the reformer feed) across {CY}-{FY}. Left = all PADDs; right = PADD 3 (Gulf) only",
-            [self.a["naphtha_forward"], self.a["naphtha_forward_p3"]],
-            foot=f"Net = reformer offline (HVN demand) minus CDU offline x {nbcy['naphtha_yield']:.2f} (HVN supply, "
-                 f"~{ny}% of crude), day-weighted. The forward window runs short -- {n_def} of {len(fwd_net)} months "
-                 f"in deficit overall, {p3_def} in PADD 3. The Gulf drives the HVN tightness.")
+        allnet = self.ctx["naphtha_balance"]["annual_net"]
+        share = abs(p3fy["annual_net"]) / abs(allnet) if allnet else 0.0
+        self.wide_chart_slide(
+            "HVN Balance: PADD 3 (Gulf) Only",
+            f"The same HVN balance, CDU & reformers filtered to PADD 3 (Gulf) -- where the tightness sits",
+            self.a["naphtha_forward_p3"],
+            foot=f"PADD 3 (Gulf) only -- the same supply/demand read as the prior slide, just the Gulf cut. "
+                 f"{p3_def} of {len(p3_net)} forward months in deficit; the Gulf carries ~{share*100:.0f}% of the "
+                 f"{FY} HVN deficit.")
 
     def chemfeed_slide(self):
         na = self.ctx["naphtha"]["annual"]
@@ -151,7 +162,8 @@ class NaphthaDeck(Deck):
         self.title_slide()
         self.forward_unit_slide()         # all four units across the forward window
         self.reformer_slide()             # reformers: the octane read  (forward, focus)
-        self.naphtha_balance_slide()      # CDU supply vs reformer demand (forward)
+        self.naphtha_balance_slide()      # HVN balance, all PADDs (forward)
+        self.hvn_padd3_slide()            # HVN balance, PADD 3 (Gulf) only -- one extra slide
         self.chemfeed_slide()             # naphtha/octane/chem-feed complex (annual)
         self.drivers_slide()              # biggest CY & FY outages
         self.padd_slide()                 # reformer by PADD, CY vs FY
