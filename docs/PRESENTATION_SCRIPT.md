@@ -23,6 +23,8 @@ still being booked — don't treat them as firm.**
 The biggest single outages of the year are almost all crude. The largest sit in the **Gulf and the West** — Joliet
 and Cherry Point around **250** each, Norco and Richmond around **240**. The Gulf is the swing region, so one Gulf
 crude outage moves the export barrel most.
+*Operator note (Garyville): the fall Gulf crude entries are soft — Marathon always leaves one train running and keeps
+delaying on strong margins, so it could slip to 2028. Treat as ≤1 train, not confirmed.*
 
 **4 · Month-over-month**
 This is what moved most recently — latest month versus the one before. Offline actually came **down ~275 kbd from
@@ -44,6 +46,9 @@ cat-gasoline make gets cut just as we flip to summer grade.
 For diesel it's crude plus the hydrocracker. The hydrocracker itself is small — the diesel squeeze is really **crude
 plus inventories**. Every crude turnaround cuts distillate yield too, and the hydrocracker work is Gulf-heavy in Q1
 and again in the fall. The backdrop is the closer: **distillate stocks are the tightest of the three.**
+*Operator note (Robinson, PADD 2): confirmed out, but it's a reformer/hydrotreater turnaround — the crude unit stays
+up. Still, PADD 2 is poorly connected, so with the reformer down they may have to cut crude runs anyway — a possible
+**soft Midwest crude reduction even though the CDU isn't formally in TA**.*
 
 **8 · Unplanned context — 2024–2026**
 2027 has no unplanned actuals yet, so I anchor the risk on what actually happened. Same shape every year — the
@@ -93,6 +98,8 @@ still being firmed up**, so treat the H2 as an indicative floor.
 **7 · Reformer by PADD**
 Reformer offline by region — the **Gulf carries the bulk** of the octane loss, with the **Midwest** the other pole. So the
 octane tightness is concentrated where it can move the blend pool.
+*Operator note (Robinson, Midwest): the Ultraformer reformer is confirmed out for 2027 — crude stays up, but PADD 2's
+weak connectivity means they may cut crude runs anyway, so this Midwest reformer outage can pull crude with it.*
 
 **8 · Unplanned context**
 Same grounding as the main deck — recent unplanned, to set the risk. The **freeze** and the **fall overlap** are the
