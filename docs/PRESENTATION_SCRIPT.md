@@ -92,6 +92,9 @@ actual. Crude and the cat cracker are the big tonnage; the **reformer** is the o
 *Drivers — for the chem-feed read it's the reformer: **~185 kbd** peak in 2027, **Midwest-led** (Whiting 60, Joliet 52)
 plus the Gulf (Norco 40). Crude is the supply side of the balance (the same Gulf/Midwest spring stack); 2026 H1 is
 actual, everything right of the shading is the book.*
+*Relatives (planned offline, vs the same half a year earlier): the **rest of 2026 (H2) is light** — crude −49%, cat
+−58%, reformer −14% (only the hydrocracker is up). Then **H1 2027 ramps** — cat +66%, reformer +38%, crude +7% (and the
+hydrocracker higher too). So: a quiet back-half of 2026, stepping up into 2027 H1.*
 
 **3 · HVN balance — all US**
 This reads the outages as HVN length. Crude makes HVN; reformers consume it. A crude outage removes supply, a reformer
@@ -99,6 +102,8 @@ outage removes demand — and crude wins almost every month, so the book runs sh
 *Detail — short in **15 of 18** forward months; the **2027 net is −1,347 kbd**, tightest in the autumn crude stack —
 **Oct −348, Sep −230** — when crude turnarounds pull HVN off faster than reformers free it. The few surplus (long)
 months are spring, when reformers are down more than crude. Net short = bullish reformate / octane.*
+*By half: the **rest of 2026 is near-balanced** (net ~−125 kbd); 2027 runs persistently short — **H1 −646, H2 −700** —
+but less extreme than the 2026 spring crunch (H1-2026 was −994 on the big crude stack). So the squeeze builds into 2027.*
 
 **4 · HVN balance — PADD 3 (Gulf) only**
 The same balance, filtered to PADD 3 — and the Gulf is where the tightness sits.
@@ -110,6 +115,9 @@ national number.*
 Reformers turn HVN into reformate — the octane in gasoline. The Gulf carries the most of the offline.
 *Drivers — **~1,230 kbd-months** of reformer offline over the forward window ≈ **~1,040 of reformate (octane) not
 made**. Midwest and Gulf lead — Whiting (60, Midwest), Joliet (52, Midwest), Norco (40, Gulf).*
+*Relatives — reformer planned offline: **rest of 2026 is −14%** vs the same half last year (octane availability eases
+through late 2026), then **H1 2027 jumps +38%** vs H1 2026 (still ~37% under the heavy 2025 H1). So octane loosens into
+year-end, then tightens hard into spring 2027.*
 *Operator note (Robinson, Midwest): the Ultraformer reformer is confirmed out for 2027 — crude stays up, but PADD 2's
 weak connectivity means they may cut crude runs anyway, so this Midwest reformer outage can pull crude with it.*
 
