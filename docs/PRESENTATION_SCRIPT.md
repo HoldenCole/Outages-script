@@ -2,7 +2,7 @@
 
 Speaker notes, slide by slide. Two decks below: the **main deck** (gasoline & diesel — same slides; the
 *[Gasoline]* / *[Diesel]* tags mark where to dwell for that audience) and the **chem-feed deck**. Numbers match
-the decks and the prep notes.
+the decks and the prep notes. *Italic "Drivers / Detail" lines are the deeper read to pull from for Q&A.*
 
 ---
 
@@ -18,6 +18,10 @@ Here are the four units we track. Crude is the big one — when a crude unit is 
 and diesel alike. The cat cracker and reformer make gasoline and octane; the hydrocracker makes diesel and jet. The
 solid bars are confirmed — Exxon's full year plus everyone's first half. The **hatched fall bars are non-Exxon H2,
 still being booked — don't treat them as firm.**
+*Drivers by unit (2027 peak kbd, with the names): crude **~1,060**, spring-led — Joliet & Cherry Point ~250, Norco
+& Richmond ~240 (Gulf + West). Cat cracker **~450**, Gulf Q1 — Baytown 125, Beaumont 120. Hydrocracker **~140**,
+Gulf Q1 — Beaumont 65, Galveston Bay 60. Reformer **~185**, Midwest — Whiting 60, Joliet 52. Crude and cat are
+Gulf-led; the stack clusters Feb–May with a lighter fall.*
 
 **3 · What's driving it — biggest outages**
 The biggest single outages of the year are almost all crude. The largest sit in the **Gulf and the West** — Joliet
@@ -36,11 +40,19 @@ price.
 This is the honest cross-year read — first half only, like-for-like, since 2027's H2 is still being scheduled. On
 this basis **2027 is heavier than 2026 across the board.** The **cat cracker is the standout — up about two-thirds**;
 crude is up about **7%**. The work clusters in February–March, right into the spring gasoline-spec changeover.
+*Detail — H1 avg by unit, vs 2026 / vs 2025: cat cracker **+66% / above 2025 too** (the standout); reformer **+39%
+/ below 2025**; crude **+7% / below 2025**; hydrocracker **+9% / above 2025**. So FCC and the hydrocracker clear
+both years; crude and the reformer beat last year but still trail 2025. It's "heavier than 2026," **not a record** —
+the all-in figure only looks lighter than 2023–25 because unplanned and non-Exxon H2 aren't booked yet.*
 
 **6 · Gasoline complex — Crude + Cat Cracker** *[Gasoline: dwell here]*
 For gasoline the two units that matter are crude and the cat cracker, by region. The **Gulf carries the bulk** — it's
 the swing for both. The cat-cracker season is the **heaviest in three years and front-loaded into the spring**, so
 cat-gasoline make gets cut just as we flip to summer grade.
+*Detail — where it sits: crude is **~half PADD 3 (Gulf)**, then P2 (Midwest) > P5 (West); the cat cracker is **~70%
+PADD 3**, then P2. P5 (West) is islanded — a California outage isn't bailed out by other regions. Windows: spring
+(Mar–May) heavy, fall lighter, summer protected for driving season. Names to know: Baytown / Beaumont cat (Gulf, Q1),
+Joliet / Cherry Point crude.*
 
 **7 · Distillate complex — Crude + Hydrocracker** *[Diesel: dwell here]*
 For diesel it's crude plus the hydrocracker. The hydrocracker itself is small — the diesel squeeze is really **crude
@@ -72,35 +84,41 @@ into winter demand.*]* The tightness is coming **as much from low inventories as
 
 **1 · Title**
 This is the octane and petrochemical-feed read — reformers and the naphtha complex, across the rest of 2026 and 2027.
-The headline: **naphtha runs structurally short, which is bullish octane.**
+The headline: **HVN (heavy virgin naphtha, the reformer feed) runs structurally short, which is bullish octane.**
 
 **2 · The forward book by unit**
 All four units across the forward window — rest of this year and next, with this year's first half shaded because it's
 actual. Crude and the cat cracker are the big tonnage; the **reformer** is the one we care about for octane and chem feed.
+*Drivers — for the chem-feed read it's the reformer: **~185 kbd** peak in 2027, **Midwest-led** (Whiting 60, Joliet 52)
+plus the Gulf (Norco 40). Crude is the supply side of the balance (the same Gulf/Midwest spring stack); 2026 H1 is
+actual, everything right of the shading is the book.*
 
-**3 · Reformers — the octane read**
-Reformers turn naphtha into reformate — the octane in gasoline. Across the forward window there's roughly **1,200
-kbd-months of reformer offline ≈ ~1,000 of reformate not made.** The **Gulf carries the most** of it.
+**3 · HVN balance — all US**
+This reads the outages as HVN length. Crude makes HVN; reformers consume it. A crude outage removes supply, a reformer
+outage removes demand — and crude wins almost every month, so the book runs short.
+*Detail — short in **15 of 18** forward months; the **2027 net is −1,347 kbd**, tightest in the autumn crude stack —
+**Oct −348, Sep −230** — when crude turnarounds pull HVN off faster than reformers free it. The few surplus (long)
+months are spring, when reformers are down more than crude. Net short = bullish reformate / octane.*
 
-**4 · Naphtha balance**
-This reads the outages as naphtha length. Crude makes naphtha; reformers consume it. Almost every month runs short —
-**11 of 12 in 2027** — because crude turnarounds pull more naphtha off than reformer turnarounds free up. Tightest in the
-**autumn crude stack, September–October**.
+**4 · HVN balance — PADD 3 (Gulf) only**
+The same balance, filtered to PADD 3 — and the Gulf is where the tightness sits.
+*Detail — PADD 3 alone is **−892 of the −1,347** (~**two-thirds**) of the 2027 deficit, and short in **13 of 18**
+forward months. So HVN/octane tightness is a Gulf story: when you trade octane, watch the Gulf crude stack, not the
+national number.*
 
-**5 · Naphtha / octane / chem-feed complex**
-The whole complex — reforming, isomerization, aromatics/BTX — by year. **Reforming dominates.** This is the octane and
-chem-feed availability a crude-only tracker misses.
-
-**6 · Biggest 2026 & 2027 outages**
-The biggest individual outages of both years, by region — crude-dominated, Gulf-heavy. The **fall non-Exxon bookings are
-still being firmed up**, so treat the H2 as an indicative floor.
-
-**7 · Reformer by PADD**
-Reformer offline by region — the **Gulf carries the bulk** of the octane loss, with the **Midwest** the other pole. So the
-octane tightness is concentrated where it can move the blend pool.
+**5 · Reformers — the octane read**
+Reformers turn HVN into reformate — the octane in gasoline. The Gulf carries the most of the offline.
+*Drivers — **~1,230 kbd-months** of reformer offline over the forward window ≈ **~1,040 of reformate (octane) not
+made**. Midwest and Gulf lead — Whiting (60, Midwest), Joliet (52, Midwest), Norco (40, Gulf).*
 *Operator note (Robinson, Midwest): the Ultraformer reformer is confirmed out for 2027 — crude stays up, but PADD 2's
 weak connectivity means they may cut crude runs anyway, so this Midwest reformer outage can pull crude with it.*
 
-**8 · Unplanned context**
-Same grounding as the main deck — recent unplanned, to set the risk. The **freeze** and the **fall overlap** are the
-recurring windows to carry forward.
+**6 · Naphtha / octane / chem-feed complex**
+The whole complex — reforming, isomerization, aromatics/BTX — by year. **Reforming dominates.** This is the octane and
+chem-feed availability a crude-only tracker misses.
+
+**7 · What's driving it — biggest 2026 & 2027 outages**
+The biggest individual outages of both years, by region — crude-dominated, Gulf-heavy. The **fall non-Exxon bookings are
+still being firmed up**, so treat the H2 as an indicative floor.
+*Operator note (Garyville): the fall Gulf crude entries are soft — Marathon always leaves one train running and keeps
+delaying on strong margins, so it could slip to 2028. Treat as ≤1 train, not confirmed.*
