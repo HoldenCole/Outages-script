@@ -53,6 +53,11 @@ MONTHS = engine.MONTHS
 FOCUS = engine.FOCUS_ORDER
 IMG = {"x_scale": 0.6, "y_scale": 0.6, "object_position": 1}
 
+# palette mirrors charts.py so the native (live) Excel charts match the deck images
+FOCUS_HEX = {"CDU": "#1F3864", "FCC": "#C00000", "Hydrocracker": "#548235", "Reformer": "#BF9000"}
+PADD_HEX = {"PADD 1": "#9DB0CE", "PADD 2": "#2E5496", "PADD 3": "#1F3864",
+            "PADD 4": "#548235", "PADD 5": "#BF9000"}
+
 # Rolling window: 2023 .. current year + 1 (FY = the forward outlook year). Every
 # sheet keys off these, so when the Snowflake (and the year) roll forward the model
 # extends itself instead of dropping a year.
@@ -204,7 +209,21 @@ def _per_unit(wb, fm, ctx, assets):
             drow = blocks[f] + 1 + i        # 0-based data row of (f, y)
             ws.write_formula(hdr + 1 + i, 1 + j, f"=MAX(B{drow+1}:M{drow+1})", fm["num"],
                              float(fp.loc[y, f] if y in fp.index else 0.0))
-    ws.insert_image(3, 14, assets["splits_2027"], IMG)
+    # native, live column chart: each unit's FY monthly offline (updates with the data)
+    fyi = YEARS.index(FY)
+    mhdr = blocks[FOCUS[0]]                               # header row carrying the month labels (cols 1-12)
+    pu = wb.add_chart({"type": "column"})
+    for f in FOCUS:
+        drow = blocks[f] + 1 + fyi                        # 0-based FY data row for this unit
+        pu.add_series({"name": engine.FOCUS_LABEL[f],
+                       "categories": ["Per-Unit", mhdr, 1, mhdr, 12],
+                       "values": ["Per-Unit", drow, 1, drow, 12],
+                       "fill": {"color": FOCUS_HEX[f]}, "border": {"none": True}})
+    pu.set_title({"name": f"{FY} Concurrent Offline by Unit & Month (kbd)"})
+    pu.set_y_axis({"name": "kbd offline"}); pu.set_x_axis({"name": f"Month, {FY}"})
+    pu.set_legend({"position": "bottom", "font": {"size": 8}})
+    pu.set_size({"width": 720, "height": 340})
+    ws.insert_chart(3, 14, pu)
 
 
 def _biggest(wb, fm, ctx, assets):
@@ -234,7 +253,18 @@ def _biggest(wb, fm, ctx, assets):
         ws.write(rr, 5, str(row["span"]), fm["txt"])
         ws.write(rr, 6, str(row["type"]).title(), fm["txt"])
         ws.write(rr, 7, str(row["status"]), fm["txt"])
-    ws.insert_image(3, 9, assets["biggest_outages"], IMG)
+    # native, live bar chart: the biggest individual outages by kbd
+    nrow = min(len(ev), 12)
+    bc = wb.add_chart({"type": "bar"})
+    bc.add_series({"name": f"Biggest {FY} outages (kbd)",
+                   "categories": ["Biggest", r0 + 1, 0, r0 + nrow, 0],
+                   "values": ["Biggest", r0 + 1, 4, r0 + nrow, 4],
+                   "fill": {"color": "#1F3864"}, "border": {"none": True}})
+    bc.set_title({"name": f"Biggest Individual {FY} Outages (kbd)"})
+    bc.set_x_axis({"name": "kbd offline"}); bc.set_y_axis({"reverse": True})
+    bc.set_legend({"none": True})
+    bc.set_size({"width": 620, "height": 380})
+    ws.insert_chart(3, 9, bc)
 
 
 def _h1(wb, fm, ctx, assets):
@@ -269,7 +299,17 @@ def _h1(wb, fm, ctx, assets):
             drow = blocks[f] + 1 + j        # 0-based data row for (f, year)
             ws.write_formula(hdr + 1 + i, 1 + j, f"=AVERAGE(B{drow+1}:G{drow+1})", fm["num"],
                              float(h1.loc[f, y] if y in h1.columns else 0.0))
-    ws.insert_image(3, 9, assets["h1_month_by_unit"], IMG)
+    # native, live clustered column: H1 average offline per unit, three years
+    h1c = wb.add_chart({"type": "column"})
+    yr_hex = {FY - 2: "#9DB0CE", FY - 1: "#2E5496", FY: "#C00000"}
+    for j, y in enumerate([FY - 2, FY - 1, FY]):
+        h1c.add_series({"name": str(y), "categories": ["H1 by Unit", hdr + 1, 0, hdr + 4, 0],
+                        "values": ["H1 by Unit", hdr + 1, 1 + j, hdr + 4, 1 + j],
+                        "fill": {"color": yr_hex[y]}, "border": {"none": True}})
+    h1c.set_title({"name": "H1 Average Planned Offline by Unit (kbd)"})
+    h1c.set_y_axis({"name": "kbd"}); h1c.set_legend({"position": "bottom", "font": {"size": 8}})
+    h1c.set_size({"width": 560, "height": 320})
+    ws.insert_chart(3, 9, h1c)
 
 
 def _padd(wb, fm, ctx, base, assets):
@@ -310,8 +350,6 @@ def _padd(wb, fm, ctx, base, assets):
                 rr += 1
     ws.autofilter(r0, 0, rr - 1, 7)
     ws.freeze_panes(r0 + 1, 0)
-    ws.insert_image(r0, 9, assets["cdu_padd_27"], IMG)
-    ws.insert_image(r0 + 21, 9, assets["fcc_padd_27"], IMG)
     # annual pivot per unit: PADD x year level + YoY%
     ar = rr + 2
     for f, lbl in units:
@@ -335,10 +373,37 @@ def _padd(wb, fm, ctx, base, assets):
                                  (ann[y] / ann[years[j-1]] - 1) if ann[years[j-1]] else "")
         ar = h + len(padds) + 2
 
+    # native, live stacked charts: FY offline by month & PADD (per unit), off compact source matrices
+    for unit, label, mtop, anchor in [("CDU", "Crude (CDU)", ar, r0),
+                                      ("FCC", "FCC (cat cracker)", ar + 15, r0 + 21)]:
+        ws.write(mtop, 0, f"{label} {FY} by PADD & month (chart source)", fm["secn"])
+        hh = mtop + 1
+        ws.write(hh, 0, "Mon", fm["hl"])
+        for j, p in enumerate(padds):
+            ws.write(hh, 1 + j, p.replace("PADD ", "P"), fm["h"])
+        for i, mo in enumerate(MONTHS):
+            rr2 = hh + 1 + i
+            ws.write(rr2, 0, mo, fm["rowh"])
+            for j, p in enumerate(padds):
+                ws.write_formula(rr2, 1 + j, _si("K", ("A", FY), ("B", i + 1), ("G", unit), ("F", p)),
+                                 fm["num"], _g(series[(unit, p)], FY, i + 1))
+        ch = wb.add_chart({"type": "column", "subtype": "stacked"})
+        for j, p in enumerate(padds):
+            ch.add_series({"name": p.replace("PADD ", "P"),
+                           "categories": ["PADD by Unit", hh + 1, 0, hh + 12, 0],
+                           "values": ["PADD by Unit", hh + 1, 1 + j, hh + 12, 1 + j],
+                           "fill": {"color": PADD_HEX[p]}, "border": {"none": True}})
+        ch.set_title({"name": f"{label} Offline by Month & PADD, {FY} (kbd)"})
+        ch.set_y_axis({"name": "kbd offline"}); ch.set_x_axis({"name": f"Month, {FY}"})
+        ch.set_legend({"position": "bottom", "font": {"size": 8}})
+        ch.set_size({"width": 560, "height": 300})
+        ws.insert_chart(anchor, 9, ch)
+
 
 def _naphtha(wb, fm, ctx, assets):
     ws = wb.add_worksheet("HVN")
-    ws.set_column(0, 0, 8); ws.set_column(1, 6, 15)
+    ws.set_column(0, 0, 8); ws.set_column(1, 5, 15)
+    ws.set_column(6, 6, 12, None, {"hidden": True})      # neg-supply helper for the live chart
     _title(ws, fm, "HVN (Heavy Virgin Naphtha) Balance: CDU Supply vs Reformer Demand (kbd) = live model",
            "Reformer-feed naphtha. CDU/reformer offline pulled from Data; supply, demand and net recompute off "
            "the gold yield cells below. All PADDs, then PADD 3 (Gulf) only.")
@@ -360,6 +425,7 @@ def _naphtha(wb, fm, ctx, assets):
                              fm["num"], float(nb["ref_offline"][i]))
             ws.write_formula(rr, 4, f"=D{rr+1}*ref_intake", fm["num"], float(nb["demand_removed"][i]))
             ws.write_formula(rr, 5, f"=E{rr+1}-C{rr+1}", fm["num"], float(nb["net"][i]))
+            ws.write_formula(rr, 6, f"=-C{rr+1}", fm["num"], -float(nb["supply_removed"][i]))  # neg supply (chart)
         tt = r0 + 1 + 12
         ws.write(tt, 0, "Year", fm["rowh"])
         cached = [sum(nb["cdu_offline"]), sum(nb["supply_removed"]), sum(nb["ref_offline"]),
@@ -389,8 +455,29 @@ def _naphtha(wb, fm, ctx, assets):
     tot3 = _block(p3h + 1, p3, extra=(("F", "PADD 3"),))
     ws.write(tot3 + 2, 0, f"PADD 3 {FY} annual net = {p3['annual_net']:,.0f} kbd "
                           f"({p3['n_deficit']} deficit months) -- the Gulf share of the HVN deficit.", fm["sub"])
-    ws.insert_image(3, 7, assets["naphtha_balance"], IMG)
-    ws.insert_image(p3h, 7, assets["naphtha_balance_p3"], IMG)
+    # native, live combo charts (demand up, supply down, net line) -- update with the data
+    def _hvn_chart(top, title, anchor):
+        m0, m1 = top + 1, top + 12                       # 0-based month rows
+        colc = wb.add_chart({"type": "column", "subtype": "stacked"})  # +demand up, -supply down from 0
+        colc.add_series({"name": "Reformer down: HVN demand removed",
+                         "categories": ["HVN", m0, 0, m1, 0], "values": ["HVN", m0, 4, m1, 4],
+                         "fill": {"color": "#70AD47"}, "border": {"none": True}})
+        colc.add_series({"name": "CDU down: HVN supply removed",
+                         "categories": ["HVN", m0, 0, m1, 0], "values": ["HVN", m0, 6, m1, 6],
+                         "fill": {"color": "#2E5496"}, "border": {"none": True}})
+        linec = wb.add_chart({"type": "line"})
+        linec.add_series({"name": "Net HVN balance", "categories": ["HVN", m0, 0, m1, 0],
+                          "values": ["HVN", m0, 5, m1, 5], "line": {"color": "#23272E", "width": 2.25},
+                          "marker": {"type": "circle", "size": 4, "fill": {"color": "#23272E"},
+                                     "border": {"color": "#23272E"}}})
+        colc.combine(linec)
+        colc.set_title({"name": title})
+        colc.set_y_axis({"name": "kbd of HVN"}); colc.set_x_axis({"name": f"Month, {FY}"})
+        colc.set_legend({"position": "bottom", "font": {"size": 8}})
+        colc.set_size({"width": 680, "height": 330}); colc.show_hidden_data()
+        ws.insert_chart(anchor, 7, colc)
+    _hvn_chart(3, f"HVN Balance by Month, {FY} (kbd)", 3)
+    _hvn_chart(p3h + 1, f"HVN Balance -- PADD 3 (Gulf), {FY} (kbd)", p3h)
 
 
 def _exxon(wb, fm, ctx, assets):
@@ -501,7 +588,18 @@ def _forecast(wb, fm, ctx, assets):
     ws.write(mb + 5, 0, (f"Baseline window {_bw}  |  actuals reported through "
                          f"{MONTHS[through[1]-1]} {through[0]}") if through else f"Baseline window {_bw}",
              fm["sub"])
-    ws.insert_image(3, 17, assets["fan"], IMG)
+    # native, live line chart: baseline + the three scenario paths by month
+    fc = wb.add_chart({"type": "line"})
+    for row, nm, color in [(r0 + 1, "Baseline", "#808080"), (r0 + 2, "Conservative", "#548235"),
+                           (r0 + 3, "Average", "#BF9000"), (r0 + 4, "Active", "#C00000")]:
+        fc.add_series({"name": nm, "categories": ["Forecast", r0, 1, r0, 12],
+                       "values": ["Forecast", row, 1, row, 12],
+                       "line": {"color": color, "width": 2.25 if nm == "Average" else 1.5}})
+    fc.set_title({"name": f"{FY} Unplanned Scenario (kbd/month)"})
+    fc.set_y_axis({"name": "kbd/month"}); fc.set_x_axis({"name": f"Month, {FY}"})
+    fc.set_legend({"position": "bottom", "font": {"size": 8}})
+    fc.set_size({"width": 720, "height": 340})
+    ws.insert_chart(3, 17, fc)
 
 
 def _base(df):

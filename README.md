@@ -27,8 +27,8 @@ that always agree:
    (The main deck is for the gasoline and diesel reads; the chem-feed deck is the
    reformers/naphtha read.)
 2. **Excel model** (`output/outage_model.xlsx`): every number the deck looks at,
-   calculates or forecasts, in detail, with the exact deck charts embedded on
-   each sheet (just copy and paste). It is **live off the Snowflake**: the `Data`
+   calculates or forecasts, in detail, with a **live native chart on each analysis
+   sheet** that redraws as the data changes. It is **live off the Snowflake**: the `Data`
    sheet holds the golden-record rows and every analysis sheet is `=SUMIFS` over
    it, with **Focus and PADD derived by Excel formula** (so pasted rows classify
    themselves) and spare formula rows below the data, so when you paste a refreshed
@@ -139,7 +139,10 @@ source with **visible Excel formulas** (SUMIFS / AVERAGE / MAX / SUM ...), so an
 number on a slide can be traced to a cell and you can see how it is calculated.
 The shaded gold cells are editable inputs that live on the sheet they drive
 (HVN / Forecast / Scenarios), which recomputes off them.
-Every deck chart is embedded, and Historicals adds a **native, live Excel chart**.
+The charts are **native, live Excel charts** bound to the SUMIFS cells, so they
+**redraw when you paste a refreshed Snowflake** (Per-Unit, PADD by Unit, HVN,
+Forecast, H1, Biggest, Historicals). Only the ExxonMobil turnaround gantt stays a
+static embedded image (Excel has no native gantt).
 
 | Sheet | What's in it |
 |---|---|
