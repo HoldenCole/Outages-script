@@ -11,7 +11,7 @@ fully in Excel): a single `Data` sheet holds the pullable source records, and th
 analysis sheets compute off it with visible formulas (SUMIFS / AVERAGE), so any
 number on a slide can be pointed to here and you can see how it is calculated.
 The live sheets carry their own tunable input cells (gold), so there is no separate
-settings sheet: the Naphtha yields, the Forecast scenario multipliers and the
+settings sheet: the HVN-sheet yields, the Forecast scenario multipliers and the
 Scenarios PADD pass-throughs each recompute their sheet in place.
 
 Sheets:
@@ -21,7 +21,7 @@ Sheets:
     H1 by Unit    H1 (Jan-Jun) planned per unit & month, 2025/26/27 (=SUMIFS / AVG)
     PADD by Unit  CDU & FCC offline by PADD & month, 2027        (=SUMIFS)
     ExxonMobil    per-unit 2027 turnarounds, verified            (from Data)
-    Naphtha       CDU supply vs reformer demand balance  (gold yield cells live here)
+    HVN           heavy virgin naphtha: CDU supply vs reformer demand (all PADDs + PADD 3, gold yields here)
     Forecast      baseline + Conservative/Average/Active  (gold multipliers live here)
     Scenarios     sensitivity grid + stress shocks + PADD connectivity (gold here)
     Historicals   monthly 2023-2027 totals / per unit / per PADD + live chart
@@ -337,47 +337,60 @@ def _padd(wb, fm, ctx, base, assets):
 
 
 def _naphtha(wb, fm, ctx, assets):
-    ws = wb.add_worksheet("Naphtha")
+    ws = wb.add_worksheet("HVN")
     ws.set_column(0, 0, 8); ws.set_column(1, 6, 15)
-    _title(ws, fm, "Naphtha Balance: CDU Supply vs Reformer Demand (kbd) = live model",
-           "CDU/reformer offline pulled from Data; supply, demand and net recompute off the gold yield cells below.")
-    nb = ctx["naphtha_balance"]
+    _title(ws, fm, "HVN (Heavy Virgin Naphtha) Balance: CDU Supply vs Reformer Demand (kbd) = live model",
+           "Reformer-feed naphtha. CDU/reformer offline pulled from Data; supply, demand and net recompute off "
+           "the gold yield cells below. All PADDs, then PADD 3 (Gulf) only.")
     mnum = {mo: i + 1 for i, mo in enumerate(MONTHS)}
-    heads = ["Month", "CDU offline", "Naphtha supply removed", "Reformer offline",
-             "Naphtha demand removed", "Net balance"]
-    r0 = 3
-    ws.write(r0, 0, heads[0], fm["hl"])
-    for j, h in enumerate(heads[1:], 1):
-        ws.write(r0, j, h, fm["h"])
-    for i, mo in enumerate(MONTHS):
-        rr = r0 + 1 + i
-        ws.write(rr, 0, mo, fm["rowh"])
-        ws.write_formula(rr, 1, _si("K", ("A", FY),("B", mnum[mo]), ("G", "CDU")),
-                         fm["num"], float(nb["cdu_offline"][i]))
-        ws.write_formula(rr, 2, f"=B{rr+1}*naph_yield", fm["num"], float(nb["supply_removed"][i]))
-        ws.write_formula(rr, 3, _si("K", ("A", FY),("B", mnum[mo]), ("G", "Reformer")),
-                         fm["num"], float(nb["ref_offline"][i]))
-        ws.write_formula(rr, 4, f"=D{rr+1}*ref_intake", fm["num"], float(nb["demand_removed"][i]))
-        ws.write_formula(rr, 5, f"=E{rr+1}-C{rr+1}", fm["num"], float(nb["net"][i]))
-    tot = r0 + 1 + 12
-    ws.write(tot, 0, "Year", fm["rowh"])
-    cached = [sum(nb["cdu_offline"]), sum(nb["supply_removed"]), sum(nb["ref_offline"]),
-              sum(nb["demand_removed"]), nb["annual_net"]]
-    for j, col, cv in zip((1, 2, 3, 4, 5), "BCDEF", cached):
-        ws.write_formula(tot, j, f"=SUM({col}{r0+2}:{col}{r0+13})", fm["num"], float(cv))
-    ws.write(tot + 2, 0, "Net < 0 = deficit (naphtha short, bullish reformate); net > 0 = surplus.", fm["key"])
+    heads = ["Month", "CDU offline", "HVN supply removed", "Reformer offline",
+             "HVN demand removed", "Net balance"]
+
+    def _block(r0, nb, extra=()):
+        ws.write(r0, 0, heads[0], fm["hl"])
+        for j, h in enumerate(heads[1:], 1):
+            ws.write(r0, j, h, fm["h"])
+        for i, mo in enumerate(MONTHS):
+            rr = r0 + 1 + i
+            ws.write(rr, 0, mo, fm["rowh"])
+            ws.write_formula(rr, 1, _si("K", ("A", FY), ("B", mnum[mo]), ("G", "CDU"), *extra),
+                             fm["num"], float(nb["cdu_offline"][i]))
+            ws.write_formula(rr, 2, f"=B{rr+1}*naph_yield", fm["num"], float(nb["supply_removed"][i]))
+            ws.write_formula(rr, 3, _si("K", ("A", FY), ("B", mnum[mo]), ("G", "Reformer"), *extra),
+                             fm["num"], float(nb["ref_offline"][i]))
+            ws.write_formula(rr, 4, f"=D{rr+1}*ref_intake", fm["num"], float(nb["demand_removed"][i]))
+            ws.write_formula(rr, 5, f"=E{rr+1}-C{rr+1}", fm["num"], float(nb["net"][i]))
+        tt = r0 + 1 + 12
+        ws.write(tt, 0, "Year", fm["rowh"])
+        cached = [sum(nb["cdu_offline"]), sum(nb["supply_removed"]), sum(nb["ref_offline"]),
+                  sum(nb["demand_removed"]), nb["annual_net"]]
+        for j, col, cv in zip((1, 2, 3, 4, 5), "BCDEF", cached):
+            ws.write_formula(tt, j, f"=SUM({col}{r0+2}:{col}{r0+13})", fm["num"], float(cv))
+        return tt
+
+    nb = ctx["naphtha_balance"]
+    tot = _block(3, nb)                                  # all-PADD HVN balance
+    ws.write(tot + 2, 0, "Net < 0 = deficit (HVN short, bullish reformate); net > 0 = surplus.", fm["key"])
     ws.write(tot + 3, 0, f"{FY} annual net = {nb['annual_net']:,.0f} kbd "
                          f"({nb['n_deficit']} deficit months, {nb['n_surplus']} surplus).", fm["sub"])
-    # the tunable yield inputs live here now (the supply/demand columns recompute off them)
+    # the tunable yield inputs live here (the supply/demand columns recompute off them)
     ib = tot + 5
     ws.write(ib, 0, "Live inputs (edit -- supply & demand above recompute)", fm["secn"])
     ws.merge_range(ib + 1, 0, ib + 1, 2, "Naphtha yield (per bbl crude)", fm["lbl"])
     ws.write_number(ib + 1, 3, engine.NAPHTHA_YIELD, fm["inp"])
     ws.merge_range(ib + 2, 0, ib + 2, 2, "Reformer naphtha intake (per bbl capacity)", fm["lbl"])
     ws.write_number(ib + 2, 3, engine.REFORMER_NAPHTHA_INTAKE, fm["inp"])
-    wb.define_name("naph_yield", f"=Naphtha!$D${ib + 2}")
-    wb.define_name("ref_intake", f"=Naphtha!$D${ib + 3}")
+    wb.define_name("naph_yield", f"=HVN!$D${ib + 2}")
+    wb.define_name("ref_intake", f"=HVN!$D${ib + 3}")
+    # PADD 3 (Gulf) only -- same balance, CDU & reformer filtered to PADD 3
+    p3h = ib + 4
+    ws.write(p3h, 0, "PADD 3 (Gulf) only -- CDU & reformer filtered to PADD 3", fm["secn"])
+    p3 = ctx["naphtha_balance_p3"]
+    tot3 = _block(p3h + 1, p3, extra=(("F", "PADD 3"),))
+    ws.write(tot3 + 2, 0, f"PADD 3 {FY} annual net = {p3['annual_net']:,.0f} kbd "
+                          f"({p3['n_deficit']} deficit months) -- the Gulf share of the HVN deficit.", fm["sub"])
     ws.insert_image(3, 7, assets["naphtha_balance"], IMG)
+    ws.insert_image(p3h, 7, assets["naphtha_balance_p3"], IMG)
 
 
 def _exxon(wb, fm, ctx, assets):
@@ -904,7 +917,7 @@ TAB = {
     "Per-Unit": "#2E8B8B", "Biggest": "#2E8B8B", "H1 by Unit": "#2E8B8B",
     "PADD by Unit": "#2E8B8B", "ExxonMobil": "#2E8B8B",
     # chem feed
-    "Naphtha": "#7030A0",
+    "HVN": "#7030A0",
     # forecasting / sensitivity / what-ifs
     "Forecast": "#C00000", "Scenarios": "#C00000",
     # data / source (back)

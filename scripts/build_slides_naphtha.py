@@ -99,14 +99,17 @@ class NaphthaDeck(Deck):
         nbcy, nbfy = self.ctx["naphtha_balance_cy"], self.ctx["naphtha_balance"]
         fwd_net = list(nbcy["net"][6:]) + list(nbfy["net"])
         n_def = sum(1 for v in fwd_net if v < -1e-6)
+        p3cy, p3fy = self.ctx["naphtha_balance_cy_p3"], self.ctx["naphtha_balance_p3"]
+        p3_net = list(p3cy["net"][6:]) + list(p3fy["net"])
+        p3_def = sum(1 for v in p3_net if v < -1e-6)
         ny = int(round(nbcy["naphtha_yield"] * 100))
-        self.wide_chart_slide(
-            "Naphtha Balance: CDU Supply vs Reformer Demand",
-            f"{CY}-{FY} outages read as naphtha length. CDU makes naphtha; reformers consume it",
-            self.a["naphtha_forward"],
-            foot=f"Net = reformer offline (demand, x1.0) minus CDU offline x {nbcy['naphtha_yield']:.2f} "
-                 f"(supply, ~{ny}% of crude), day-weighted. The forward window runs short ({n_def} of "
-                 f"{len(fwd_net)} months in deficit): crude turnarounds pull more naphtha off than reformers free.")
+        self.charts_bullets_slide(
+            "HVN Balance: CDU Supply vs Reformer Demand",
+            f"Heavy virgin naphtha (the reformer feed) across {CY}-{FY}. Left = all PADDs; right = PADD 3 (Gulf) only",
+            [self.a["naphtha_forward"], self.a["naphtha_forward_p3"]],
+            foot=f"Net = reformer offline (HVN demand) minus CDU offline x {nbcy['naphtha_yield']:.2f} (HVN supply, "
+                 f"~{ny}% of crude), day-weighted. The forward window runs short -- {n_def} of {len(fwd_net)} months "
+                 f"in deficit overall, {p3_def} in PADD 3. The Gulf drives the HVN tightness.")
 
     def chemfeed_slide(self):
         na = self.ctx["naphtha"]["annual"]

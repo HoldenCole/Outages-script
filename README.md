@@ -32,7 +32,7 @@ that always agree:
    sheet holds the golden-record rows and every analysis sheet is `=SUMIFS` over
    it, with **Focus and PADD derived by Excel formula** (so pasted rows classify
    themselves) and spare formula rows below the data, so when you paste a refreshed
-   or larger Snowflake into `Data` the whole model recomputes. The Naphtha,
+   or larger Snowflake into `Data` the whole model recomputes. The HVN,
    Forecast and Scenarios sheets additionally recompute off their own shaded
    input cells (the yields, multipliers and PADD pass-throughs live on the sheet
    each one drives).
@@ -126,7 +126,7 @@ chart and table.
 
 The assumptions (the naphtha yield and reformer intake, the scenario multipliers,
 the PADD pass-throughs) are tunable gold cells that live on the sheet each one
-drives -- yields on **Naphtha**, multipliers on **Forecast**, pass-throughs on
+drives -- yields on **HVN**, multipliers on **Forecast**, pass-throughs on
 **Scenarios** -- so that sheet recomputes live off them. There is no separate
 settings sheet.
 
@@ -138,7 +138,7 @@ settings sheet.
 source with **visible Excel formulas** (SUMIFS / AVERAGE / MAX / SUM ...), so any
 number on a slide can be traced to a cell and you can see how it is calculated.
 The shaded gold cells are editable inputs that live on the sheet they drive
-(Naphtha / Forecast / Scenarios), which recomputes off them.
+(HVN / Forecast / Scenarios), which recomputes off them.
 Every deck chart is embedded, and Historicals adds a **native, live Excel chart**.
 
 | Sheet | What's in it |
@@ -150,7 +150,7 @@ Every deck chart is embedded, and Historicals adds a **native, live Excel chart*
 | **Biggest** | The biggest individual 2027 outages: refinery, unit, class, PADD, kbd, window, confirmed vs indicative. |
 | **H1 by Unit** | H1 (Jan-Jun) planned offline per unit and month for 2025 / 2026 / 2027, plus the H1 averages (=AVERAGE). |
 | **PADD by Unit** | 2027 CDU and FCC offline by PADD and month. |
-| **Naphtha** | CDU supply vs reformer demand balance, **live** off the gold yield cells on this sheet (naphtha yield, reformer intake). |
+| **HVN** | Heavy virgin naphtha (reformer feed): CDU supply vs reformer demand balance — all PADDs and PADD 3 (Gulf) only — **live** off the gold yield cells on this sheet (naphtha yield, reformer intake). |
 | **ExxonMobil** | Per-unit 2027 turnarounds, verified against the corporate plan. |
 | **Forecast** | Completeness-aware baseline and the Conservative / Average / Active scenario, **live** off the multipliers. Implied offline is read **by month** (peak month + average month = real kbd levels), never summed into a year. |
 | **Scenarios** | All the forward what-ifs on the 2027 book in one sheet (peak-month basis): a **sensitivity grid** (unplanned-multiplier x one-off-shock heatmap), **named stress shocks** (USGC hurricane, winter freeze, CDU trips, fall overlap), and **PADD connectivity** (effective crude-outage impact = nominal CDU offline x a per-PADD pass-through; P3 Gulf buffers, islanded PADDs cascade). The gold input cells (multipliers, pass-throughs) live on this sheet. |

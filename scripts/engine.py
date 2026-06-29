@@ -1382,7 +1382,7 @@ def h1_focus_planned(df, years=(FOCUS_YEAR - 2, FOCUS_YEAR - 1, FOCUS_YEAR)):
     return pd.DataFrame(data).T.reindex(FOCUS_ORDER)
 
 
-def naphtha_balance(df, year=FOCUS_YEAR):
+def naphtha_balance(df, year=FOCUS_YEAR, padd=None):
     """CDU vs reformer outages read as a naphtha supply/demand balance.
 
     Crude distillation MAKES naphtha (~35% of crude); reformers CONSUME it (their
@@ -1398,8 +1398,8 @@ def naphtha_balance(df, year=FOCUS_YEAR):
     reformate (gasoline/octane) the offline reformers would have made, valued at
     YIELD_FACTOR['Ref'], for the octane read. Returns a dict of 12-month lists
     plus summary scalars."""
-    cdu = unit_offline_monthly(df, focus="CDU")
-    ref = unit_offline_monthly(df, focus="Reformer")
+    cdu = unit_offline_monthly(df, focus="CDU", padd=padd)
+    ref = unit_offline_monthly(df, focus="Reformer", padd=padd)
     cdu_m = [float(cdu.loc[year, m]) if year in cdu.index else 0.0 for m in MONTHS]
     ref_m = [float(ref.loc[year, m]) if year in ref.index else 0.0 for m in MONTHS]
     supply = [c * NAPHTHA_YIELD for c in cdu_m]
@@ -1415,6 +1415,7 @@ def naphtha_balance(df, year=FOCUS_YEAR):
         "n_deficit": int(sum(1 for v in net if v < -1e-6)),
         "n_surplus": int(sum(1 for v in net if v > 1e-6)),
         "naphtha_yield": NAPHTHA_YIELD, "reformer_intake": REFORMER_NAPHTHA_INTAKE,
+        "padd": padd,
     }
 
 
@@ -1679,6 +1680,8 @@ def build_context(path):
         "h1_focus_planned": h1_focus_planned(df),       # H1 planned per unit, 2025/26/27
         "naphtha_balance": naphtha_balance(df, FOCUS_YEAR),   # CDU supply vs reformer demand (outlook yr)
         "naphtha_balance_cy": naphtha_balance(df, CURRENT_YEAR),   # same, for the in-progress year
+        "naphtha_balance_p3": naphtha_balance(df, FOCUS_YEAR, padd="PADD 3"),       # HVN balance, PADD 3 (Gulf) only
+        "naphtha_balance_cy_p3": naphtha_balance(df, CURRENT_YEAR, padd="PADD 3"),
         "focus_padd": {y: {f: focus_unit_padd_month(df, f, y) for f in FOCUS_ORDER}
                        for y in (FOCUS_YEAR - 1, FOCUS_YEAR)},
         "confirmed2027": {f: focus_2027_split(df, f) for f in FOCUS_ORDER},
