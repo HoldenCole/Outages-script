@@ -22,6 +22,10 @@ still being booked — don't treat them as firm.**
 & Richmond ~240 (Gulf + West). Cat cracker **~450**, Gulf Q1 — Baytown 125, Beaumont 120. Hydrocracker **~140**,
 Gulf Q1 — Beaumont 65, Galveston Bay 60. Reformer **~185**, Midwest — Whiting 60, Joliet 52. Crude and cat are
 Gulf-led; the stack clusters Feb–May with a lighter fall.*
+*Relatives — 2027 planned vs complete-2026 (full-year): crude **+31%**, cat cracker **+55%**, hydrocracker −13%,
+reformer −2%. The step-up is crude and the cat, and that's **before** non-Exxon H2 is fully booked (which only adds to
+it). On the like-for-like H1 basis it's cat **+66%** / crude **+7%** — slide 5 has the full per-unit cross-year.
+Versus 2025 the all-in still reads lighter only because H2 isn't in yet.*
 
 **3 · What's driving it — biggest outages**
 The biggest single outages of the year are almost all crude. The largest sit in the **Gulf and the West** — Joliet
@@ -53,11 +57,20 @@ cat-gasoline make gets cut just as we flip to summer grade.
 PADD 3**, then P2. P5 (West) is islanded — a California outage isn't bailed out by other regions. Windows: spring
 (Mar–May) heavy, fall lighter, summer protected for driving season. Names to know: Baytown / Beaumont cat (Gulf, Q1),
 Joliet / Cherry Point crude.*
+*Relatives — H1 2027 vs H1 2026: cat cracker **+66%** (the standout — heaviest in three years, and **+24% vs 2025**
+too), crude **+7%**. The Gulf move is even sharper on cat — **Gulf cat +106%** — while **Gulf crude is actually −5%**
+(the extra 2027 crude work is Midwest/West, not the Gulf). So the Gulf gasoline squeeze is a **cat-cracker story, not a
+crude one** — the cat is what's flipping to summer-grade short.*
 
 **7 · Distillate complex — Crude + Hydrocracker** *[Diesel: dwell here]*
 For diesel it's crude plus the hydrocracker. The hydrocracker itself is small — the diesel squeeze is really **crude
 plus inventories**. Every crude turnaround cuts distillate yield too, and the hydrocracker work is Gulf-heavy in Q1
 and again in the fall. The backdrop is the closer: **distillate stocks are the tightest of the three.**
+*Relatives — H1 2027 vs H1 2026: crude **+7%** (−25% vs 2025), hydrocracker **+9%** (**+30% vs 2025** — it clears both
+recent years). But the hydrocracker is small in tonnage, so the diesel tightness is really **crude +7% plus low
+distillate stocks**, not hydrocracker turnarounds. The hydrocracker is also the unit whose work shifts latest — H2
+hydrocracker offline has been climbing (2026 H2 ran above both 2024 and 2025), so the diesel-yield risk leans into the
+back half.*
 *Operator note (Robinson, PADD 2): confirmed out, but it's a reformer/hydrotreater turnaround — the crude unit stays
 up. Still, PADD 2 is poorly connected, so with the reformer down they may have to cut crude runs anyway — a possible
 **soft Midwest crude reduction even though the CDU isn't formally in TA**.*
