@@ -233,7 +233,7 @@ def _per_unit(wb, fm, ctx, assets):
                        "values": ["Per-Unit", drow, 1, drow, 12],
                        "fill": {"color": FOCUS_HEX[f]}, "border": {"none": True}})
     pu.set_title({"name": f"{FY} Concurrent Offline by Unit & Month (kbd)"})
-    pu.set_y_axis({"name": "kbd offline"}); pu.set_x_axis({"name": f"Month, {FY}"})
+    pu.set_y_axis({"name": "kbd offline"}); pu.set_x_axis({"name": f"Month, {FY}", "text_axis": True})
     pu.set_legend({"position": "bottom", "font": {"size": 8}})
     pu.set_size({"width": 720, "height": 340})
     ws.insert_chart(3, 14, pu)
@@ -407,7 +407,7 @@ def _padd(wb, fm, ctx, base, assets):
                            "values": ["PADD by Unit", hh + 1, 1 + j, hh + 12, 1 + j],
                            "fill": {"color": PADD_HEX[p]}, "border": {"none": True}})
         ch.set_title({"name": f"{label} Offline by Month & PADD, {FY} (kbd)"})
-        ch.set_y_axis({"name": "kbd offline"}); ch.set_x_axis({"name": f"Month, {FY}"})
+        ch.set_y_axis({"name": "kbd offline"}); ch.set_x_axis({"name": f"Month, {FY}", "text_axis": True})
         ch.set_legend({"position": "bottom", "font": {"size": 8}})
         ch.set_size({"width": 560, "height": 300})
         ws.insert_chart(anchor, 9, ch)
@@ -580,7 +580,7 @@ def _naphtha(wb, fm, ctx, assets):
                                      "border": {"color": "#23272E"}}})
         colc.combine(linec)
         colc.set_title({"name": title})
-        colc.set_y_axis({"name": "kbd of HVN"}); colc.set_x_axis({"name": f"Month, {FY}"})
+        colc.set_y_axis({"name": "kbd of HVN"}); colc.set_x_axis({"name": f"Month, {FY}", "text_axis": True})
         colc.set_legend({"position": "bottom", "font": {"size": 8}})
         colc.set_size({"width": 680, "height": 330}); colc.show_hidden_data()
         ws.insert_chart(anchor, 7, colc)
@@ -705,7 +705,7 @@ def _forecast(wb, fm, ctx, assets):
                        "values": ["Forecast", row, 1, row, 12],
                        "line": {"color": color, "width": 2.25 if nm == "Average" else 1.5}})
     fc.set_title({"name": f"{FY} Unplanned Scenario (kbd/month)"})
-    fc.set_y_axis({"name": "kbd/month"}); fc.set_x_axis({"name": f"Month, {FY}"})
+    fc.set_y_axis({"name": "kbd/month"}); fc.set_x_axis({"name": f"Month, {FY}", "text_axis": True})
     fc.set_legend({"position": "bottom", "font": {"size": 8}})
     fc.set_size({"width": 720, "height": 340})
     ws.insert_chart(3, 17, fc)
@@ -952,6 +952,7 @@ def _historicals(wb, fm, base):
                        "values": ["Historicals", r0 + 1, col, r0 + 60, col],
                        "line": {"color": color, "width": 1.75}})
     ch.set_title({"name": "US Capacity Offline by Month (kbd)"})
+    ch.set_x_axis({"text_axis": True})       # force text axis -- stop Excel date-converting "Mon YY" labels
     ch.set_size({"width": 760, "height": 320})
     ch.set_legend({"position": "bottom"})
     ws.insert_chart(r0, 18, ch)
