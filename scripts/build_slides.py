@@ -428,12 +428,24 @@ class Deck:
                   f"{src}). Spring CDU turnarounds cut crude -- so gasoline and distillate both -- with the FCC "
                   "tightening summer gasoline and the hydrocracker tightening diesel/jet."))
 
+    def relatives_slide(self):
+        self.charts_bullets_slide(
+            f"Relatives: {FY} vs Prior Years, and Tied vs Standalone",
+            "H1 planned offline % change by unit (left); share of downstream offline tied to a crude turnaround vs "
+            "standalone (right)",
+            [self.a["relatives_units"], self.a["tied_standalone"]],
+            foot=(f"Left: H1 like-for-like, {FY} vs the prior two years -- the cat cracker leads (+66% vs {FY-1}), the "
+                  "reformer beats last year but trails 2025. Right: standalone = the unit is down while crude keeps "
+                  "running (the cleaner product signal); the reformer is mostly tied to crude TAs, the hydrocracker "
+                  "mostly standalone."))
+
     def build(self):
         self.title_slide()
         self.total_by_unit_slide()        # all four focus units, confirmed vs not-booked
         self.drivers_slide()              # biggest individual outages by PADD
         self.mom_slide()                  # month-over-month: what changed & what's driving it
         self.h1_compare_slide()           # H1 2025/26 vs 2027 planned, per unit & month
+        self.relatives_slide()            # relative %s: H1 cross-year + tied vs standalone
         self.gasoline_padd_slide()        # gasoline complex: CDU + FCC by PADD
         self.distillate_padd_slide()      # distillate complex: CDU + hydrocracker by PADD
         self.unplanned_context_slide()    # recent unplanned context

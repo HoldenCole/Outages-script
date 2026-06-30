@@ -757,6 +757,83 @@ def mom_newgone_chart(ctx, path):
 
 # --------------------------------------------------------------------------- per-unit (focus) charts
 FOCUS_COLOR = {"CDU": NAVY, "FCC": RED, "Hydrocracker": GREEN, "Reformer": GOLD}
+SHORT = {"CDU": "Crude", "FCC": "Cat (FCC)", "Hydrocracker": "Hydrocracker", "Reformer": "Reformer"}
+_pctfmt = FuncFormatter(lambda v, _: f"{v*100:.0f}%")
+
+
+def _bar_pct_labels(ax, bars, vals):
+    for bar, v in zip(bars, vals):
+        ax.annotate(f"{v*100:+.0f}%", (bar.get_x() + bar.get_width() / 2, v),
+                    ha="center", va="bottom" if v >= 0 else "top", fontsize=9.5, fontweight="bold",
+                    color=NAVY if v >= 0 else RED, xytext=(0, 3 if v >= 0 else -3), textcoords="offset points")
+
+
+def _grouped_relatives(path, units, sA, sB, labA, labB, title):
+    """Shared grouped %-change bar: two comparison series per unit, signed labels."""
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    x = np.arange(len(units)); w = 0.38
+    bA = ax.bar(x - w / 2, sA, w, color=NAVY, label=labA, zorder=3)
+    bB = ax.bar(x + w / 2, sB, w, color=GOLD, label=labB, zorder=3)
+    _bar_pct_labels(ax, bA, sA); _bar_pct_labels(ax, bB, sB)
+    ax.axhline(0, color="#555", lw=1, zorder=4)
+    ax.set_xticks(x); ax.set_xticklabels([SHORT[u] for u in units])
+    ax.yaxis.set_major_formatter(_pctfmt)
+    ax.set_ylabel("% change in planned offline")
+    ax.set_title(title)
+    ax.legend(frameon=False, ncol=2, loc="upper left")
+    allv = sA + sB + [0.0]
+    ax.set_ylim(min(allv) - 0.16, max(allv) + 0.18)
+    _clean(ax)
+    return _save(fig, path)
+
+
+def _pc(a, b):
+    return (a / b - 1.0) if b else 0.0
+
+
+def relatives_by_unit(ctx, path):
+    """Main-deck relative read: H1 planned offline by unit, FY vs the prior two years (%)."""
+    hp = ctx["half_planned"]; u = engine.FOCUS_ORDER
+    vA = [_pc(hp[FY]["H1"][k], hp[FY - 1]["H1"][k]) for k in u]
+    vB = [_pc(hp[FY]["H1"][k], hp[FY - 2]["H1"][k]) for k in u]
+    return _grouped_relatives(path, u, vA, vB, f"vs {FY-1} H1", f"vs {FY-2} H1",
+                              f"H1 Planned Offline by Unit - {FY} vs Prior Years (%)")
+
+
+def relatives_forward_units(ctx, path):
+    """Chem-feed relative read: rest of CY (H2 vs the prior H2) and FY H1 (vs the prior H1), by unit."""
+    hp = ctx["half_planned"]; u = engine.FOCUS_ORDER
+    rest = [_pc(hp[CY]["H2"][k], hp[CY - 1]["H2"][k]) for k in u]
+    h1 = [_pc(hp[FY]["H1"][k], hp[FY - 1]["H1"][k]) for k in u]
+    return _grouped_relatives(path, u, rest, h1, f"Rest of {CY} (H2 vs {CY-1})", f"{FY} H1 (vs {FY-1})",
+                              f"Planned Offline Relatives by Unit - Rest of {CY} & {FY} H1 (%)")
+
+
+def tied_standalone_bars(ctx, path, key="tied_fy", year=None):
+    """100%-stacked share: how much of each unit's planned offline is tied to a same-site
+    crude turnaround vs standalone (crude still running) - the cleaner product signal."""
+    year = FY if year is None else year
+    t = ctx[key]; units = ["FCC", "Hydrocracker", "Reformer"]
+    tp = [t[u]["pct_tied"] for u in units]
+    sp = [1.0 - p for p in tp]
+    fig, ax = plt.subplots(figsize=(9.2, 3.8))
+    y = np.arange(len(units))
+    ax.barh(y, tp, color=NAVY, label="Tied to a crude TA", zorder=3)
+    ax.barh(y, sp, left=tp, color=GOLD, label="Standalone (crude still running)", zorder=3)
+    for i, (ti, sa) in enumerate(zip(tp, sp)):
+        if ti > 0.06:
+            ax.text(ti / 2, i, f"{ti*100:.0f}%", ha="center", va="center", color="white", fontweight="bold", fontsize=10.5)
+        if sa > 0.06:
+            ax.text(ti + sa / 2, i, f"{sa*100:.0f}%", ha="center", va="center", color="white", fontweight="bold", fontsize=10.5)
+    ax.set_yticks(y); ax.set_yticklabels([SHORT[u] for u in units]); ax.invert_yaxis()
+    ax.set_xlim(0, 1); ax.xaxis.set_major_formatter(_pctfmt)
+    ax.set_title(f"Tied to a Crude Turnaround vs Standalone - {year} (%)")
+    ax.legend(frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, -0.30))
+    _clean(ax, ygrid=False)
+    fig.tight_layout()
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return path
 
 
 def focus_heat(ctx, path):
@@ -1437,6 +1514,8 @@ def render_naphtha_assets(ctx, outdir):
         "ref_padd_cy": focus_padd_bars(ctx, "Reformer", CY, p("ref_padd_cy.png")),
         "ref_padd_fy": focus_padd_bars(ctx, "Reformer", FY, p("ref_padd_fy.png")),
         "unplanned_context": unplanned_context(ctx, p("unplanned_context.png")),
+        "relatives_forward": relatives_forward_units(ctx, p("relatives_forward.png")),
+        "tied_standalone": tied_standalone_bars(ctx, p("tied_standalone.png")),
     }
 
 
@@ -1472,6 +1551,9 @@ def render_all(ctx, outdir):
         "unplanned_context": unplanned_context(ctx, p("unplanned_context.png")),
         # 4) 2027 unplanned scenario analysis (monthly paths; no annual-sum bars)
         "fan": scenario_fan_chart(ctx, p("fan.png")),
+        # 4b) relative reads: H1 cross-year by unit, and tied-to-crude-TA vs standalone
+        "relatives_units": relatives_by_unit(ctx, p("relatives_units.png")),
+        "tied_standalone": tied_standalone_bars(ctx, p("tied_standalone.png")),
         # 5) what it means for the market: gasoline-complex TAs vs the summer-grade flip
         "market_setup": market_setup(ctx, p("market_setup.png")),
     }

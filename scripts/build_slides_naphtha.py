@@ -158,9 +158,20 @@ class NaphthaDeck(Deck):
             foot=f"Actual unplanned capacity offline by month, day-weighted. {CY} reported through June; "
                  "the Feb-freeze and autumn-turnaround windows are the recurring risk to carry forward.")
 
+    def relatives_slide(self):
+        self.charts_bullets_slide(
+            f"Relatives: Rest of {CY} & {FY} H1, and Tied vs Standalone",
+            "Planned offline % change by unit (left); share tied to a crude turnaround vs standalone (right)",
+            [self.a["relatives_forward"], self.a["tied_standalone"]],
+            foot=(f"Left: rest of {CY} (H2 vs the prior year) and {FY} H1 (vs prior) -- the reformer steps from -11% "
+                  "to +38%. Right: a standalone reformer = HVN demand off while crude keeps running (naphtha "
+                  "lengthens, reformate/octane tightens with no crude offset); the reformer is ~64% tied, so the "
+                  "standalone third is the clean octane signal."))
+
     def build(self):
         self.title_slide()
         self.forward_unit_slide()         # outages by unit, 2026 vs 2027
+        self.relatives_slide()            # relative %s by unit + tied vs standalone
         self.naphtha_balance_slide()      # HVN balance, all US
         self.hvn_padd3_slide()            # HVN balance, PADD 3 (Gulf) only
         self.reformer_slide()             # reformers: the octane read

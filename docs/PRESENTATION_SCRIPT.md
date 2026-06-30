@@ -106,7 +106,7 @@ actual. Crude and the cat cracker are the big tonnage; the **reformer** is the o
 plus the Gulf (Norco 40). Crude is the supply side of the balance (the same Gulf/Midwest spring stack); 2026 H1 is
 actual, everything right of the shading is the book.*
 *Relatives (planned offline, vs the same half a year earlier): the **rest of 2026 (H2) is light** — crude −49%, cat
-−58%, reformer −14% (only the hydrocracker is up). Then **H1 2027 ramps** — cat +66%, reformer +38%, crude +7% (and the
+−58%, reformer −11% (only the hydrocracker is up). Then **H1 2027 ramps** — cat +66%, reformer +38%, crude +7% (and the
 hydrocracker higher too). So: a quiet back-half of 2026, stepping up into 2027 H1.*
 
 **3 · HVN balance — all US**
@@ -128,7 +128,7 @@ national number.*
 Reformers turn HVN into reformate — the octane in gasoline. The Gulf carries the most of the offline.
 *Drivers — **~1,230 kbd-months** of reformer offline over the forward window ≈ **~1,040 of reformate (octane) not
 made**. Midwest and Gulf lead — Whiting (60, Midwest), Joliet (52, Midwest), Norco (40, Gulf).*
-*Relatives — reformer planned offline: **rest of 2026 is −14%** vs the same half last year (octane availability eases
+*Relatives — reformer planned offline: **rest of 2026 is −11%** vs the same half last year (octane availability eases
 through late 2026), then **H1 2027 jumps +38%** vs H1 2026 (still ~37% under the heavy 2025 H1). So octane loosens into
 year-end, then tightens hard into spring 2027.*
 *Operator note (Robinson, Midwest): the Ultraformer reformer is confirmed out for 2027 — crude stays up, but PADD 2's
