@@ -102,6 +102,10 @@ def _formats(wb):
         "txtw": wb.add_format({**base, "text_wrap": True, "valign": "top"}),
         "inp": wb.add_format({**base, "bold": True, "num_format": "0.00", "bg_color": "#FFF2CC",
                               "border": 1, "border_color": "#BF9000", "align": "center"}),
+        "inpp": wb.add_format({**base, "bold": True, "num_format": "0%", "bg_color": "#FFF2CC",
+                              "border": 1, "border_color": "#BF9000", "align": "center"}),
+        "pctc": wb.add_format({**base, "num_format": "0%", "border": 1, "border_color": "#E2E2E2",
+                               "align": "center", "bold": True}),
         "lbl": wb.add_format({**base, "bold": True}),
         "key": wb.add_format({**base, "italic": True, "font_color": "#BF9000"}),
         "secn": wb.add_format({**base, "bold": True, "font_size": 12, "font_color": navy,
@@ -508,9 +512,10 @@ def _exxon(wb, fm, ctx, assets):
 def _forecast(wb, fm, ctx, assets):
     ws = wb.add_worksheet("Forecast")
     ws.set_column(0, 0, 26); ws.set_column(1, 12, 8); ws.set_column(13, 15, 11)
-    _title(ws, fm, f"{FY} Unplanned Scenario (kbd/month) = baseline x multiplier (live)",
-           "Headline by month (peak/avg = real levels). Annual Sigma (sum of the 12 monthly "
-           "concurrent figures) is kept for reference -- a magnitude, not a level; not for slides.")
+    _title(ws, fm, f"Outlook: {FY} unplanned scenario + rest-of-{CY} book (kbd & relatives, live)",
+           f"Top: {FY} unplanned = baseline x multiplier, by month (peak/avg = real levels). Below: the rest-of-{CY} "
+           "book, the scenario-vs-plan relatives, a seasonal-risk index and the inventory knob. Annual Sigma is a "
+           "reference magnitude, not a level.")
     dff = ctx["df"]
     base = engine.baseline_profile(ctx["df"], ctx["scenario"]["window"])
     fan = ctx["scenario_fan"]
@@ -600,6 +605,128 @@ def _forecast(wb, fm, ctx, assets):
     fc.set_legend({"position": "bottom", "font": {"size": 8}})
     fc.set_size({"width": 720, "height": 340})
     ws.insert_chart(3, 17, fc)
+
+    # ===================================================== rest-of-CY outlook + relatives (appended below)
+    half = ctx["half_planned"]
+    inv_amp = float(ctx["inv_amp"])
+    mc = engine.MARKET_CONTEXT
+    base_mean = float(base.mean())
+    plan_h2 = [float(dff[(dff["year"] == CY) & (dff["type"] == "PLANNED") & (dff["month"] == m)]["cap_kbd"].sum())
+               for m in range(7, 13)]
+    impl_peak = {nm: max(float(fan[nm].iloc[j]) + planned_m[j] for j in range(12))
+                 for nm in ["Conservative", "Average", "Active"]}
+    plan_peak = max(planned_m) if max(planned_m) else 1.0
+
+    oc = 30
+    ws.write(oc, 0, f"Rest of {CY} outlook: the booked turnaround book + the unplanned scenario, sized vs prior years "
+             "(relatives)", fm["secn"])
+
+    # --- A) rest-of-CY booked planned by unit, with relatives (% vs prior years' H2) ---
+    a0 = oc + 1
+    for j, h in enumerate(["H2 planned offline (kbd-mo)", f"H2 {CY-2}", f"H2 {CY-1}", f"H2 {CY} booked",
+                           f"{CY} vs {CY-1}", f"vs {CY-2}"]):
+        ws.write(a0, j, h, fm["hl"] if j == 0 else fm["h"])
+
+    def _h2(year, unit):
+        return (f'=SUMIFS(Data!$K:$K,Data!$A:$A,{year},Data!$G:$G,"{unit}",'
+                f'Data!$J:$J,"PLANNED",Data!$B:$B,">=7")')
+    for i, unit in enumerate(FOCUS):
+        rr = a0 + 1 + i; xl = rr + 1
+        v2 = float(half.get(CY - 2, {}).get("H2", {}).get(unit, 0.0))
+        v1 = float(half.get(CY - 1, {}).get("H2", {}).get(unit, 0.0))
+        v0 = float(half.get(CY, {}).get("H2", {}).get(unit, 0.0))
+        ws.write(rr, 0, engine.FOCUS_LABEL[unit], fm["rowh"])
+        ws.write_formula(rr, 1, _h2(CY - 2, unit), fm["num"], v2)
+        ws.write_formula(rr, 2, _h2(CY - 1, unit), fm["num"], v1)
+        ws.write_formula(rr, 3, _h2(CY, unit), fm["num"], v0)
+        ws.write_formula(rr, 4, f'=IF(C{xl}=0,"n/a",D{xl}/C{xl}-1)', fm["pctc"], (v0 / v1 - 1) if v1 else "n/a")
+        ws.write_formula(rr, 5, f'=IF(B{xl}=0,"n/a",D{xl}/B{xl}-1)', fm["pctc"], (v0 / v2 - 1) if v2 else "n/a")
+    anote = a0 + 1 + len(FOCUS)
+    ws.write(anote, 0, f"H2 = Jul-Dec planned, day-weighted (the rest of {CY}'s already-booked book). Relatives vs the "
+             "same half a year / two years earlier; negative = a lighter back half than that year.", fm["sub"])
+
+    # --- B) rest-of-CY unplanned scenario (Jul-Dec): baseline shape x Average mult + booked planned ---
+    b0 = anote + 2
+    ws.write(b0, 0, f"Rest of {CY} (Jul-Dec): Average unplanned scenario + booked planned, by month (kbd/mo)", fm["hl"])
+    for j, mo in enumerate(MONTHS[6:12]):
+        ws.write(b0, 1 + j, mo, fm["h"])
+    ws.write(b0, 7, "Peak", fm["h"])
+    base_cols = ["H", "I", "J", "K", "L", "M"]                 # baseline Jul-Dec live cells (row 5)
+    r_un, r_pl, r_im = b0 + 1, b0 + 2, b0 + 3
+    ws.write(r_un, 0, "Unplanned (Avg scenario)", fm["rowh"])
+    ws.write(r_pl, 0, "Booked planned", fm["rowh"])
+    ws.write(r_im, 0, "Implied total", fm["rowh"])
+    for j in range(6):
+        col = chr(ord("B") + j)
+        ws.write_formula(r_un, 1 + j, f"={base_cols[j]}$5*mult_avg", fm["num"], float(base.iloc[6 + j]))
+        ws.write_formula(r_pl, 1 + j, _si("K", ("A", CY), ("B", 7 + j), ("J", "PLANNED")), fm["num"], plan_h2[j])
+        ws.write_formula(r_im, 1 + j, f"={col}{r_un+1}+{col}{r_pl+1}", fm["num"], float(base.iloc[6 + j]) + plan_h2[j])
+    ws.write_formula(r_im, 7, f"=MAX(B{r_im+1}:G{r_im+1})", fm["num"],
+                     max(float(base.iloc[6 + j]) + plan_h2[j] for j in range(6)))
+    ws.write(r_im + 1, 0, f"Rest-of-{CY} unplanned uses the same baseline seasonal shape (Jul-Dec) x the Average "
+             "multiplier; flex it with mult_avg above or the inventory knob below.", fm["sub"])
+
+    # --- C) percent framing: FY scenario implied peak vs the booked plan (feeds the % chart) ---
+    c0 = r_im + 3
+    ws.write(c0, 0, f"{FY} scenario implied peak-month vs the booked plan (the relative read)", fm["hl"])
+    for j, h in enumerate(["Scenario", "Implied peak (kbd)", "% of booked plan"]):
+        ws.write(c0, j, h, fm["h"] if j else fm["hl"])
+    cbase = c0 + 1
+    for i, (nm, ref, pk) in enumerate([("Conservative", "N13", impl_peak["Conservative"]),
+                                       ("Average", "N14", impl_peak["Average"]),
+                                       ("Active", "N15", impl_peak["Active"])]):
+        rr = cbase + i; xl = rr + 1
+        ws.write(rr, 0, nm, fm["rowh"])
+        ws.write_formula(rr, 1, f"={ref}", fm["num"], pk)
+        ws.write_formula(rr, 2, f"=B{xl}/$N$9", fm["pctc"], pk / plan_peak)
+    rr = cbase + 3; xl = rr + 1
+    ws.write(rr, 0, "Avg x thin inventory", fm["rowh"])
+    ws.write_formula(rr, 1, "=$N$14*inv_amp", fm["num"], impl_peak["Average"] * inv_amp)
+    ws.write_formula(rr, 2, f"=B{xl}/$N$9", fm["pctc"], impl_peak["Average"] * inv_amp / plan_peak)
+
+    # --- D) seasonal risk index: baseline unplanned as % of an average month (relatives) ---
+    d0 = cbase + 5
+    ws.write(d0, 0, "Seasonal risk index - baseline unplanned as % of an average month", fm["hl"])
+    for j, mo in enumerate(MONTHS):
+        ws.write(d0, 1 + j, mo, fm["h"])
+    ws.write(d0 + 1, 0, "% of avg month", fm["rowh"])
+    for j in range(12):
+        col = chr(ord("B") + j)
+        ws.write_formula(d0 + 1, 1 + j, f"={col}$5/$O$5", fm["pctc"], float(base.iloc[j]) / base_mean)
+    ws.conditional_format(d0 + 1, 1, d0 + 1, 12, {"type": "3_color_scale", "min_color": "#63BE7B",
+                          "mid_color": "#FFEB84", "max_color": "#F8696B"})
+    ws.write(d0 + 2, 0, "Above 100% = a heavier-than-normal unplanned-risk month: the Feb freeze and the Sep-Oct "
+             "turnaround/hurricane overlap. Summer and December sit below normal.", fm["sub"])
+
+    # --- E) inventory tightness knob (gold; defines inv_amp the % table + Scenarios read) ---
+    e0 = d0 + 4
+    ws.write(e0, 0, "Inventory tightness knob - thin stocks make an equal outage bite harder", fm["hl"])
+    ws.write(e0 + 1, 0, "Gasoline vs 5-yr avg", fm["lbl"]); ws.write_number(e0 + 1, 1, mc["gasoline_vs_5yr_pct"] / 100.0, fm["inpp"])
+    ws.write(e0 + 2, 0, "Distillate vs 5-yr avg", fm["lbl"]); ws.write_number(e0 + 2, 1, mc["distillate_vs_5yr_pct"] / 100.0, fm["inpp"])
+    ws.write(e0 + 3, 0, "Crude vs 5-yr avg", fm["lbl"]); ws.write_number(e0 + 3, 1, mc["crude_vs_5yr_pct"] / 100.0, fm["inpp"])
+    cushion = (mc["gasoline_vs_5yr_pct"] + mc["distillate_vs_5yr_pct"] + mc["crude_vs_5yr_pct"]) / 300.0
+    ws.write(e0 + 4, 0, "Avg cushion (mean of the three)", fm["lbl"])
+    ws.write_formula(e0 + 4, 1, f"=AVERAGE(B{e0+2}:B{e0+4})", fm["pct"], cushion)
+    ws.write(e0 + 5, 0, "Tightness sensitivity k", fm["lbl"]); ws.write_number(e0 + 5, 1, engine.INVENTORY_TIGHTNESS_K, fm["inp"])
+    ws.write(e0 + 6, 0, "Inventory amplifier = 1 + k x (-cushion)", fm["lbl"])
+    ws.write_formula(e0 + 6, 1, f"=1+B{e0+6}*(-B{e0+5})", fm["f2"], inv_amp)
+    wb.define_name("inv_amp", f"=Forecast!$B${e0+7}")
+    ws.write(e0 + 7, 0, "A desk-judgment framing knob (not a fitted model): at the current ~-7% cushion and k=1.0 the "
+             "Average peak reads ~7% bigger. Edit the gold cells; the % table and chart recompute.", fm["sub"])
+
+    # native, live % column chart (the easier-to-read relative view): each scenario vs the booked plan
+    pc = wb.add_chart({"type": "column"})
+    pc.add_series({"name": "Implied peak vs booked plan",
+                   "categories": ["Forecast", cbase, 0, cbase + 3, 0],
+                   "values": ["Forecast", cbase, 2, cbase + 3, 2],
+                   "points": [{"fill": {"color": c}} for c in ["#548235", "#BF9000", "#C00000", "#7030A0"]],
+                   "data_labels": {"value": True, "num_format": "0%", "font": {"size": 9, "bold": True}}})
+    pc.set_title({"name": f"{FY} Implied Peak-Month Offline vs the Booked Plan (%)"})
+    pc.set_y_axis({"name": "% of booked-plan peak", "num_format": "0%"})
+    pc.set_x_axis({"name": "Scenario"})
+    pc.set_legend({"none": True})
+    pc.set_size({"width": 660, "height": 320})
+    ws.insert_chart(23, 17, pc)
 
 
 def _base(df):
@@ -744,18 +871,18 @@ def _scenarios(wb, fm, ctx):
     for i, mu in enumerate(mults):
         rr = r0 + 1 + i; xl = rr + 1
         ws.write_number(rr, 0, mu, fm["inp"])
-        peak = max(mu * base_m[m] + plan_m[m] for m in range(12))   # worst combined month
+        peak = max(mu * base_m[m] + plan_m[m] for m in range(12))   # worst combined month (growth=0 default)
         for j in range(len(shocks)):
             col = chr(ord("B") + j)
-            form = f"{{=MAX($A{xl}*{base_rng}+{plan_rng})+{col}${hxl}}}"
+            form = f"{{=MAX($A{xl}*(1+growth)*{base_rng}+{plan_rng})+{col}${hxl}}}"
             ws.write_array_formula(rr, 1 + j, rr, 1 + j, form, fm["num"], peak + shocks[j])
     ws.conditional_format(r0 + 1, 1, r0 + len(mults), len(shocks),
                           {"type": "3_color_scale", "min_color": "#63BE7B",
                            "mid_color": "#FFEB84", "max_color": "#F8696B"})
     note1 = r0 + len(mults) + 2
     ws.write(note1, 0, "Rows = unplanned multiplier x baseline; columns = one-off shock added to that month. "
-             "Peak-month implied = worst month of (baseline x multiplier + booked planned) + shock. Base = 1.0 / 0.",
-             fm["sub"])
+             "Peak-month implied = worst month of (baseline x (1+growth) x multiplier + booked planned) + shock. "
+             "Base = 1.0 / 0; growth & inventory toggles in section 4.", fm["sub"])
 
     # --- 2) named stress shocks on the book ---
     sr = note1 + 3
@@ -827,6 +954,31 @@ def _scenarios(wb, fm, ctx):
     ws.write(br + 3, 0, "Low pass-through = well-connected (P3 Gulf): downstream keeps running on piped-in "
              "intermediates. High (P2 / P4 / P5, parts of P1): islanded, the outage cascades. Edit the pass-through cells (column B).",
              fm["key"])
+
+    # --- 4) global toggles: structural growth + inventory tightness (flex the whole book, live) ---
+    fan = ctx["scenario_fan"]
+    inv_amp = float(ctx["inv_amp"])
+    avg_peak = max(float(fan["Average"].iloc[j]) + plan_m[j] for j in range(12))
+    plan_peak = max(plan_m) if max(plan_m) else 1.0
+    tr = br + 5
+    ws.write(tr, 0, "4) Global toggles: structural growth + inventory tightness (flex the whole book)", fm["secn"])
+    th = tr + 1
+    ws.write(th, 0, "Structural growth on baseline (g)", fm["lbl"])
+    ws.write_number(th, 1, 0.0, fm["inpp"]); wb.define_name("growth", f"=Scenarios!$B${th+1}")
+    ws.write(th, 2, "baseline x (1+g) in the grid (demand / activity drift)", fm["txtw"])
+    ws.write(th + 1, 0, "Inventory amplifier (from Forecast)", fm["lbl"])
+    ws.write_formula(th + 1, 1, "=inv_amp", fm["f2"], inv_amp)
+    ws.write(th + 1, 2, "thin stocks make an equal outage bite harder (edit the inventory cells on Forecast)", fm["txtw"])
+    ws.write(th + 3, 0, "Average implied peak (kbd)", fm["lbl"])
+    ws.write_formula(th + 3, 1, "=Forecast!$N$14", fm["num"], avg_peak)
+    ws.write(th + 3, 2, "= % of booked plan ->", fm["lbl"])
+    ws.write_formula(th + 3, 3, "=Forecast!$N$14/Forecast!$N$9", fm["pctc"], avg_peak / plan_peak)
+    ws.write(th + 4, 0, "Average peak x thin inventory (kbd)", fm["lbl"])
+    ws.write_formula(th + 4, 1, "=Forecast!$N$14*inv_amp", fm["num"], avg_peak * inv_amp)
+    ws.write(th + 4, 2, "= % of booked plan ->", fm["lbl"])
+    ws.write_formula(th + 4, 3, "=Forecast!$N$14*inv_amp/Forecast!$N$9", fm["pctc"], avg_peak * inv_amp / plan_peak)
+    ws.write(th + 6, 0, "Edit any gold cell (multipliers / shocks above, growth & inventory here); the grid, the "
+             "readouts and the Forecast charts all recompute.", fm["key"])
 
 
 def _whats_changed(wb, fm, ctx):

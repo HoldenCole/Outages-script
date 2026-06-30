@@ -130,6 +130,27 @@ MARKET_CONTEXT = {
     "source": "https://www.eia.gov/petroleum/supply/weekly/",
 }
 
+# Desk-judgment knob: how hard a thin inventory cushion amplifies the *traded*
+# tightness of an equal-sized outage. Not a fitted model -- a framing multiplier,
+# tunable, and live off the inventory cells in the workbook.
+INVENTORY_TIGHTNESS_K = 1.0
+
+
+def inventory_amplifier(mc=None, k=INVENTORY_TIGHTNESS_K):
+    """A thin inventory cushion makes the same kbd of outage bite harder -- there is
+    less slack to absorb it -- so the same offline reads as a bigger tightening.
+    Returns a (>=1 when stocks are below normal) multiplier on the implied impact:
+
+        amp = 1 + k * (-avg_cushion_pct / 100)
+
+    where avg_cushion is the mean of gasoline / distillate / crude stocks vs the
+    5-yr average (negative = below normal = tight). At the current cushion
+    (~-7%) and k=1.0 that is ~1.07: a thin market amplifies the read ~7%."""
+    mc = MARKET_CONTEXT if mc is None else mc
+    cushion = (mc["gasoline_vs_5yr_pct"] + mc["distillate_vs_5yr_pct"]
+               + mc["crude_vs_5yr_pct"]) / 3.0
+    return 1.0 + k * (-cushion / 100.0)
+
 # PADD connectivity -- the share of a CDU (crude) outage that CASCADES into lost
 # downstream product. Where a refinery is well pipeline-connected (PADD 3 / Gulf),
 # the units that run off the crude unit can keep going on piped-in intermediates,
@@ -1041,10 +1062,65 @@ def h1_planned(df):
     return {int(y): float(sum(mp.loc[y, m] for m in h1)) for y in mp.index}
 
 
+def half_year_planned_by_unit(df, units=tuple(FOCUS_ORDER)):
+    """H1 (Jan-Jun) and H2 (Jul-Dec) PLANNED offline (summed day-weighted
+    kbd-months) per focus unit per year. The half-year cut underpins the
+    'rest of <year>' read and the cross-year relatives: H2 is the rest of the
+    in-progress year's already-booked turnaround book, H1 is the like-for-like
+    window while the outlook year's H2 is still being scheduled.
+
+    Returns {year: {'H1': {unit: kbd}, 'H2': {unit: kbd}}}."""
+    P = df[df["type"].eq("PLANNED")]
+    out = {}
+    for y in sorted(int(x) for x in P["year"].dropna().unique()):
+        sub = P[P["year"].eq(y)]
+        rec = {"H1": {}, "H2": {}}
+        for u in units:
+            su = sub[sub["focus"].eq(u)]
+            rec["H1"][u] = float(su[su["month"].between(1, 6)]["cap_kbd"].sum())
+            rec["H2"][u] = float(su[su["month"].between(7, 12)]["cap_kbd"].sum())
+        out[y] = rec
+    return out
+
+
 def scenario_fan(df, window_key=DEFAULT_WINDOW, lo=0.8, hi=1.3):
     """Conservative / Average / Active monthly unplanned paths for 2027."""
     prof = baseline_profile(df, window_key)
     return {"Conservative": prof * lo, "Average": prof * 1.0, "Active": prof * hi}
+
+
+def tied_vs_standalone(df, units=("FCC", "Hydrocracker", "Reformer"),
+                       years=None, type_filter="PLANNED"):
+    """Split each downstream-unit outage by whether the crude unit (CDU) at the
+    SAME plant is also down that month -- i.e. the unit is caught in a site-wide
+    crude turnaround ('tied') vs a standalone outage while crude keeps running.
+
+    The distinction drives the read: a standalone reformer removes HVN demand while
+    crude (HVN supply) holds, so naphtha lengthens / octane tightens with no offset;
+    a tied reformer drops supply and demand together (muted net). A standalone FCC /
+    hydrocracker cuts gasoline / distillate make while crude runs hold.
+
+    Tie = same (plant, year, month) carries a CDU outage of the same type. Returns
+    {unit: {tied_kbd, standalone_kbd, total_kbd, pct_tied, tied_events,
+    standalone_events, total_events, pct_tied_events}} plus an 'ALL' roll-up."""
+    sub = df[df["type"].eq(type_filter)].copy()
+    if years is not None:
+        sub = sub[sub["year"].isin(list(years))]
+    cdu_down = set(map(tuple, sub[sub["focus"].eq("CDU")][["plant", "year", "month"]]
+                       .dropna().itertuples(index=False, name=None)))
+    d = sub[sub["focus"].isin(list(units))].copy()
+    d["tied"] = [(p, y, m) in cdu_down for p, y, m in zip(d["plant"], d["year"], d["month"])]
+
+    def _one(g):
+        tot = float(g["cap_kbd"].sum()); tied = float(g[g["tied"]]["cap_kbd"].sum())
+        nev = int(g["outage_id"].nunique()); ntied = int(g[g["tied"]]["outage_id"].nunique())
+        return {"tied_kbd": tied, "standalone_kbd": tot - tied, "total_kbd": tot,
+                "pct_tied": (tied / tot if tot else 0.0),
+                "tied_events": ntied, "standalone_events": nev - ntied, "total_events": nev,
+                "pct_tied_events": (ntied / nev if nev else 0.0)}
+    out = {u: _one(d[d["focus"].eq(u)]) for u in units}
+    out["ALL"] = _one(d)
+    return out
 
 
 def completed_unplanned(df, years=(FOCUS_YEAR - 3, FOCUS_YEAR - 2, FOCUS_YEAR - 1, FOCUS_YEAR)):
@@ -1665,6 +1741,10 @@ def build_context(path):
         "ta_2027": {p: turnaround_schedule(df, FOCUS_YEAR, padd=p, top=8) for p in PADD_ORDER},
         "display_annual": display_annual(df),
         "h1_planned": h1_planned(df),
+        "half_planned": half_year_planned_by_unit(df),    # H1/H2 planned per unit per year (rest-of-year relatives)
+        "inv_amp": inventory_amplifier(),                 # thin-inventory tightness multiplier (desk-judgment knob)
+        "tied_fy": tied_vs_standalone(df, years=[FOCUS_YEAR]),       # downstream offline tied to a crude TA vs standalone
+        "tied_cy": tied_vs_standalone(df, years=[CURRENT_YEAR]),
         "scenario_fan": scenario_fan(df),
         "completed_unplanned": completed_unplanned(df),
         "crack": load_crack(),
