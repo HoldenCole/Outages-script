@@ -69,7 +69,7 @@ YEARS = list(range(Y0, FY + 1))
 # Data sheet column letters (keep in sync with _data_sheet header order)
 D = {"year": "A", "mnum": "B", "month": "C", "plant": "D", "operator": "E",
      "padd": "F", "focus": "G", "unit_cat": "H", "unit_name": "I", "type": "J",
-     "cap_kbd": "K", "cap_raw": "L"}
+     "cap_kbd": "K", "cap_raw": "L", "pad_dist": "M", "tied": "N"}
 
 
 def _si(value_col, *conds):
@@ -133,12 +133,20 @@ def _data_sheet(wb, fm, base):
     ws = wb.add_worksheet("Data")
     ws.set_column(0, 1, 6); ws.set_column(2, 2, 6); ws.set_column(3, 3, 26); ws.set_column(4, 4, 24)
     ws.set_column(5, 6, 12); ws.set_column(7, 7, 20); ws.set_column(8, 8, 24); ws.set_column(9, 9, 10)
-    ws.set_column(10, 12, 10)
-    _title(ws, fm, "Data: Snowflake golden record (paste refreshes here; Focus/PADD auto-derive)",
+    ws.set_column(10, 12, 10); ws.set_column(13, 13, 11)
+    _title(ws, fm, "Data: Snowflake golden record (paste refreshes here; Focus/PADD/Tied? auto-derive)",
            "Update = paste OUTAGE_YEAR/MONTH->A,B; PLANT/OPERATOR->D,E; UNIT_CATEGORY->H; UNIT_NAME->I; "
            "OUTAGE_TYPE->J; CAP_OFFLINE_ADJUSTED_KBD->K; OFFLINE_CAPACITY->L; PAD_DIST->M. Rest auto-fills.")
     heads = ["year", "monthnum", "month", "plant", "operator", "padd", "focus", "unit_cat",
-             "unit_name", "type", "cap_kbd", "cap_raw", "pad_dist"]
+             "unit_name", "type", "cap_kbd", "cap_raw", "pad_dist", "tied?"]
+    # cached values for the Tied? flag (Excel recomputes it live via _tied_formula)
+    _cdu = base[(base["focus"] == "CDU") & (base["type"] == "PLANNED")]
+    cdu_planned = set(zip(_cdu["plant"].astype(str), _cdu["year"].astype(int), _cdu["month"].astype(int)))
+
+    def _tcv(r):
+        if str(r["focus"]) in ("FCC", "Hydrocracker", "Reformer"):
+            return "tied" if (str(r["plant"]), int(r["year"]), int(r["month"])) in cdu_planned else "standalone"
+        return ""
     r0 = 3
     for j, h in enumerate(heads):
         ws.write(r0, j, h, fm["h"])
@@ -148,9 +156,10 @@ def _data_sheet(wb, fm, base):
         xl = rr + 1                                      # 1-based Excel row
         live = i < len(recs)
         r = recs[i] if live else None
-        # Focus (G) and PADD (F) are formulas on every row so pasted data self-classifies
+        # Focus (G), PADD (F) and Tied? (N) are formulas on every row so pasted data self-classifies
         ws.write_formula(rr, 5, _padd_formula(xl), fm["txt"], str(r["padd"]) if live else "")
         ws.write_formula(rr, 6, _focus_formula(xl), fm["txt"], str(r["focus"]) if live else "")
+        ws.write_formula(rr, 13, _tied_formula(xl), fm["txt"], _tcv(r) if live else "")
         if not live:
             continue
         m = int(r["month"])
@@ -402,6 +411,101 @@ def _padd(wb, fm, ctx, base, assets):
         ch.set_legend({"position": "bottom", "font": {"size": 8}})
         ch.set_size({"width": 560, "height": 300})
         ws.insert_chart(anchor, 9, ch)
+
+    # ===================================================== tied-to-crude-TA vs standalone (live off Data!N)
+    dff = ctx["df"]
+    down_units = ["FCC", "Hydrocracker", "Reformer"]
+    Pf = dff[(dff["type"] == "PLANNED") & (dff["year"] == FY)]
+    cdu_set = set(zip(Pf[Pf["focus"].eq("CDU")]["plant"].astype(str),
+                      Pf[Pf["focus"].eq("CDU")]["month"].astype(int)))
+    dn = Pf[Pf["focus"].isin(down_units)].copy()
+    dn["tied"] = [(str(p), int(m)) in cdu_set for p, m in zip(dn["plant"], dn["month"])]
+
+    bot = ar + 30
+    ws.write(bot, 0, f"Tied to a crude turnaround vs standalone -- {FY} planned downstream offline (live off Data!N)",
+             fm["secn"])
+    ws.write(bot + 1, 0, "Tied = the crude unit at that refinery is also down that month (site-wide TA). Standalone = the "
+             "unit is down while crude keeps running -- the cleaner octane / product-tightening signal.", fm["sub"])
+
+    def _tie(year, extra):                       # live SUMIFS off the Data Tied? column (N)
+        return _si("K", ("A", year), ("J", "PLANNED"), *extra)
+
+    # --- by unit ---
+    u0 = bot + 3
+    ws.write(u0, 0, "By unit", fm["hl"])
+    for j, h in enumerate(["Tied kbd", "Standalone kbd", "Total", "% tied", "% standalone"]):
+        ws.write(u0, 1 + j, h, fm["h"])
+    for i, u in enumerate(down_units):
+        rr = u0 + 1 + i; xl = rr + 1
+        ti = float(dn[dn["focus"].eq(u) & dn["tied"]]["cap_kbd"].sum())
+        sa = float(dn[dn["focus"].eq(u) & ~dn["tied"]]["cap_kbd"].sum())
+        ws.write(rr, 0, engine.FOCUS_LABEL[u], fm["rowh"])
+        ws.write_formula(rr, 1, _tie(FY, [("G", u), ("N", "tied")]), fm["num"], ti)
+        ws.write_formula(rr, 2, _tie(FY, [("G", u), ("N", "standalone")]), fm["num"], sa)
+        ws.write_formula(rr, 3, f"=B{xl}+C{xl}", fm["num"], ti + sa)
+        ws.write_formula(rr, 4, f'=IFERROR(B{xl}/D{xl},"")', fm["pctc"], (ti / (ti + sa)) if (ti + sa) else "")
+        ws.write_formula(rr, 5, f'=IFERROR(C{xl}/D{xl},"")', fm["pctc"], (sa / (ti + sa)) if (ti + sa) else "")
+    ur = u0 + 1 + len(down_units); uxl = ur + 1
+    ws.write(ur, 0, "All three", fm["rowh"])
+    for c in (1, 2, 3):
+        col = chr(ord("A") + c)
+        ws.write_formula(ur, c, f"=SUM({col}{u0+2}:{col}{u0+1+len(down_units)})", fm["num"],
+                         float(dn[dn["tied"]]["cap_kbd"].sum()) if c == 1 else
+                         (float(dn[~dn["tied"]]["cap_kbd"].sum()) if c == 2 else float(dn["cap_kbd"].sum())))
+    ws.write_formula(ur, 4, f'=IFERROR(B{uxl}/D{uxl},"")', fm["pctc"],
+                     float(dn[dn["tied"]]["cap_kbd"].sum()) / float(dn["cap_kbd"].sum()) if len(dn) else "")
+    ws.write_formula(ur, 5, f'=IFERROR(C{uxl}/D{uxl},"")', fm["pctc"],
+                     float(dn[~dn["tied"]]["cap_kbd"].sum()) / float(dn["cap_kbd"].sum()) if len(dn) else "")
+
+    # --- by PADD (N="tied" already implies a downstream unit, so no focus filter needed) ---
+    p0 = ur + 3
+    ws.write(p0, 0, "By PADD", fm["hl"])
+    for j, h in enumerate(["Tied kbd", "Standalone kbd", "Total", "% tied", "% standalone"]):
+        ws.write(p0, 1 + j, h, fm["h"])
+    padds5 = [f"PADD {k}" for k in range(1, 6)]
+    for i, p in enumerate(padds5):
+        rr = p0 + 1 + i; xl = rr + 1
+        ti = float(dn[dn["padd"].eq(p) & dn["tied"]]["cap_kbd"].sum())
+        sa = float(dn[dn["padd"].eq(p) & ~dn["tied"]]["cap_kbd"].sum())
+        ws.write(rr, 0, p.replace("PADD ", "P") + (" (Gulf)" if p == "PADD 3" else ""), fm["rowh"])
+        ws.write_formula(rr, 1, _tie(FY, [("N", "tied"), ("F", p)]), fm["num"], ti)
+        ws.write_formula(rr, 2, _tie(FY, [("N", "standalone"), ("F", p)]), fm["num"], sa)
+        ws.write_formula(rr, 3, f"=B{xl}+C{xl}", fm["num"], ti + sa)
+        ws.write_formula(rr, 4, f'=IFERROR(B{xl}/D{xl},"")', fm["pctc"], (ti / (ti + sa)) if (ti + sa) else "")
+        ws.write_formula(rr, 5, f'=IFERROR(C{xl}/D{xl},"")', fm["pctc"], (sa / (ti + sa)) if (ti + sa) else "")
+    pr = p0 + 1 + len(padds5); pxl = pr + 1
+    ws.write(pr, 0, "All PADDs", fm["rowh"])
+    for c in (1, 2, 3):
+        col = chr(ord("A") + c)
+        ws.write_formula(pr, c, f"=SUM({col}{p0+2}:{col}{p0+1+len(padds5)})", fm["num"],
+                         float(dn[dn["tied"]]["cap_kbd"].sum()) if c == 1 else
+                         (float(dn[~dn["tied"]]["cap_kbd"].sum()) if c == 2 else float(dn["cap_kbd"].sum())))
+    ws.write_formula(pr, 4, f'=IFERROR(B{pxl}/D{pxl},"")', fm["pctc"],
+                     float(dn[dn["tied"]]["cap_kbd"].sum()) / float(dn["cap_kbd"].sum()) if len(dn) else "")
+    ws.write_formula(pr, 5, f'=IFERROR(C{pxl}/D{pxl},"")', fm["pctc"],
+                     float(dn[~dn["tied"]]["cap_kbd"].sum()) / float(dn["cap_kbd"].sum()) if len(dn) else "")
+    all_pct = (float(dn[dn["tied"]]["cap_kbd"].sum()) / float(dn["cap_kbd"].sum())) if len(dn) else 0.0
+    ws.write_formula(pr + 2, 0,
+                     f'="In {FY}, "&TEXT(E{uxl},"0%")&" of planned downstream offline is tied to a crude turnaround '
+                     f'(the reformer most, the hydrocracker least); the Gulf (P3) runs the most standalone -- the '
+                     f'cleaner octane / product-tightening signal."', fm["key"],
+                     f"In {FY}, {all_pct:.0%} of planned downstream offline is tied to a crude turnaround "
+                     "(the reformer most, the hydrocracker least); the Gulf (P3) runs the most standalone -- the "
+                     "cleaner octane / product-tightening signal.")
+
+    # native, live 100%-stacked bar: tied vs standalone share by unit (easy read)
+    tc = wb.add_chart({"type": "bar", "subtype": "percent_stacked"})
+    tc.add_series({"name": "Tied to crude TA", "categories": ["PADD by Unit", u0 + 1, 0, u0 + len(down_units), 0],
+                   "values": ["PADD by Unit", u0 + 1, 1, u0 + len(down_units), 1],
+                   "fill": {"color": "#1F3864"}, "border": {"none": True}})
+    tc.add_series({"name": "Standalone", "categories": ["PADD by Unit", u0 + 1, 0, u0 + len(down_units), 0],
+                   "values": ["PADD by Unit", u0 + 1, 2, u0 + len(down_units), 2],
+                   "fill": {"color": "#BF9000"}, "border": {"none": True}})
+    tc.set_title({"name": f"Tied vs Standalone by Unit, {FY} (% of planned offline)"})
+    tc.set_x_axis({"name": "% of unit's planned offline", "num_format": "0%"})
+    tc.set_legend({"position": "bottom", "font": {"size": 8}})
+    tc.set_size({"width": 520, "height": 260})
+    ws.insert_chart(bot + 3, 7, tc)
 
 
 def _naphtha(wb, fm, ctx, assets):
@@ -758,6 +862,17 @@ def _padd_formula(r):
     """Excel formula mapping PAD_DIST (col M) Roman -> canonical 'PADD n'."""
     return (f'=IF($M{r}="PADD I","PADD 1",IF($M{r}="PADD II","PADD 2",IF($M{r}="PADD III","PADD 3",'
             f'IF($M{r}="PADD IV","PADD 4",IF($M{r}="PADD V","PADD 5","")))))')
+
+
+def _tied_formula(r):
+    """Excel flag (col N): is this downstream-unit row caught in a site-wide crude
+    turnaround? 'tied' if a CDU PLANNED outage exists at the same plant (D), year (A)
+    and month (B); 'standalone' if not; blank for crude / non-focus rows. The IF
+    short-circuits so only FCC/HDC/reformer rows run the COUNTIFS. Live -- a pasted
+    refresh self-classifies (mirrors engine.tied_vs_standalone)."""
+    return (f'=IF(OR($G{r}="FCC",$G{r}="Hydrocracker",$G{r}="Reformer"),'
+            f'IF(COUNTIFS($D:$D,$D{r},$A:$A,$A{r},$B:$B,$B{r},$G:$G,"CDU",$J:$J,"PLANNED")>0,'
+            f'"tied","standalone"),"")')
 
 
 def _ym(base, **f):

@@ -146,17 +146,17 @@ static embedded image (Excel has no native gantt).
 
 | Sheet | What's in it |
 |---|---|
-| **Data** | The source = the Snowflake golden record (one row per year/month/plant/unit/type, day-weighted kbd + nameplate). `Focus` and `PADD` are Excel formulas; spare formula rows sit below the data. Paste a refresh here and everything recomputes. |
+| **Data** | The source = the Snowflake golden record (one row per year/month/plant/unit/type, day-weighted kbd + nameplate). `Focus`, `PADD` and `Tied?` are Excel formulas; spare formula rows sit below the data. (`Tied?` = COUNTIFS flag: is a downstream unit caught in a same-site crude turnaround, or standalone?) Paste a refresh here and everything recomputes. |
 | **What's Changed** | Rolling change tracker: month-over-month balance (live, the month is editable), trailing 6 months, this month's new / back-online movers, and a week-over-week pull log (one row per build in `data/whatschanged_log.csv`) so re-running weekly shows what the source added or pulled. Source is monthly, so true WoW = pull-over-pull. |
 | **Historicals** | Monthly 2023-2027: total / planned / unplanned, unplanned %, per focus unit, per PADD, annual + YoY%, with a live line chart. |
 | **Per-Unit** | CDU / FCC / hydrocracker / reformer concurrent offline by month and year, plus busiest-month peaks (=MAX). |
 | **Biggest** | The biggest individual 2027 outages: refinery, unit, class, PADD, kbd, window, confirmed vs indicative. |
 | **H1 by Unit** | H1 (Jan-Jun) planned offline per unit and month for 2025 / 2026 / 2027, plus the H1 averages (=AVERAGE). |
-| **PADD by Unit** | 2027 CDU and FCC offline by PADD and month. |
+| **PADD by Unit** | 2027 CDU and FCC offline by PADD and month, plus a **tied-vs-standalone** breakdown (% by unit and by PADD): how much downstream offline is caught in a same-site crude turnaround vs standalone, live off the `Tied?` column with a 100%-stacked bar. |
 | **HVN** | Heavy virgin naphtha (reformer feed): CDU supply vs reformer demand balance — all PADDs and PADD 3 (Gulf) only — **live** off the gold yield cells on this sheet (naphtha yield, reformer intake). |
 | **ExxonMobil** | Per-unit 2027 turnarounds, verified against the corporate plan. |
-| **Forecast** | Completeness-aware baseline and the Conservative / Average / Active scenario, **live** off the multipliers. Implied offline is read **by month** (peak month + average month = real kbd levels), never summed into a year. |
-| **Scenarios** | All the forward what-ifs on the 2027 book in one sheet (peak-month basis): a **sensitivity grid** (unplanned-multiplier x one-off-shock heatmap), **named stress shocks** (USGC hurricane, winter freeze, CDU trips, fall overlap), and **PADD connectivity** (effective crude-outage impact = nominal CDU offline x a per-PADD pass-through; P3 Gulf buffers, islanded PADDs cascade). The gold input cells (multipliers, pass-throughs) live on this sheet. |
+| **Forecast** | An outlook tab: the completeness-aware baseline + Conservative / Average / Active scenario (**live** off the multipliers, read **by month** — peak/avg = real levels), then the **rest-of-2026** book (H2 planned by unit with relatives vs prior years + the rest-of-year unplanned scenario), a **relative read** (each scenario's implied peak as % of the booked plan, with a native % chart), a **seasonal-risk index** (baseline as % of an average month), and an **inventory tightness knob** (stocks vs 5-yr avg + sensitivity → an amplifier on the implied peak). |
+| **Scenarios** | All the forward what-ifs on the 2027 book in one sheet (peak-month basis): a **sensitivity grid** (unplanned-multiplier x one-off-shock heatmap), **named stress shocks** (USGC hurricane, winter freeze, CDU trips, fall overlap), **PADD connectivity** (effective crude-outage impact = nominal CDU offline x a per-PADD pass-through; P3 Gulf buffers, islanded PADDs cascade), and **global toggles** (structural growth wired into the grid + the inventory amplifier, with %-of-booked-plan readouts). The gold input cells live on this sheet. |
 | **Data Quality** | Auto-flags (review only, nothing dropped): focus units taking a planned turnaround again inside the ~5-year cycle (planned->planned only), and unit-months summing to >100% of nameplate (overlap / double-count). |
 
 ---
